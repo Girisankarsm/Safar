@@ -7,6 +7,7 @@ import { useCity } from "@/hooks/use-city";
 import { api } from "@/lib/api";
 import {
   Bell,
+  Bus,
   ChevronRight,
   Home,
   Leaf,
@@ -14,7 +15,6 @@ import {
   Route,
   Settings,
   Shield,
-  User,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
@@ -49,7 +49,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-[#050505]">
-      {/* Desktop sidebar — full height like reference */}
       <aside className="fixed inset-y-0 left-0 z-50 hidden w-60 flex-col border-r border-[#262626] bg-[#0A0A0A] lg:flex">
         <div className="flex items-center gap-3 border-b border-[#262626] px-5 py-5">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#3B82F6]/15">
@@ -57,11 +56,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <div>
             <p className="text-base font-bold tracking-tight text-white">SafarAI</p>
-            <p className="text-[10px] font-medium text-[#A1A1AA]">Safer transit</p>
+            <p className="text-[10px] font-medium text-[#A1A1AA]">Safer transit, every ride</p>
           </div>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 px-3 py-4">
+        <nav className="flex flex-1 flex-col gap-0.5 px-3 py-4">
           {NAV.map(({ href, label, icon: Icon, dynamic }) => {
             const tripHref = tripId ? `/trip/${tripId}` : "/trip";
             const link = dynamic ? tripHref : href;
@@ -71,37 +70,46 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={href}
                 href={link}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition",
+                  "relative flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition",
                   active
-                    ? "bg-[#3B82F6] text-white shadow-lg shadow-[#3B82F6]/25"
+                    ? "bg-[#3B82F6]/15 text-white"
                     : "text-[#A1A1AA] hover:bg-[#171717] hover:text-white"
                 )}
               >
-                <Icon size={18} strokeWidth={active ? 2.5 : 2} />
+                {active && (
+                  <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-[#3B82F6]" />
+                )}
+                <Icon size={18} strokeWidth={active ? 2.5 : 2} className={active ? "text-[#3B82F6]" : ""} />
                 {label}
               </Link>
             );
           })}
         </nav>
 
-        <div className="space-y-3 border-t border-[#262626] p-4">
+        <div className="border-t border-[#262626] p-4">
           <Link
             href="/wallet"
-            className="block rounded-2xl border border-[#22C55E]/25 bg-[#22C55E]/10 p-4 transition hover:border-[#22C55E]/40"
+            className="block overflow-hidden rounded-2xl border border-[#262626] bg-[#111111] transition hover:border-[#22C55E]/30"
           >
-            <div className="flex items-center gap-2">
-              <Leaf className="h-4 w-4 text-[#22C55E]" />
-              <p className="text-xs font-bold text-[#22C55E]">GreenMiles</p>
+            <div className="flex items-center gap-3 bg-gradient-to-br from-[#3B82F6]/10 to-[#22C55E]/10 px-4 py-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#111111]/80">
+                <Bus className="h-5 w-5 text-[#3B82F6]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-white">Travel safe. Earn more.</p>
+                <p className="text-[10px] text-[#A1A1AA]">Earn GreenMiles on every ride</p>
+              </div>
             </div>
-            <p className="mt-2 text-sm font-medium text-white">Earn rewards on every safe trip</p>
-            <p className="mt-1 flex items-center gap-1 text-[10px] text-[#A1A1AA]">
-              View wallet <ChevronRight className="h-3 w-3" />
-            </p>
+            <div className="flex items-center justify-between px-4 py-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A1A1AA]">Balance</p>
+                <p className="text-lg font-bold text-[#22C55E]">{greenMiles ?? "—"}</p>
+              </div>
+              <span className="flex items-center gap-1 rounded-lg bg-[#3B82F6] px-3 py-1.5 text-[10px] font-bold text-white">
+                View Wallet <ChevronRight className="h-3 w-3" />
+              </span>
+            </div>
           </Link>
-          <div className="rounded-2xl border border-[#262626] bg-[#111111] px-4 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A1A1AA]">Balance</p>
-            <p className="mt-1 text-2xl font-bold text-white">{greenMiles ?? "—"}</p>
-          </div>
         </div>
       </aside>
 
@@ -118,8 +126,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
 
           <div className="ml-auto flex items-center gap-2.5">
-            <span className="flex items-center gap-1.5 rounded-full border border-[#3B82F6]/30 bg-[#3B82F6]/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#3B82F6]">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#3B82F6]" />
+            <span className="flex items-center gap-1.5 rounded-full border border-[#22C55E]/30 bg-[#22C55E]/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#22C55E]">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#22C55E]" />
               Live
             </span>
             <CitySwitcher />
@@ -128,9 +136,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </IconLink>
             <Link
               href="/profile"
-              className="hidden items-center gap-2 rounded-xl border border-[#262626] bg-[#111111] px-3 py-2 text-sm font-semibold text-white transition hover:border-[#3B82F6]/40 sm:flex"
+              className="hidden items-center gap-2.5 rounded-xl border border-[#262626] bg-[#111111] py-1.5 pl-1.5 pr-3 text-sm font-semibold text-white transition hover:border-[#3B82F6]/40 sm:flex"
             >
-              <User className="h-4 w-4 text-[#A1A1AA]" />
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[#3B82F6] to-[#2563EB] text-xs font-bold text-white">
+                {userName.charAt(0)}
+              </span>
               {userName}
             </Link>
             <IconLink href="/settings" label="Settings">
@@ -144,7 +154,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      {/* Mobile bottom nav */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-[#262626] bg-[#0A0A0A]/95 px-2 py-2 backdrop-blur-xl lg:hidden">
         {NAV.map(({ href, label, icon: Icon, dynamic }) => {
           const tripHref = tripId ? `/trip/${tripId}` : "/trip";
@@ -196,7 +205,7 @@ function IconLink({
     >
       {children}
       {badge !== undefined && badge > 0 && (
-        <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#EF4444] px-1 text-[9px] font-bold text-white">
+        <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#3B82F6] px-1 text-[9px] font-bold text-white">
           {badge}
         </span>
       )}

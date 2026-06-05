@@ -34,10 +34,16 @@ export function whyThisRoute(route: Route): string[] {
     reasons.push("Night-shift service verified");
   }
   if (route.route_type === "greenest") {
-    reasons.push("Lowest carbon footprint");
+    reasons.push("Public bus — lower emissions");
+    reasons.push("Eco-friendly commute");
   }
   if (route.route_type === "fastest") {
-    reasons.push("Shortest total travel time");
+    reasons.push("Fewer stops on metro");
+    reasons.push("Direct metro connectivity");
+    reasons.push("High frequency service");
+  }
+  if (route.route_type === "safest") {
+    reasons.push("Shorter walking distance");
   }
   if (metroLegs.length >= 2) {
     reasons.push("Minimal street walking");
