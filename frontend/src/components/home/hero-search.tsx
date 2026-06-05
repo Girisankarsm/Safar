@@ -42,7 +42,7 @@ export function HeroSearch() {
   const places = CITIES[city].quickPlaces.slice(0, 4);
 
   return (
-    <div className="rounded-2xl border border-[#222222] bg-[#111111] p-5">
+    <div className="rounded-2xl border border-[#222222] bg-[#111111] p-6">
       <div className="space-y-3">
         <div className="relative">
           <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a1a1aa]" />

@@ -1,5 +1,6 @@
 "use client";
 
+import { SafetyStatusChip } from "@/components/trip/safety-status-chip";
 import { CITIES } from "@/config/cities";
 import { useCity } from "@/hooks/use-city";
 import type { RouteLeg } from "@/lib/api";
@@ -20,12 +21,14 @@ export function TripMap({
   currentLat,
   currentLng,
   cctv = [],
-  height = "320px",
+  safetyScore = 75,
+  height = "360px",
 }: {
   legs?: RouteLeg[];
   currentLat?: number;
   currentLng?: number;
   cctv?: { lat: number; lng: number }[];
+  safetyScore?: number;
   height?: string;
 }) {
   const { city } = useCity();
@@ -45,34 +48,27 @@ export function TripMap({
 
   return (
     <div style={{ height }} className="relative overflow-hidden rounded-2xl border border-[#222222]">
-      <MapContainer
-        center={[lat, lng]}
-        zoom={14}
-        style={{ height: "100%", width: "100%" }}
-        zoomControl
-      >
+      <SafetyStatusChip score={safetyScore} />
+      <MapContainer center={[lat, lng]} zoom={14} style={{ height: "100%", width: "100%" }} zoomControl>
         <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
         <MapController lat={lat} lng={lng} />
         {routePoints.length > 1 && (
-          <Polyline positions={routePoints} pathOptions={{ color: "#ffffff", weight: 4, opacity: 0.9 }} />
+          <Polyline positions={routePoints} pathOptions={{ color: "#ffffff", weight: 5, opacity: 0.95 }} />
         )}
-        {cctv.slice(0, 12).map((n, i) => (
+        {cctv.slice(0, 15).map((n, i) => (
           <CircleMarker
             key={i}
             center={[n.lat, n.lng]}
             radius={5}
-            pathOptions={{ color: "#22c55e", fillColor: "#22c55e", fillOpacity: 0.6 }}
+            pathOptions={{ color: "#22c55e", fillColor: "#22c55e", fillOpacity: 0.55 }}
           />
         ))}
         <CircleMarker
           center={[lat, lng]}
-          radius={10}
-          pathOptions={{ color: "#ffffff", fillColor: "#ffffff", fillOpacity: 1 }}
+          radius={11}
+          pathOptions={{ color: "#ffffff", fillColor: "#ffffff", fillOpacity: 1, weight: 2 }}
         />
       </MapContainer>
-      <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg bg-black/80 px-2 py-1 text-[10px] text-[#a1a1aa] backdrop-blur">
-        <span className="text-white">●</span> You · <span className="text-[#22c55e]">●</span> CCTV
-      </div>
     </div>
   );
 }

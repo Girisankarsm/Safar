@@ -4,8 +4,9 @@ import { motion } from "framer-motion";
 import { SafetyScore } from "@/components/safety/safety-score";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { WhyRoute } from "@/components/routes/why-route";
 import type { Route } from "@/lib/api";
-import { Clock, Leaf, Shield, Zap } from "lucide-react";
+import { Leaf, Shield, Zap } from "lucide-react";
 
 const META = {
   fastest: { icon: Zap, label: "Fastest", emoji: "⚡" },
@@ -61,10 +62,7 @@ export function RouteCard({
           <Metric label="GreenMiles" value={`+${route.reward_tokens}`} accent />
         </div>
 
-        <div className="mt-4 flex items-center gap-2 text-xs text-[#a1a1aa]">
-          <Clock className="h-3.5 w-3.5" />
-          {route.legs.length} legs · {route.legs.filter((l) => l.women_only_coach).length > 0 && "Women coach available"}
-        </div>
+        <WhyRoute route={route} />
 
         <Button
           className="mt-5 w-full"

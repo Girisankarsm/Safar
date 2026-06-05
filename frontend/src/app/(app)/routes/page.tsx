@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { RouteCard } from "@/components/routes/route-card";
 import { ButtonLink } from "@/components/ui/button";
 import { useActiveTrip } from "@/hooks/use-active-trip";
@@ -39,11 +40,11 @@ export default function RoutesPage() {
 
   if (!routes.length) {
     return (
-      <div className="mx-auto max-w-lg text-center">
-        <h1 className="text-2xl font-semibold text-white">No routes yet</h1>
-        <p className="mt-2 text-[#a1a1aa]">Search from Home to compare your options.</p>
-        <ButtonLink href="/home" className="mt-6" variant="primary">
-          Plan a route
+      <div className="mx-auto max-w-lg py-20 text-center">
+        <h1 className="text-3xl font-semibold text-white">No routes yet</h1>
+        <p className="mt-3 text-[#a1a1aa]">Search from Home to see your safest options.</p>
+        <ButtonLink href="/home" className="mt-8" size="lg">
+          Go to Home
         </ButtonLink>
       </div>
     );
@@ -51,27 +52,33 @@ export default function RoutesPage() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">Choose your route</h1>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
+        <h1 className="text-3xl font-semibold tracking-tight text-white md:text-4xl">Pick your route</h1>
         {search && (
-          <p className="mt-1 text-[#a1a1aa]">
+          <p className="mt-3 text-lg text-[#a1a1aa]">
             {search.source} → {search.destination}
           </p>
         )}
         <p className="mt-2 text-sm text-[#a1a1aa]">
-          We recommend <span className="text-white">Safest</span> for night travel and solo commutes.
+          <span className="text-white">Safest</span> is recommended for solo and night travel.
         </p>
-      </div>
+      </motion.div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        {sorted.map((r) => (
-          <RouteCard
+      <div className="grid gap-6 lg:grid-cols-3">
+        {sorted.map((r, i) => (
+          <motion.div
             key={r.id}
-            route={r}
-            recommended={r.route_type === "safest"}
-            loading={starting === r.id}
-            onStart={() => start(r.id!)}
-          />
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.1, duration: 0.45 }}
+          >
+            <RouteCard
+              route={r}
+              recommended={r.route_type === "safest"}
+              loading={starting === r.id}
+              onStart={() => start(r.id!)}
+            />
+          </motion.div>
         ))}
       </div>
     </div>

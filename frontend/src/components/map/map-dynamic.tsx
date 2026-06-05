@@ -12,5 +12,12 @@ export const SafetyMapDynamic = dynamic(
 
 export const TripMapDynamic = dynamic(
   () => import("@/components/map/trip-map").then((m) => m.TripMap),
-  { ssr: false, loading: () => <div className="h-[320px] animate-pulse rounded-2xl bg-[#111111]" /> }
-);
+  { ssr: false, loading: () => <div className="h-[380px] animate-pulse rounded-2xl bg-[#111111]" /> }
+) as React.ComponentType<{
+  legs?: import("@/lib/api").RouteLeg[];
+  currentLat?: number;
+  currentLng?: number;
+  cctv?: { lat: number; lng: number }[];
+  safetyScore?: number;
+  height?: string;
+}>;
