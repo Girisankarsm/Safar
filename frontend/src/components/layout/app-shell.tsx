@@ -38,7 +38,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 href={link}
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
-                  active ? "bg-white text-black" : "text-[#a1a1aa] hover:bg-[#111111] hover:text-white"
+                  active
+                    ? "bg-white !text-black [&_svg]:!text-black"
+                    : "text-[#a1a1aa] hover:bg-[#111111] hover:text-white"
                 )}
               >
                 <Icon size={18} strokeWidth={active ? 2.5 : 2} />

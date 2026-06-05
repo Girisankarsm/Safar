@@ -13,11 +13,24 @@ export function LiveStatusBar() {
   const [safetyIndex, setSafetyIndex] = useState(82);
 
   useEffect(() => {
-    Promise.all([api.cctv(city), api.reports(city)]).then(([c, r]) => {
-      setCctv(c.count);
-      setAlerts(r.reports.length);
-      setSafetyIndex(Math.min(95, 72 + Math.min(20, Math.floor(c.count / 15))));
-    });
+    let cancelled = false;
+    Promise.all([api.cctv(city), api.reports(city)])
+      .then(([c, r]) => {
+        if (cancelled) return;
+        setCctv(c.count);
+        setAlerts(r.reports.length);
+        setSafetyIndex(Math.min(95, 72 + Math.min(20, Math.floor(c.count / 15))));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCctv(0);
+          setAlerts(0);
+          setSafetyIndex(city === "hyderabad" ? 78 : 82);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [city]);
 
   const items = [

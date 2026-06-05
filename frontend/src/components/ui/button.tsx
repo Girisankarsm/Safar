@@ -4,7 +4,7 @@ import Link from "next/link";
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "outline";
 
 const styles: Record<Variant, string> = {
-  primary: "bg-white text-black hover:bg-white/90",
+  primary: "bg-white !text-black hover:bg-white/90 [&_svg]:text-black",
   secondary: "bg-[#111111] text-white border border-[#222222] hover:border-[#444444]",
   ghost: "bg-transparent text-[#a1a1aa] hover:text-white hover:bg-white/5",
   danger: "bg-[#ef4444] text-white hover:bg-[#dc2626]",

@@ -39,7 +39,7 @@ export function RouteCard({
         hover
       >
         {recommended && (
-          <span className="mb-3 inline-block rounded-full bg-white px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black">
+          <span className="mb-3 inline-block rounded-full bg-white px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider !text-black">
             Recommended for you
           </span>
         )}

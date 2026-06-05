@@ -8,9 +8,24 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `API ${res.status}`);
+    const detail = err.detail;
+    const message =
+      typeof detail === "string"
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((d: { msg?: string }) => d.msg).join(", ")
+          : `API ${res.status}`;
+    throw new Error(message || `API ${res.status}`);
   }
   return res.json();
+}
+
+async function safeRequest<T>(path: string, fallback: T, init?: RequestInit): Promise<T> {
+  try {
+    return await request<T>(path, init);
+  } catch {
+    return fallback;
+  }
 }
 
 export const api = {
@@ -36,8 +51,12 @@ export const api = {
   safetyContext: (lat: number, lng: number, city: string) =>
     request<LiveContext>(`/safety/context?lat=${lat}&lng=${lng}&city=${city}`),
   cctv: (city: string) =>
-    request<{ city: string; count: number; nodes: { lat: number; lng: number }[] }>(`/safety/cctv?city=${city}`),
-  reports: (city: string) => request<{ reports: SafetyReport[] }>(`/safety/reports?city=${city}`),
+    safeRequest<{ city: string; count: number; nodes: { lat: number; lng: number }[] }>(
+      `/safety/cctv?city=${city}`,
+      { city, count: 0, nodes: [] }
+    ),
+  reports: (city: string) =>
+    safeRequest<{ reports: SafetyReport[] }>(`/safety/reports?city=${city}`, { reports: [] }),
   createReport: (body: ReportInput) =>
     request("/safety/reports", { method: "POST", body: JSON.stringify(body) }),
   transitStops: (city: string) => request<TransitData>(`/transit/stops?city=${city}`),

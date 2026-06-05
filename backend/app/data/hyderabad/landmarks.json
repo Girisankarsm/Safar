@@ -12,5 +12,7 @@
   "miyapur": {"lat": 17.4967, "lng": 78.3572, "name": "Miyapur"},
   "kukatpally": {"lat": 17.4849, "lng": 78.4138, "name": "Kukatpally"},
   "charminar": {"lat": 17.3616, "lng": 78.4747, "name": "Charminar"},
-  "necklace road": {"lat": 17.4200, "lng": 78.4600, "name": "Necklace Road"}
+  "necklace road": {"lat": 17.4200, "lng": 78.4600, "name": "Necklace Road"},
+  "secunderabad": {"lat": 17.4340, "lng": 78.5010, "name": "Secunderabad Station"},
+  "airport": {"lat": 17.2403, "lng": 78.4294, "name": "Rajiv Gandhi International Airport"}
 }

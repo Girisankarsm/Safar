@@ -71,7 +71,7 @@ function SafetyContent() {
         <button
           type="button"
           onClick={() => setShowReport(true)}
-          className="absolute bottom-5 right-5 rounded-full bg-white px-6 py-3.5 text-sm font-semibold text-black shadow-2xl transition hover:scale-[1.02] active:scale-[0.98]"
+          className="absolute bottom-5 right-5 rounded-full bg-white px-6 py-3.5 text-sm font-semibold !text-black shadow-2xl transition hover:scale-[1.02] active:scale-[0.98]"
         >
           Report issue
         </button>
@@ -89,7 +89,7 @@ function SafetyContent() {
                   type="button"
                   onClick={() => setType(t.id)}
                   className={`rounded-full px-4 py-2 text-xs font-medium transition ${
-                    type === t.id ? "bg-white text-black" : "border border-[#222222] text-[#a1a1aa]"
+                    type === t.id ? "bg-white !text-black" : "border border-[#222222] text-[#a1a1aa]"
                   }`}
                 >
                   {t.label}
