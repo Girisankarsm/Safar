@@ -32,9 +32,9 @@ export default function TripCompletePage() {
         initial={{ scale: 0.6, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", stiffness: 200, damping: 18, delay: 0.1 }}
-        className="relative mx-auto flex h-24 w-24 items-center justify-center rounded-full border border-[#22c55e]/30 bg-[#22c55e]/10"
+        className="relative mx-auto flex h-24 w-24 items-center justify-center rounded-full border border-[#3B82F6]/30 bg-[#3B82F6]/10"
       >
-        <Check className="h-12 w-12 text-[#22c55e]" strokeWidth={2} />
+        <Check className="h-12 w-12 text-[#3B82F6]" strokeWidth={2} />
       </motion.div>
 
       <motion.h1

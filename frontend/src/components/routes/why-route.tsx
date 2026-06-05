@@ -21,7 +21,7 @@ export function WhyRoute({ route }: { route: Route }) {
             transition={{ delay: 0.15 + i * 0.07 }}
             className="flex items-start gap-2 text-sm text-[#a1a1aa]"
           >
-            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#22c55e]" strokeWidth={2.5} />
+            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#3B82F6]" strokeWidth={2.5} />
             <span>{r}</span>
           </motion.li>
         ))}

@@ -40,10 +40,10 @@ export default function RoutesPage() {
 
   if (!routes.length) {
     return (
-      <div className="mx-auto max-w-lg py-20 text-center">
-        <h1 className="text-3xl font-semibold text-white">No routes yet</h1>
-        <p className="mt-3 text-[#a1a1aa]">Search from Home to see your safest options.</p>
-        <ButtonLink href="/home" className="mt-8" size="lg">
+      <div className="mx-auto flex max-w-lg flex-col items-center py-24 text-center">
+        <h1 className="text-3xl font-bold text-white md:text-4xl">No routes yet</h1>
+        <p className="mt-4 text-lg text-[#A1A1AA]">Search from Home to compare your safest options.</p>
+        <ButtonLink href="/home" className="mt-10" size="lg">
           Go to Home
         </ButtonLink>
       </div>
@@ -51,26 +51,24 @@ export default function RoutesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
-        <h1 className="text-3xl font-semibold tracking-tight text-white md:text-4xl">Pick your route</h1>
+    <div className="mx-auto max-w-5xl">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-12">
+        <p className="text-sm font-medium text-[#3B82F6]">Route comparison</p>
+        <h1 className="mt-2 text-3xl font-bold text-white md:text-4xl">Pick your route</h1>
         {search && (
-          <p className="mt-3 text-lg text-[#a1a1aa]">
+          <p className="mt-3 text-lg text-[#A1A1AA]">
             {search.source} → {search.destination}
           </p>
         )}
-        <p className="mt-2 text-sm text-[#a1a1aa]">
-          <span className="text-white">Safest</span> is recommended for solo and night travel.
-        </p>
       </motion.div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {sorted.map((r, i) => (
           <motion.div
             key={r.id}
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1, duration: 0.45 }}
+            transition={{ delay: i * 0.1 }}
           >
             <RouteCard
               route={r}

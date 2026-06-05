@@ -9,7 +9,7 @@ export function safetyTier(score: number): SafetyTier {
 }
 
 export function tierColor(tier: SafetyTier) {
-  return { SAFE: "#22c55e", MODERATE: "#a1a1aa", RISKY: "#ef4444" }[tier];
+  return { SAFE: "#22C55E", MODERATE: "#3B82F6", RISKY: "#EF4444" }[tier];
 }
 
 /** Generate human-readable bullets from existing route data */

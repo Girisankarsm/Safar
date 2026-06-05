@@ -9,7 +9,7 @@ export function CitySwitcher() {
     <select
       value={city}
       onChange={(e) => setCity(e.target.value as keyof typeof CITIES)}
-      className="rounded-lg border border-[#222222] bg-[#111111] px-3 py-1.5 text-sm text-white outline-none"
+      className="rounded-xl border border-[#262626] bg-[#171717] px-3 py-2 text-sm font-medium text-white outline-none transition focus:border-[#3B82F6]/50"
     >
       {Object.values(CITIES).map((c) => (
         <option key={c.id} value={c.id}>

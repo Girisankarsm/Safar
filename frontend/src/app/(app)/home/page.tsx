@@ -2,62 +2,47 @@
 
 import { motion } from "framer-motion";
 import { HeroSearch } from "@/components/home/hero-search";
-import { LiveStatusBar } from "@/components/home/live-status-bar";
-import { QuickActions } from "@/components/home/quick-actions";
-import { api } from "@/lib/api";
-import { useEffect, useState } from "react";
+import { MapPreview } from "@/components/home/map-preview";
+import { MetricCards } from "@/components/home/metric-cards";
 
 export default function HomePage() {
-  const [greeting, setGreeting] = useState("");
-
-  useEffect(() => {
-    api.me().then((r) => setGreeting(r.user.name.split(" ")[0])).catch(() => setGreeting("there"));
-  }, []);
-
   return (
-    <div className="mx-auto max-w-2xl">
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
+    <div className="mx-auto max-w-4xl">
+      {/* Section 1 — Hero */}
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-        className="mb-10"
+        transition={{ duration: 0.6 }}
+        className="mb-12 md:mb-16"
       >
-        <p className="text-sm text-[#a1a1aa]">Good {getTimeOfDay()}, {greeting}</p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white md:text-5xl">
-          Where are you
+        <p className="text-sm font-medium text-[#3B82F6]">SafarAI · India&apos;s safest commute</p>
+        <h1 className="mt-4 text-4xl font-bold leading-[1.1] tracking-tight text-white md:text-6xl">
+          Travel Safer
           <br />
-          going?
+          <span className="text-[#A1A1AA]">Tonight</span>
         </h1>
-        <p className="mt-4 max-w-md text-base leading-relaxed text-[#a1a1aa]">
-          SafarAI finds the safest public transit route — lighting, CCTV, and community data included.
+        <p className="mt-6 max-w-lg text-lg leading-relaxed text-[#A1A1AA]">
+          Real-time safety-aware public transit routing.
         </p>
-      </motion.div>
+      </motion.section>
 
-      <LiveStatusBar />
-
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
+      {/* Section 2 — Search */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.12, duration: 0.5 }}
+        transition={{ delay: 0.1, duration: 0.5 }}
       >
         <HeroSearch />
-      </motion.div>
+      </motion.section>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.22, duration: 0.45 }}
-        className="mt-8"
-      >
-        <QuickActions />
-      </motion.div>
+      {/* Section 3 — Metrics */}
+      <section className="mt-12 md:mt-16">
+        <h2 className="mb-6 text-sm font-semibold uppercase tracking-wider text-[#A1A1AA]">City safety at a glance</h2>
+        <MetricCards />
+      </section>
+
+      {/* Section 4 — Map preview */}
+      <MapPreview />
     </div>
   );
-}
-
-function getTimeOfDay() {
-  const h = new Date().getHours();
-  if (h < 12) return "morning";
-  if (h < 17) return "afternoon";
-  return "evening";
 }

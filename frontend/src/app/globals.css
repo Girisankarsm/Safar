@@ -1,12 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #000000;
+  --bg: #050505;
   --surface: #111111;
-  --surface-elevated: #1a1a1a;
-  --border: #222222;
+  --card: #171717;
+  --border: #262626;
   --text: #ffffff;
   --text-secondary: #a1a1aa;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
   --success: #22c55e;
   --danger: #ef4444;
 }
@@ -34,14 +36,14 @@ a {
 }
 
 .leaflet-container {
-  background: #000 !important;
+  background: #050505 !important;
   font-family: inherit;
 }
 
 .leaflet-control-zoom a {
-  background: #111 !important;
+  background: var(--card) !important;
   color: #fff !important;
-  border-color: #222 !important;
+  border-color: var(--border) !important;
 }
 
 @keyframes pulse-ring {
@@ -61,19 +63,4 @@ a {
 
 .animate-pulse-ring {
   animation: pulse-ring 2s ease-in-out infinite;
-}
-
-@keyframes fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fade-up {
-  animation: fade-up 0.5s ease-out forwards;
 }

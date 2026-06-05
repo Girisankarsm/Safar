@@ -39,50 +39,56 @@ export function HeroSearch() {
     }
   }
 
-  const places = CITIES[city].quickPlaces.slice(0, 4);
+  const places = CITIES[city].quickPlaces;
 
   return (
-    <div className="rounded-2xl border border-[#222222] bg-[#111111] p-6">
-      <div className="space-y-3">
-        <div className="relative">
-          <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a1a1aa]" />
-          <Input
-            className="pl-11"
-            placeholder="From — e.g. T Nagar"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-          />
+    <div className="rounded-3xl border border-[#262626] bg-[#171717] p-6 md:p-8">
+      <div className="space-y-4">
+        <div>
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-[#A1A1AA]">From</label>
+          <div className="relative">
+            <MapPin className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#3B82F6]" />
+            <Input
+              className="pl-12"
+              placeholder="Starting point"
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+            />
+          </div>
         </div>
-        <div className="relative">
-          <Navigation className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a1a1aa]" />
-          <Input
-            className="pl-11"
-            placeholder="To — e.g. Chennai Central"
-            value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-          />
+        <div>
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-[#A1A1AA]">To</label>
+          <div className="relative">
+            <Navigation className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#3B82F6]" />
+            <Input
+              className="pl-12"
+              placeholder="Destination"
+              value={destination}
+              onChange={(e) => setDestination(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-5 flex flex-wrap gap-2">
         {places.map((p) => (
           <button
             key={p}
             type="button"
             onClick={() => (!source ? setSource(p) : setDestination(p))}
-            className="rounded-full border border-[#222222] px-3 py-1 text-xs text-[#a1a1aa] transition hover:border-white/30 hover:text-white"
+            className="rounded-full border border-[#262626] bg-[#111111] px-4 py-1.5 text-xs font-medium text-[#A1A1AA] transition hover:border-[#3B82F6]/50 hover:text-white"
           >
             {p}
           </button>
         ))}
       </div>
 
-      {error && <p className="mt-3 text-sm text-[#ef4444]">{error}</p>}
+      {error && <p className="mt-4 text-sm text-[#EF4444]">{error}</p>}
 
-      <Button className="mt-4 w-full" size="lg" onClick={search} disabled={loading || !source || !destination}>
-        {loading ? "Finding safest routes…" : (
+      <Button className="mt-6 w-full" size="lg" onClick={search} disabled={loading || !source || !destination}>
+        {loading ? "Finding routes…" : (
           <>
-            Compare routes <ArrowRight className="h-4 w-4" />
+            Compare Routes <ArrowRight className="h-5 w-5" />
           </>
         )}
       </Button>

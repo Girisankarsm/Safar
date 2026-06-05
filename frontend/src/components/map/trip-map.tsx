@@ -53,7 +53,7 @@ export function TripMap({
         <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
         <MapController lat={lat} lng={lng} />
         {routePoints.length > 1 && (
-          <Polyline positions={routePoints} pathOptions={{ color: "#ffffff", weight: 5, opacity: 0.95 }} />
+          <Polyline positions={routePoints} pathOptions={{ color: "#3B82F6", weight: 5, opacity: 0.95 }} />
         )}
         {cctv.slice(0, 15).map((n, i) => (
           <CircleMarker
