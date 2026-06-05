@@ -9,18 +9,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.get("/me")
 def me():
     user = store.get_current_user()
-    return {
-        "user": user,
-        "authenticated": not user.get("demo", False),
-        "demo": user.get("demo", False),
-    }
-
-
-@router.post("/sync")
-def sync_profile():
-    """Upsert the signed-in Supabase/Google user and return profile."""
-    user = store.get_current_user()
-    return {"user": user, "synced": not user.get("demo", False)}
+    return {"user": user, "authenticated": True, "demo": True}
 
 
 @router.patch("/me")

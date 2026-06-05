@@ -1,13 +1,11 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import init_database
-from app.core.security import verify_supabase_token
 from app.repositories import store
 
 
@@ -46,23 +44,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-class AuthMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        store.clear_request_user()
-        auth = request.headers.get("authorization")
-        if auth and auth.startswith("Bearer "):
-            payload = verify_supabase_token(auth.removeprefix("Bearer ").strip())
-            if payload:
-                user = store.upsert_user_from_auth(payload)
-                store.set_request_user(user["id"])
-        try:
-            return await call_next(request)
-        finally:
-            store.clear_request_user()
-
-
-app.add_middleware(AuthMiddleware)
 app.include_router(api_router, prefix=settings.api_v1_prefix)
 
 

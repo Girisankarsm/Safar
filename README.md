@@ -69,22 +69,11 @@ Run once in SQL editor:
 2. `database/seeds/update_demo_user.sql`
 3. `database/seeds/chennai_seed.sql`
 
-## Google sign-in (Supabase Auth)
-
-1. In [Supabase Dashboard](https://supabase.com/dashboard) → **Authentication → Providers** → enable **Google**.
-2. Add your Google OAuth client ID/secret (from [Google Cloud Console](https://console.cloud.google.com/apis/credentials)).
-3. Set **Redirect URL** in Supabase to: `http://localhost:3000/auth/callback` (and your production URL later).
-4. Copy **JWT Secret** from Supabase → Settings → API into root `.env` as `SUPABASE_JWT_SECRET`.
-5. Ensure `.env` has `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and matching `NEXT_PUBLIC_SUPABASE_*` values.
-
-Users sign in with **Continue with Google** on `/login`. The API verifies the Supabase JWT and creates a per-user wallet in PostgreSQL.
-
 ## Environment
 
 Single root `.env` — see `.env.example`. Key variables:
 
-- `DATABASE_URL`, `USE_DATABASE=true`, `SUPABASE_*`, `SUPABASE_JWT_SECRET`
-- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `DATABASE_URL`, `USE_DATABASE=true`, `SUPABASE_*`
 - `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_MAPBOX_TOKEN` (optional, for map tiles)
 
 ## Tech stack

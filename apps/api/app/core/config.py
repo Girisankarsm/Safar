@@ -20,7 +20,6 @@ class Settings(BaseSettings):
     default_city: str = "chennai"
     app_public_url: str = "http://localhost:3000"
     demo_user_id: str = "a0000000-0000-0000-0000-000000000001"
-    supabase_jwt_secret: str = ""
 
     model_config = SettingsConfigDict(
         env_file=str(_ENV_FILE),

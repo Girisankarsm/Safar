@@ -1,25 +1,9 @@
 const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
-let authTokenProvider: (() => Promise<string | null>) | null = null;
-
-export function setAuthTokenProvider(provider: () => Promise<string | null>) {
-  authTokenProvider = provider;
-}
-
-async function authHeaders(): Promise<Record<string, string>> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (authTokenProvider) {
-    const token = await authTokenProvider();
-    if (token) headers.Authorization = `Bearer ${token}`;
-  }
-  return headers;
-}
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers = await authHeaders();
   const res = await fetch(`${BASE}${path}`, {
     ...init,
-    headers: { ...headers, ...init?.headers },
+    headers: { "Content-Type": "application/json", ...init?.headers },
     cache: "no-store",
   });
   if (!res.ok) {

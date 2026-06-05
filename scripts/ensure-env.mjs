@@ -37,8 +37,6 @@ const publicVars = {
   NEXT_PUBLIC_API_URL: vars.NEXT_PUBLIC_API_URL,
   NEXT_PUBLIC_APP_URL: vars.NEXT_PUBLIC_APP_URL,
   NEXT_PUBLIC_MAPBOX_TOKEN: vars.NEXT_PUBLIC_MAPBOX_TOKEN,
-  NEXT_PUBLIC_SUPABASE_URL: vars.NEXT_PUBLIC_SUPABASE_URL || vars.SUPABASE_URL,
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: vars.NEXT_PUBLIC_SUPABASE_ANON_KEY || vars.SUPABASE_ANON_KEY,
 };
 
 const publicLines = Object.entries(publicVars)
@@ -49,14 +47,6 @@ if (publicLines.length) {
   const header = "# Auto-generated from repo root .env — do not edit manually\n";
   fs.writeFileSync(webEnvLocal, header + publicLines.join("\n") + "\n");
   console.log(`✓ Synced ${publicLines.length} public env vars → apps/web/.env.local`);
-}
-
-if (!publicVars.NEXT_PUBLIC_SUPABASE_URL || !publicVars.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-  console.warn("⚠️  Supabase URL/anon key missing — Google sign-in will not work");
-}
-
-if (!vars.SUPABASE_JWT_SECRET) {
-  console.warn("⚠️  SUPABASE_JWT_SECRET missing — API cannot verify Google sessions");
 }
 
 const mapbox = vars.NEXT_PUBLIC_MAPBOX_TOKEN;
