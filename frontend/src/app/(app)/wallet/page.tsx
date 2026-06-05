@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Coins, Leaf, Gift, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
+import { PageContainer } from "@/components/layout/page-container";
 import { Section } from "@/components/layout/section";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,7 +38,7 @@ export default function WalletPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
+    <PageContainer narrow>
       <PageHeader
         title="Green Token Wallet"
         description="Earn carbon tokens for sustainable commutes. Redeem for real rewards."
@@ -101,6 +102,6 @@ export default function WalletPage() {
           ))}
         </div>
       </Section>
-    </div>
+    </PageContainer>
   );
 }

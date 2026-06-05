@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { ArrowRight, Shield, Leaf, Map } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { Logo } from "@/components/brand/logo";
 import { siteConfig } from "@/config/site";
 
@@ -50,17 +49,15 @@ export default function LoginPage() {
               Sign in to access your safe mobility dashboard
             </p>
 
-            <Link href="/dashboard" className="block">
-              <Button className="w-full" size="lg">
-                Continue as Demo User
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
+            <ButtonLink href="/dashboard" className="w-full" size="lg">
+              Continue as Demo User
+              <ArrowRight className="h-4 w-4" />
+            </ButtonLink>
 
             <div className="mt-6 rounded-xl border border-border bg-slate-50 p-4">
               <p className="text-label mb-2">Demo Account</p>
-              <p className="text-sm font-semibold">Priya Sharma</p>
-              <p className="text-xs text-muted">CBIT Hyderabad · Women Safety Mode ON</p>
+              <p className="text-sm font-semibold">Ananya Krishnan</p>
+              <p className="text-xs text-muted">Anna University Chennai · Women Safety Mode ON</p>
             </div>
 
             <p className="mt-6 text-center text-xs text-muted">

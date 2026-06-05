@@ -16,8 +16,8 @@ const links = [
 export function BottomNav() {
   const pathname = usePathname();
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-white/95 backdrop-blur-xl lg:hidden">
-      <div className="mx-auto flex max-w-lg items-stretch justify-around px-1 py-1.5">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-white/98 backdrop-blur-xl shadow-[0_-4px_20px_rgba(15,23,42,0.06)] lg:hidden">
+      <div className="mx-auto flex max-w-lg items-stretch justify-around px-2 py-2 safe-area-pb">
         {links.map(({ href, label, icon: Icon }) => {
           const active = pathname.startsWith(href);
           return (
@@ -25,13 +25,13 @@ export function BottomNav() {
               key={href}
               href={href}
               className={cn(
-                "flex flex-1 flex-col items-center gap-0.5 rounded-xl py-2 text-[10px] font-semibold transition",
+                "flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 text-[11px] font-semibold transition",
                 active ? "text-primary" : "text-muted"
               )}
             >
               <span className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-xl transition",
-                active && "bg-primary-light text-primary"
+                "flex h-9 w-9 items-center justify-center rounded-xl transition",
+                active && "gradient-primary text-white shadow-sm"
               )}>
                 <Icon className="h-[18px] w-[18px]" />
               </span>

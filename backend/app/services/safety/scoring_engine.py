@@ -85,6 +85,7 @@ class SafetyScoringEngine:
         community_unsafe: bool = False,
         verified_reports_nearby: int = 0,
         harassment_reports_nearby: int = 0,
+        cctv_nearby: int = 0,
         women_safety_mode: bool = False,
         hour: int | None = None,
     ) -> SafetyScore:
@@ -129,9 +130,28 @@ class SafetyScoringEngine:
             total -= penalty
             factors.append(SafetyFactor("Harassment reports", -penalty, f"{harassment_reports_nearby} harassment reports nearby"))
 
+        cctv_impact, cctv_desc = self._cctv_impact(cctv_nearby, hour)
+        total += cctv_impact
+        factors.append(SafetyFactor("CCTV coverage (OSM)", cctv_impact, cctv_desc))
+
         if women_safety_mode:
             total += 5
             factors.append(SafetyFactor("Women safety mode", 5, "Route optimized for women commuters"))
 
         total = max(0, min(100, total))
         return SafetyScore(total=total, label=score_label(total), factors=factors)
+
+    @staticmethod
+    def _cctv_impact(count: int, hour: int) -> tuple[int, str]:
+        night = hour >= 22 or hour < 5
+        if count >= 6:
+            bonus = 18 if night else 15
+            return bonus, f"{count} real OSM CCTV cameras within 400m (high coverage)"
+        if count >= 3:
+            bonus = 14 if night else 10
+            return bonus, f"{count} real OSM CCTV cameras within 400m (moderate coverage)"
+        if count >= 1:
+            bonus = 10 if night else 5
+            return bonus, f"{count} real OSM CCTV camera(s) within 400m"
+        penalty = -8 if night else -5
+        return penalty, "No OSM CCTV coverage within 400m of route endpoints"

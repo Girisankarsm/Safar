@@ -1,7 +1,8 @@
 from fastapi import APIRouter
-from app.api.v1 import routes, trips, safety, wallet, leaderboard, sos, users
+from app.api.v1 import routes, trips, safety, wallet, leaderboard, sos, users, cities
 
 api_router = APIRouter()
+api_router.include_router(cities.router, prefix="/cities", tags=["cities"])
 api_router.include_router(users.router, prefix="/auth", tags=["auth"])
 api_router.include_router(users.settings_router, prefix="/users", tags=["users"])
 api_router.include_router(routes.router, prefix="/routes", tags=["routes"])

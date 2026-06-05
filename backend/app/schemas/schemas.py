@@ -6,7 +6,7 @@ from datetime import datetime
 class RouteSearchRequest(BaseModel):
     source: str
     destination: str
-    city: str = "hyderabad"
+    city: str = "chennai"
     women_safety_mode: bool = False
     prefer_night_safe: bool = False
 
@@ -69,6 +69,7 @@ class SafetyReportCreate(BaseModel):
     description: Optional[str] = None
     latitude: float
     longitude: float
+    city: str = "chennai"
 
 
 class VoteRequest(BaseModel):

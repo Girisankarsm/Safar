@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Trophy, Medal } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
+import { PageContainer } from "@/components/layout/page-container";
+import { LoadingSpinner } from "@/components/ui/loading";
 import { Card } from "@/components/ui/card";
 import { api } from "@/lib/api/client";
 import type { LeaderboardEntry } from "@/lib/types";
@@ -17,13 +19,18 @@ const TABS = [
 export default function LeaderboardPage() {
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("individual");
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getLeaderboard(tab).then((r) => setEntries(r.entries)).catch(() => {});
+    setLoading(true);
+    api.getLeaderboard(tab)
+      .then((r) => setEntries(r.entries))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [tab]);
 
   return (
-    <div className="space-y-8">
+    <PageContainer>
       <PageHeader
         title="Green Commute Leaderboard"
         description="Top performers ranked by carbon saved and tokens earned"
@@ -44,6 +51,9 @@ export default function LeaderboardPage() {
         ))}
       </div>
 
+      {loading ? (
+        <LoadingSpinner label="Loading rankings..." />
+      ) : (
       <div className="space-y-3">
         {entries.map((e) => (
           <Card
@@ -77,16 +87,17 @@ export default function LeaderboardPage() {
           </Card>
         ))}
       </div>
+      )}
 
-      {tab === "individual" && (
+      {tab === "individual" && !loading && (
         <Card className="flex items-center gap-3 border-primary/20 bg-primary-light/30">
           <Medal className="h-8 w-8 text-primary" />
           <div>
-            <p className="font-semibold text-primary">You&apos;re ranked #1 at CBIT Hyderabad</p>
+            <p className="font-semibold text-primary">You&apos;re ranked #1 at Anna University Chennai</p>
             <p className="text-xs text-muted">Keep commuting green to maintain your lead!</p>
           </div>
         </Card>
       )}
-    </div>
+    </PageContainer>
   );
 }

@@ -1,33 +1,22 @@
 import uuid
-from datetime import datetime, timezone
 from fastapi import APIRouter
 from app.schemas.schemas import SOSRequest
-from app.core.demo_store import store, DEMO_USER_ID
+from app.services.data import repository as repo
 
 router = APIRouter()
 
 
 @router.post("/trigger")
 def trigger_sos(req: SOSRequest):
-    contacts = store.contacts
-    alert = {
-        "id": str(uuid.uuid4()),
-        "user_id": DEMO_USER_ID,
-        "trip_id": req.trip_id,
-        "silent": req.silent,
-        "latitude": req.latitude,
-        "longitude": req.longitude,
-        "contacts_notified": len(contacts),
-        "status": "active",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-
+    contacts = repo.get_emergency_contacts()
     share_link = None
-    if req.trip_id and req.trip_id in store.trips:
-        share_link = store.trips[req.trip_id].get("share_link")
+    if req.trip_id:
+        trip = repo.get_trip(req.trip_id)
+        if trip:
+            share_link = trip.get("share_link")
 
     return {
-        "alert_id": alert["id"],
+        "alert_id": str(uuid.uuid4()),
         "contacts_notified": len(contacts),
         "silent": req.silent,
         "message": "SOS alert sent to emergency contacts",

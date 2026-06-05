@@ -1,8 +1,6 @@
-import uuid
-from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from app.schemas.schemas import RedeemRequest
-from app.core.demo_store import store
+from app.services.data import repository as repo
 
 router = APIRouter()
 
@@ -15,12 +13,12 @@ REWARDS = {
 
 @router.get("")
 def get_wallet():
-    return {**store.wallet, "user_id": store.user["id"]}
+    return repo.get_wallet()
 
 
 @router.get("/transactions")
 def get_transactions():
-    return {"transactions": store.transactions}
+    return {"transactions": repo.get_transactions()}
 
 
 @router.post("/redeem")
@@ -30,21 +28,14 @@ def redeem(req: RedeemRequest):
         raise HTTPException(400, "Invalid reward type")
 
     cost = req.tokens if req.tokens else reward["tokens"]
-    if store.wallet["balance"] < cost:
-        raise HTTPException(400, "Insufficient tokens")
-
-    store.wallet["balance"] -= cost
-    store.transactions.insert(0, {
-        "id": str(uuid.uuid4()),
-        "type": "redeem",
-        "amount": -cost,
-        "description": f"Redeemed: {reward['label']}",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    })
+    try:
+        result = repo.redeem_wallet(cost, f"Redeemed: {reward['label']}")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
     return {
         "success": True,
         "tokens_spent": cost,
         "reward": reward["label"],
-        "balance": store.wallet["balance"],
+        "balance": result["balance"],
     }

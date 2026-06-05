@@ -1,9 +1,13 @@
+import { getCityConfig, DEFAULT_CITY } from "./cities";
+
+const defaultCity = getCityConfig(DEFAULT_CITY);
+
 export const siteConfig = {
   name: "SafarAI",
   tagline: "India's AI-Powered Safe Mobility Platform",
   description:
     "Plan safer, smarter, and greener multi-modal commutes. Earn Green Tokens for sustainable travel.",
-  city: "Hyderabad",
+  city: defaultCity.displayName,
   hackathon: "OneJourney Mobility Hackathon 2026",
 };
 
@@ -39,11 +43,4 @@ export const navGroups = [
   },
 ] as const;
 
-export const quickPlaces = [
-  "HITEC City",
-  "Secunderabad Station",
-  "Ameerpet",
-  "Gachibowli",
-  "Charminar",
-  "LB Nagar",
-];
+export const quickPlaces = defaultCity.quickPlaces;

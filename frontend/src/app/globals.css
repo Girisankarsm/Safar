@@ -9,14 +9,14 @@
   --accent-light: #dcfce7;
   --danger: #dc2626;
   --warning: #d97706;
-  --background: #f1f5f9;
+  --background: #f8fafc;
   --surface: #ffffff;
   --foreground: #0f172a;
   --muted: #64748b;
   --border: #e2e8f0;
-  --ring: rgba(37, 99, 235, 0.25);
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
-  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --ring: rgba(37, 99, 235, 0.35);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 20px rgba(15, 23, 42, 0.08);
   --shadow-lg: 0 12px 40px rgba(15, 23, 42, 0.12);
   --radius: 1rem;
 }
@@ -34,7 +34,7 @@
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-border: var(--border);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-sans), system-ui, -apple-system, sans-serif;
 }
 
 * {
@@ -48,16 +48,19 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 /* Surfaces */
 .glass {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: var(--shadow-sm);
 }
 
 .surface {
@@ -74,39 +77,51 @@ body {
   box-shadow: var(--shadow-md);
 }
 
+.app-page {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
 /* Typography */
 .text-display {
-  letter-spacing: -0.025em;
-  line-height: 1.1;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  font-weight: 700;
 }
 
 .text-label {
   font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.text-body {
+  color: var(--muted);
+  line-height: 1.65;
 }
 
 /* Gradients */
 .gradient-hero {
   background:
-    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(37, 99, 235, 0.18), transparent),
-    radial-gradient(ellipse 50% 40% at 90% 20%, rgba(22, 163, 74, 0.12), transparent),
-    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(37, 99, 235, 0.15), transparent),
+    radial-gradient(ellipse 50% 40% at 90% 20%, rgba(22, 163, 74, 0.1), transparent),
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
 }
 
 .gradient-primary {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
 }
 
 .gradient-accent {
-  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
 }
 
 /* Safety score bar */
 .safety-bar {
-  height: 6px;
+  height: 8px;
   border-radius: 999px;
   background: #e2e8f0;
   overflow: hidden;
@@ -115,7 +130,7 @@ body {
 .safety-bar-fill {
   height: 100%;
   border-radius: 999px;
-  transition: width 0.6s ease;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Map */
@@ -124,6 +139,17 @@ body {
   height: 100%;
   border-radius: var(--radius);
   z-index: 0;
+  border: 1px solid var(--border);
+}
+
+/* Loading */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 1.5s ease-in-out infinite;
 }
 
 /* Scrollbar */
@@ -134,4 +160,15 @@ body {
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 999px;
+}
+
+/* Selection */
+::selection {
+  background: var(--primary-light);
+  color: var(--primary-dark);
+}
+
+@keyframes gps-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.6); opacity: 0.15; }
 }

@@ -1,16 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { ArrowLeft, MapPin } from "lucide-react";
 import { useAppStore } from "@/lib/stores/app-store";
 import { RouteCard } from "@/components/routes/route-card";
 import { PageHeader } from "@/components/layout/page-header";
+import { PageContainer } from "@/components/layout/page-container";
 import { EmptyState } from "@/components/layout/empty-state";
 import { InsightBanner } from "@/components/layout/insight-banner";
 import { api } from "@/lib/api/client";
 import type { RouteOption } from "@/lib/types";
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { Route } from "lucide-react";
 
 export default function RoutesPage() {
@@ -43,14 +43,14 @@ export default function RoutesPage() {
   const safest = routes.find((r) => r.route_type === "safest");
 
   return (
-    <div className="space-y-8">
+    <PageContainer>
       <PageHeader
         title="Route Comparison"
         description="AI-analyzed options ranked by speed, safety, and sustainability"
         action={
-          <Link href="/plan">
-            <Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4" /> Edit</Button>
-          </Link>
+          <ButtonLink href="/plan" variant="secondary" size="sm">
+            <ArrowLeft className="h-4 w-4" /> Edit Journey
+          </ButtonLink>
         }
       />
 
@@ -80,6 +80,6 @@ export default function RoutesPage() {
           />
         ))}
       </div>
-    </div>
+    </PageContainer>
   );
 }

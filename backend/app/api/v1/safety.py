@@ -1,62 +1,93 @@
-import uuid
-from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from app.schemas.schemas import SafetyReportCreate, VoteRequest
-from app.core.demo_store import store, DEMO_USER_ID, DEMO_ROAD_RATINGS
+from app.services.data import repository as repo
+from app.services.safety.location_context import analyze_location
+from app.services.safety.osm_cctv_service import cctv_service
+from app.services.safety.scoring_engine import SafetyScoringEngine
 
 router = APIRouter()
 roads_router = APIRouter()
+scoring_engine = SafetyScoringEngine()
 
 
 @router.get("/reports")
-def list_reports(city: str = "hyderabad"):
-    return {"reports": [r for r in store.reports if r.get("city") == city]}
+def list_reports(city: str = "chennai"):
+    return {"reports": repo.get_safety_reports(city)}
 
 
 @router.post("/reports")
 def create_report(req: SafetyReportCreate):
-    report = {
-        "id": str(uuid.uuid4()),
-        "user_id": DEMO_USER_ID,
-        "report_type": req.report_type,
-        "description": req.description,
-        "latitude": req.latitude,
-        "longitude": req.longitude,
-        "upvotes": 0,
-        "verifications": 0,
-        "is_verified": False,
-        "city": "hyderabad",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    store.reports.insert(0, report)
-    return report
+    return repo.create_safety_report(
+        req.report_type, req.description or "", req.latitude, req.longitude, req.city
+    )
 
 
 @router.post("/reports/{report_id}/vote")
 def vote_report(report_id: str, req: VoteRequest):
-    report = _get_report(report_id)
-    key = (DEMO_USER_ID, report_id, req.vote_type)
-    if key in store.votes:
-        raise HTTPException(400, "Already voted")
+    try:
+        return repo.vote_report(report_id, req.vote_type)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
-    store.votes.add(key)
-    if req.vote_type == "upvote":
-        report["upvotes"] += 1
-    elif req.vote_type == "verify":
-        report["verifications"] += 1
-        if report["verifications"] >= 3:
-            report["is_verified"] = True
 
-    return report
+@router.get("/cctv")
+def list_cctv_near(
+    lat: float = Query(..., description="Latitude"),
+    lng: float = Query(..., description="Longitude"),
+    radius_m: int = Query(500, ge=50, le=2000),
+    city: str = "chennai",
+):
+    """Real OSM surveillance cameras near a coordinate."""
+    cameras = cctv_service.get_cameras_near(lat, lng, radius_m, city)
+    return {
+        "cameras": cameras,
+        "count": len(cameras),
+        "source": "openstreetmap",
+        "meta": cctv_service.meta(),
+    }
+
+
+@router.get("/cctv/map")
+def list_cctv_for_map(city: str = "chennai"):
+    """All cached OSM CCTV cameras for Hyderabad map layer."""
+    cameras = cctv_service.get_all_cameras(city)
+    return {
+        "cameras": cameras,
+        "count": len(cameras),
+        "source": "openstreetmap",
+        "meta": cctv_service.meta(),
+    }
+
+
+@router.get("/context")
+def location_safety_context(
+    lat: float = Query(...),
+    lng: float = Query(...),
+    radius_m: int = Query(400, ge=50, le=2000),
+    city: str = "chennai",
+):
+    """Real-time safety context at a location: OSM CCTV + community reports."""
+    reports = repo.get_safety_reports(city)
+    ctx = analyze_location(lat, lng, reports, radius_m)
+    score = scoring_engine.score_route(
+        cctv_nearby=ctx["cctv_count"],
+        harassment_reports_nearby=ctx["harassment_reports_nearby"],
+        verified_reports_nearby=ctx["verified_reports_nearby"],
+        community_unsafe=ctx["community_unsafe"],
+        lighting="poor" if ctx["broken_lights_nearby"] > 0 else "moderate",
+    )
+    return {
+        **ctx,
+        "safety_score": score.total,
+        "safety_label": score.label,
+        "safety_breakdown": [
+            {"factor": f.factor, "impact": f.impact, "description": f.description}
+            for f in score.factors
+        ],
+        "data_sources": ["openstreetmap_cctv", "community_reports"],
+    }
 
 
 @roads_router.get("/ratings")
-def road_ratings(city: str = "hyderabad"):
-    return {"segments": DEMO_ROAD_RATINGS}
-
-
-def _get_report(report_id: str) -> dict:
-    for r in store.reports:
-        if r["id"] == report_id:
-            return r
-    raise HTTPException(404, "Report not found")
+def road_ratings(city: str = "chennai"):
+    return {"segments": repo.get_road_ratings(city)}

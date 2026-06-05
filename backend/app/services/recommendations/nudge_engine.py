@@ -32,4 +32,10 @@ def generate_recommendations(routes: list[dict]) -> None:
             extra = greenest["reward_tokens"] - fastest.get("reward_tokens", 0)
             nudges.append(f"Earn {extra} extra tokens vs the fastest route.")
 
+        cctv = route.get("cctv_nearby", 0)
+        if cctv >= 3:
+            nudges.append(f"{cctv} real OSM CCTV cameras near your walk segments — monitored corridor.")
+        elif cctv == 0:
+            nudges.append("Low CCTV coverage on this corridor — prefer safest route after dark.")
+
         route["recommendations"] = nudges[:3]

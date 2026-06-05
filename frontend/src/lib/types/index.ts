@@ -12,6 +12,17 @@ export interface RouteLeg {
   distance_km: number;
 }
 
+export interface CctvCamera {
+  id: string;
+  latitude: number;
+  longitude: number;
+  name?: string;
+  surveillance_type?: string;
+  operator?: string;
+  distance_m?: number;
+  source: string;
+}
+
 export interface RouteOption {
   id: string;
   route_type: "fastest" | "safest" | "greenest";
@@ -22,6 +33,8 @@ export interface RouteOption {
   safety_score: number;
   safety_label: string;
   safety_breakdown: SafetyFactor[];
+  cctv_nearby?: number;
+  community_reports_nearby?: number;
   carbon_saved_kg: number;
   reward_tokens: number;
   legs: RouteLeg[];

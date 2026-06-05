@@ -95,13 +95,32 @@ Full docs: `docs/API_DOCUMENTATION.md`
 
 ---
 
-## Optional: PostgreSQL
+## Supabase Integration (Recommended)
+
+Your project: **https://vbrmgcedfsokvtwepuyh.supabase.co**
+
+Full guide: [`docs/SUPABASE_INTEGRATION.md`](docs/SUPABASE_INTEGRATION.md)
+
+**Quick setup:**
+
+1. Run SQL in Supabase SQL Editor:
+   - `database/migrations/001_initial_schema.sql`
+   - `database/seeds/hyderabad_seed.sql`
+
+2. Create `backend/.env`:
+```env
+DATABASE_URL=postgresql://postgres.vbrmgcedfsokvtwepuyh:YOUR_PASSWORD@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres
+USE_DATABASE=true
+SUPABASE_URL=https://vbrmgcedfsokvtwepuyh.supabase.co
+```
+
+3. Restart backend → check `http://localhost:8000/health` shows `"database": "connected"`
+
+## Optional: Local PostgreSQL
 
 ```bash
 docker compose up -d postgres
 ```
-
-Set `DATABASE_URL=postgresql://safarai:safarai@localhost:5432/safarai` in `backend/.env`
 
 ---
 

@@ -1,0 +1,21 @@
+{
+  "t nagar": {"lat": 13.0418, "lng": 80.2341, "name": "T Nagar"},
+  "chennai central": {"lat": 13.0827, "lng": 80.2750, "name": "Chennai Central"},
+  "central station": {"lat": 13.0827, "lng": 80.2750, "name": "Chennai Central"},
+  "marina beach": {"lat": 13.0500, "lng": 80.2824, "name": "Marina Beach"},
+  "anna nagar": {"lat": 13.0850, "lng": 80.2109, "name": "Anna Nagar"},
+  "nungambakkam": {"lat": 13.0604, "lng": 80.2426, "name": "Nungambakkam"},
+  "egmore": {"lat": 13.0732, "lng": 80.2609, "name": "Egmore"},
+  "guindy": {"lat": 13.0067, "lng": 80.2206, "name": "Guindy"},
+  "adyar": {"lat": 13.0067, "lng": 80.2572, "name": "Adyar"},
+  "velachery": {"lat": 12.9815, "lng": 80.2180, "name": "Velachery"},
+  "omr": {"lat": 12.9010, "lng": 80.2279, "name": "OMR Sholinganallur"},
+  "sholinganallur": {"lat": 12.9010, "lng": 80.2279, "name": "OMR Sholinganallur"},
+  "airport": {"lat": 12.9941, "lng": 80.1707, "name": "Chennai Airport"},
+  "chetpet": {"lat": 13.0739, "lng": 80.2417, "name": "Chetpet"},
+  "teynampet": {"lat": 13.0408, "lng": 80.2518, "name": "Teynampet"},
+  "saidapet": {"lat": 13.0150, "lng": 80.2240, "name": "Saidapet"},
+  "koyambedu": {"lat": 13.0690, "lng": 80.1940, "name": "Koyambedu"},
+  "porur": {"lat": 13.0350, "lng": 80.1580, "name": "Porur"},
+  "tambaram": {"lat": 12.9249, "lng": 80.1000, "name": "Tambaram"}
+}

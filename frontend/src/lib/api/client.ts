@@ -18,9 +18,13 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const api = {
   getMe: () => request<import("@/lib/types").User>("/auth/me"),
 
+  getCities: () =>
+    request<{ cities: Array<{ id: string; name: string; cctv_count: number; demo_corridor: string }>; default: string }>("/cities"),
+
   searchRoutes: (body: {
     source: string;
     destination: string;
+    city?: string;
     women_safety_mode?: boolean;
     prefer_night_safe?: boolean;
   }) => request<{ routes: import("@/lib/types").RouteOption[] }>("/routes/search", {
@@ -46,15 +50,40 @@ export const api = {
       { method: "POST" }
     ),
 
-  getReports: () => request<{ reports: import("@/lib/types").SafetyReport[] }>("/safety/reports"),
+  getReports: (city = "chennai") =>
+    request<{ reports: import("@/lib/types").SafetyReport[] }>(`/safety/reports?city=${city}`),
 
-  createReport: (body: { report_type: string; description?: string; latitude: number; longitude: number }) =>
+  createReport: (body: { report_type: string; description?: string; latitude: number; longitude: number; city?: string }) =>
     request("/safety/reports", { method: "POST", body: JSON.stringify(body) }),
 
   voteReport: (id: string, vote_type: string) =>
     request(`/safety/reports/${id}/vote`, { method: "POST", body: JSON.stringify({ vote_type }) }),
 
-  getRoadRatings: () => request<{ segments: Array<{ latitude: number; longitude: number; rating: number; condition: string; color: string }> }>("/roads/ratings"),
+  getRoadRatings: (city = "chennai") =>
+    request<{ segments: Array<{ latitude: number; longitude: number; rating: number; condition: string; color: string }> }>(
+      `/roads/ratings?city=${city}`
+    ),
+
+  getCctvCameras: (lat: number, lng: number, radius_m = 500) =>
+    request<{ cameras: import("@/lib/types").CctvCamera[]; count: number; source: string }>(
+      `/safety/cctv?lat=${lat}&lng=${lng}&radius_m=${radius_m}`
+    ),
+
+  getCctvMap: (city = "chennai") =>
+    request<{ cameras: import("@/lib/types").CctvCamera[]; count: number; source: string }>(
+      `/safety/cctv/map?city=${city}`
+    ),
+
+  getLocationSafetyContext: (lat: number, lng: number, radius_m = 400, city = "chennai") =>
+    request<{
+      cctv_count: number;
+      cctv_cameras: import("@/lib/types").CctvCamera[];
+      safety_score: number;
+      safety_label: string;
+      safety_breakdown: import("@/lib/types").SafetyFactor[];
+      community_reports_nearby: number;
+      harassment_reports_nearby: number;
+    }>(`/safety/context?lat=${lat}&lng=${lng}&radius_m=${radius_m}&city=${city}`),
 
   getWallet: () => request<import("@/lib/types").Wallet>("/wallet"),
 

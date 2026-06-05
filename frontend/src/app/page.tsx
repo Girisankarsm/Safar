@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { motion } from "framer-motion";
 import { Shield, Map, Leaf, Users, ArrowRight, CheckCircle2, Zap } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { Logo } from "@/components/brand/logo";
 import { siteConfig } from "@/config/site";
 
@@ -54,8 +53,8 @@ export default function LandingPage() {
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 lg:px-6">
         <Logo size="md" showTagline />
         <div className="flex items-center gap-2">
-          <Link href="/login"><Button variant="ghost" size="sm">Sign In</Button></Link>
-          <Link href="/login"><Button size="sm">Get Started</Button></Link>
+          <ButtonLink href="/login" variant="ghost" size="sm">Sign In</ButtonLink>
+          <ButtonLink href="/login" size="sm">Get Started</ButtonLink>
         </div>
       </header>
 
@@ -78,15 +77,15 @@ export default function LandingPage() {
               {siteConfig.description}
             </p>
             <div className="flex flex-wrap gap-3">
-              <Link href="/login">
-                <Button size="lg">Start Planning <ArrowRight className="h-5 w-5" /></Button>
-              </Link>
-              <Link href="/dashboard">
-                <Button size="lg" variant="secondary">Live Demo</Button>
-              </Link>
+              <ButtonLink href="/login" size="lg">
+                Start Planning <ArrowRight className="h-5 w-5" />
+              </ButtonLink>
+              <ButtonLink href="/dashboard" size="lg" variant="secondary">
+                Live Demo
+              </ButtonLink>
             </div>
             <div className="mt-8 flex flex-wrap gap-4 text-sm text-muted">
-              {["Women Safety Mode", "Carbon Tokens", "Hyderabad MVP"].map((t) => (
+              {["Women Safety Mode", "Carbon Tokens", "Chennai + Hyderabad"].map((t) => (
                 <span key={t} className="flex items-center gap-1.5">
                   <CheckCircle2 className="h-4 w-4 text-accent" /> {t}
                 </span>
@@ -103,7 +102,7 @@ export default function LandingPage() {
           >
             <div className="border-b border-border bg-slate-50 px-5 py-3">
               <p className="text-label">Route Comparison</p>
-              <p className="font-semibold">HITEC City → Secunderabad Station</p>
+              <p className="font-semibold">T Nagar → Chennai Central</p>
             </div>
             <div className="space-y-3 p-5">
               {[
@@ -186,9 +185,9 @@ export default function LandingPage() {
             ))}
           </div>
           <div className="mt-12 text-center">
-            <Link href="/login">
-              <Button size="lg" variant="accent">Try SafarAI Free <ArrowRight className="h-5 w-5" /></Button>
-            </Link>
+            <ButtonLink href="/login" size="lg" variant="accent">
+              Try SafarAI Free <ArrowRight className="h-5 w-5" />
+            </ButtonLink>
           </div>
         </div>
       </section>

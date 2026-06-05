@@ -7,16 +7,21 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Toggle } from "@/components/ui/toggle";
+import { PageContainer } from "@/components/layout/page-container";
 import { api } from "@/lib/api/client";
 import { useAppStore } from "@/lib/stores/app-store";
+import { getCityConfig } from "@/config/cities";
+import { CitySwitcher } from "@/components/layout/city-switcher";
 
 export default function PlanPage() {
   const router = useRouter();
   const {
-    source, destination, setSource, setDestination,
+    city, source, destination, setSource, setDestination,
     womenSafetyMode, nightSafeMode,
     setWomenSafetyMode, setNightSafeMode, setRoutes,
   } = useAppStore();
+  const cityConfig = getCityConfig(city);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -27,6 +32,7 @@ export default function PlanPage() {
       const { routes } = await api.searchRoutes({
         source,
         destination,
+        city,
         women_safety_mode: womenSafetyMode,
         prefer_night_safe: nightSafeMode,
       });
@@ -40,11 +46,13 @@ export default function PlanPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
+    <PageContainer narrow>
       <PageHeader
         title="Plan Your Journey"
-        description="Compare fastest, safest, and greenest multi-modal routes with AI safety scoring"
+        description={`Compare fastest, safest, and greenest routes in ${cityConfig.displayName} — scored with real OSM CCTV + community data`}
       />
+
+      <CitySwitcher />
 
       <Card>
         <div className="mb-6 space-y-4">
@@ -64,36 +72,22 @@ export default function PlanPage() {
           </div>
         </div>
 
-        <div className="mb-6 rounded-xl border border-border">
-          <div className="border-b border-border bg-slate-50 px-4 py-3">
-            <p className="text-label">Safety Preferences</p>
-          </div>
-          <div className="divide-y divide-border">
-            <label className="flex cursor-pointer items-center justify-between px-4 py-4 transition hover:bg-slate-50">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-pink-50">
-                  <Shield className="h-4 w-4 text-pink-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold">Women Safety Mode</p>
-                  <p className="text-xs text-muted">Prioritize well-lit, verified safe routes</p>
-                </div>
-              </div>
-              <input type="checkbox" checked={womenSafetyMode} onChange={(e) => setWomenSafetyMode(e.target.checked)} className="h-5 w-5 rounded accent-primary" />
-            </label>
-            <label className="flex cursor-pointer items-center justify-between px-4 py-4 transition hover:bg-slate-50">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50">
-                  <Moon className="h-4 w-4 text-indigo-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold">Night-Safe Routes</p>
-                  <p className="text-xs text-muted">24/7 transport + safer last-mile only</p>
-                </div>
-              </div>
-              <input type="checkbox" checked={nightSafeMode} onChange={(e) => setNightSafeMode(e.target.checked)} className="h-5 w-5 rounded accent-primary" />
-            </label>
-          </div>
+        <div className="mb-6 space-y-3">
+          <p className="text-label">Safety Preferences</p>
+          <Toggle
+            checked={womenSafetyMode}
+            onChange={setWomenSafetyMode}
+            label="Women Safety Mode"
+            description="Prioritize well-lit, verified safe routes"
+            icon={<Shield className="h-5 w-5 text-pink-600" />}
+          />
+          <Toggle
+            checked={nightSafeMode}
+            onChange={setNightSafeMode}
+            label="Night-Safe Routes"
+            description="24/7 transport + safer last-mile only"
+            icon={<Moon className="h-5 w-5 text-indigo-600" />}
+          />
         </div>
 
         {error && (
@@ -105,6 +99,6 @@ export default function PlanPage() {
           {loading ? "Analyzing routes..." : "Find Optimal Routes"}
         </Button>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

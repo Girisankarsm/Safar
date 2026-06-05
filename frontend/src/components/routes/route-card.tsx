@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Clock, Route, Leaf, Coins, ChevronRight, Zap, Shield, Sprout, TrainFront, Bus, Footprints } from "lucide-react";
+import { Clock, Route, Leaf, Coins, ChevronRight, Zap, Shield, Sprout, TrainFront, Bus, Footprints, Video } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -69,6 +69,13 @@ export function RouteCard({
         <div className="mb-5">
           <SafetyMeter score={route.safety_score} label={route.safety_label} />
         </div>
+
+        {(route.cctv_nearby != null && route.cctv_nearby > 0) && (
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-800">
+            <Video className="h-4 w-4 shrink-0" />
+            {route.cctv_nearby} real OSM CCTV camera{route.cctv_nearby === 1 ? "" : "s"} near route endpoints
+          </div>
+        )}
 
         {/* Metrics grid */}
         <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
