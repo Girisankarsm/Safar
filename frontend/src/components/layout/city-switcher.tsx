@@ -1,31 +1,21 @@
 "use client";
 
-import { MapPin } from "lucide-react";
-import { cities } from "@/config/cities";
-import { useAppStore } from "@/lib/stores/app-store";
-import { cn } from "@/lib/utils";
+import { CITIES } from "@/config/cities";
+import { useCity } from "@/hooks/use-city";
 
-export function CitySwitcher({ compact }: { compact?: boolean }) {
-  const { city, setCity } = useAppStore();
-
+export function CitySwitcher() {
+  const { city, setCity } = useCity();
   return (
-    <div className={cn("flex items-center gap-2", compact ? "" : "rounded-xl border border-border bg-white p-1")}>
-      {!compact && <MapPin className="ml-2 h-4 w-4 text-primary" />}
-      {Object.values(cities).map((c) => (
-        <button
-          key={c.id}
-          type="button"
-          onClick={() => setCity(c.id)}
-          className={cn(
-            "rounded-lg px-3 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-            city === c.id
-              ? "gradient-primary text-white shadow-sm"
-              : "text-muted hover:bg-slate-50 hover:text-foreground"
-          )}
-        >
-          {c.displayName}
-        </button>
+    <select
+      value={city}
+      onChange={(e) => setCity(e.target.value as keyof typeof CITIES)}
+      className="rounded-lg border border-[#222222] bg-[#111111] px-3 py-1.5 text-sm text-white outline-none"
+    >
+      {Object.values(CITIES).map((c) => (
+        <option key={c.id} value={c.id}>
+          {c.name}
+        </option>
       ))}
-    </div>
+    </select>
   );
 }

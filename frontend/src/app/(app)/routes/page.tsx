@@ -1,85 +1,79 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { ArrowLeft, MapPin } from "lucide-react";
-import { useAppStore } from "@/lib/stores/app-store";
 import { RouteCard } from "@/components/routes/route-card";
-import { PageHeader } from "@/components/layout/page-header";
-import { PageContainer } from "@/components/layout/page-container";
-import { EmptyState } from "@/components/layout/empty-state";
-import { InsightBanner } from "@/components/layout/insight-banner";
-import { api } from "@/lib/api/client";
-import type { RouteOption } from "@/lib/types";
 import { ButtonLink } from "@/components/ui/button";
-import { Route } from "lucide-react";
+import { useActiveTrip } from "@/hooks/use-active-trip";
+import { api, type Route } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function RoutesPage() {
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const [search, setSearch] = useState<{ source: string; destination: string } | null>(null);
+  const [starting, setStarting] = useState<string | null>(null);
   const router = useRouter();
-  const { routes, source, destination, selectRoute, setActiveTrip } = useAppStore();
+  const setTripId = useActiveTrip((s) => s.setTripId);
 
-  async function handleSelect(route: RouteOption) {
-    selectRoute(route);
+  useEffect(() => {
+    const raw = sessionStorage.getItem("safarai-routes");
+    const s = sessionStorage.getItem("safarai-search");
+    if (raw) setRoutes(JSON.parse(raw));
+    if (s) setSearch(JSON.parse(s));
+  }, []);
+
+  async function start(routeId: string) {
+    setStarting(routeId);
     try {
-      const trip = await api.startTrip(route.id);
-      setActiveTrip(trip);
+      const trip = await api.startTrip(routeId);
+      setTripId(trip.id);
       router.push(`/trip/${trip.id}`);
-    } catch {
-      router.push("/plan");
+    } finally {
+      setStarting(null);
     }
   }
 
+  const sorted = [...routes].sort((a, b) => {
+    const order = { safest: 0, fastest: 1, greenest: 2 };
+    return (order[a.route_type as keyof typeof order] ?? 9) - (order[b.route_type as keyof typeof order] ?? 9);
+  });
+
   if (!routes.length) {
     return (
-      <EmptyState
-        icon={Route}
-        title="No routes found"
-        description="Plan a journey first to compare fastest, safest, and greenest route options."
-        actionLabel="Plan a Trip"
-        onAction={() => router.push("/plan")}
-      />
+      <div className="mx-auto max-w-lg text-center">
+        <h1 className="text-2xl font-semibold text-white">No routes yet</h1>
+        <p className="mt-2 text-[#a1a1aa]">Search from Home to compare your options.</p>
+        <ButtonLink href="/home" className="mt-6" variant="primary">
+          Plan a route
+        </ButtonLink>
+      </div>
     );
   }
 
-  const safest = routes.find((r) => r.route_type === "safest");
-
   return (
-    <PageContainer>
-      <PageHeader
-        title="Route Comparison"
-        description="AI-analyzed options ranked by speed, safety, and sustainability"
-        action={
-          <ButtonLink href="/plan" variant="secondary" size="sm">
-            <ArrowLeft className="h-4 w-4" /> Edit Journey
-          </ButtonLink>
-        }
-      />
-
-      <div className="surface flex items-center gap-3 px-5 py-4">
-        <MapPin className="h-5 w-5 shrink-0 text-primary" />
-        <div>
-          <p className="text-label">Selected Journey</p>
-          <p className="font-semibold">{source} → {destination}</p>
-        </div>
+    <div className="mx-auto max-w-4xl">
+      <div className="mb-8">
+        <h1 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">Choose your route</h1>
+        {search && (
+          <p className="mt-1 text-[#a1a1aa]">
+            {search.source} → {search.destination}
+          </p>
+        )}
+        <p className="mt-2 text-sm text-[#a1a1aa]">
+          We recommend <span className="text-white">Safest</span> for night travel and solo commutes.
+        </p>
       </div>
 
-      {safest && (
-        <InsightBanner
-          variant="primary"
-          message={`Safest route scores ${safest.safety_score}/100 — ${safest.eta_minutes - (routes.find(r => r.route_type === 'fastest')?.eta_minutes ?? 0)} min slower but significantly safer for your commute.`}
-        />
-      )}
-
-      <div className="grid gap-6">
-        {routes.map((route, i) => (
+      <div className="grid gap-5 lg:grid-cols-3">
+        {sorted.map((r) => (
           <RouteCard
-            key={route.id}
-            route={route}
-            onSelect={handleSelect}
-            highlighted={route.route_type === "safest"}
-            index={i}
+            key={r.id}
+            route={r}
+            recommended={r.route_type === "safest"}
+            loading={starting === r.id}
+            onStart={() => start(r.id!)}
           />
         ))}
       </div>
-    </PageContainer>
+    </div>
   );
 }

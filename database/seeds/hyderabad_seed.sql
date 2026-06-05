@@ -1,14 +1,14 @@
 -- SafarAI Hyderabad Seed Data
 
 -- Demo user
-INSERT INTO users (id, clerk_id, email, name, college, women_safety_mode, night_safe_preference, trust_score)
+INSERT INTO users (id, clerk_id, email, name, college, women_safety_mode, night_safe_preference, trust_score, city)
 VALUES (
     'a0000000-0000-0000-0000-000000000001',
-    'demo_user_priya',
-    'priya@cbit.ac.in',
-    'Priya Sharma',
-    'CBIT Hyderabad',
-    TRUE, TRUE, 85
+    'demo_user_ananya',
+    'ananya@annauniv.edu',
+    'Ananya Krishnan',
+    'Anna University Chennai',
+    TRUE, TRUE, 88, 'chennai'
 );
 
 INSERT INTO carbon_wallets (user_id, balance, lifetime_tokens, lifetime_co2_kg, green_trips_count)

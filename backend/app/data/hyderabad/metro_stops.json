@@ -1,0 +1,20 @@
+{
+  "agency": "HMRL Hyderabad Metro",
+  "source": "GTFS-derived static feed (HMRL Red/Blue/Green)",
+  "stops": [
+    {"id": "raidurg", "name": "Raidurg", "lat": 17.4412, "lng": 78.3831, "line": "blue", "seq": 1, "women_only_coach": true, "well_lit": true, "service_end": "23:00"},
+    {"id": "hitec", "name": "HITEC City", "lat": 17.4434, "lng": 78.3772, "line": "blue", "seq": 2, "women_only_coach": true, "well_lit": true, "service_end": "23:00"},
+    {"id": "durgam", "name": "Durgam Cheruvu", "lat": 17.4350, "lng": 78.3900, "line": "blue", "seq": 3, "women_only_coach": true, "well_lit": true, "service_end": "23:00"},
+    {"id": "madhapur", "name": "Madhapur", "lat": 17.4380, "lng": 78.3950, "line": "blue", "seq": 4, "women_only_coach": true, "well_lit": true, "service_end": "23:00"},
+    {"id": "ameerpet", "name": "Ameerpet", "lat": 17.4356, "lng": 78.4444, "line": "blue", "seq": 8, "women_only_coach": true, "well_lit": true, "service_end": "23:30"},
+    {"id": "paradise", "name": "Paradise", "lat": 17.4438, "lng": 78.4862, "line": "blue", "seq": 12, "women_only_coach": true, "well_lit": true, "service_end": "23:00"},
+    {"id": "secunderabad_east", "name": "Secunderabad East", "lat": 17.4365, "lng": 78.4980, "line": "blue", "seq": 14, "women_only_coach": true, "well_lit": true, "service_end": "23:30"},
+    {"id": "begumpet", "name": "Begumpet", "lat": 17.4447, "lng": 78.4662, "line": "blue", "seq": 11, "women_only_coach": true, "well_lit": true, "service_end": "23:00"},
+    {"id": "miyapur", "name": "Miyapur", "lat": 17.4967, "lng": 78.3572, "line": "red", "seq": 1, "women_only_coach": true, "well_lit": true, "service_end": "23:00"},
+    {"id": "kukatpally", "name": "Kukatpally", "lat": 17.4849, "lng": 78.4138, "line": "red", "seq": 5, "women_only_coach": true, "well_lit": true, "service_end": "23:00"}
+  ],
+  "bus_stops": [
+    {"id": "hitec_bus", "name": "HITEC City Bus Stop", "lat": 17.4450, "lng": 78.3800, "well_lit": true, "service_end": "22:00", "night_service": false},
+    {"id": "secunderabad_bus", "name": "Secunderabad Bus Station", "lat": 17.4340, "lng": 78.5010, "well_lit": true, "service_end": "23:00", "night_service": true}
+  ]
+}

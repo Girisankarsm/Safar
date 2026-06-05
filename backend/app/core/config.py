@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     demo_mode: bool = True
     cors_origins: str = "http://localhost:3000"
     default_city: str = "chennai"
+    app_public_url: str = "http://localhost:3000"
+    demo_user_id: str = "a0000000-0000-0000-0000-000000000001"
 
     class Config:
         env_file = ".env"

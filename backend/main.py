@@ -1,27 +1,29 @@
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import init_database
-from app.services.data import repository as repo
-from app.api.v1.router import api_router
+from app.repositories import store
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     connected = init_database()
-    repo.set_db_ready(connected)
+    store.set_db_ready(connected)
     if connected:
-        print("[SafarAI] Connected to Supabase PostgreSQL")
+        print("[SafarAI v2] Supabase PostgreSQL connected")
     else:
-        print("[SafarAI] Running in demo mode (in-memory store)")
+        print("[SafarAI v2] Demo mode — in-memory store")
     yield
 
 
 app = FastAPI(
-    title=settings.app_name,
-    description="India's AI-Powered Safe Mobility Platform API",
-    version="1.0.0",
+    title="SafarAI API",
+    description="Real-time safe urban mobility — GTFS transit, OSM CCTV, live GPS",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -41,8 +43,15 @@ app.include_router(api_router, prefix=settings.api_v1_prefix)
 def health():
     return {
         "status": "ok",
-        "app": "SafarAI",
-        "demo_mode": settings.demo_mode,
-        "database": "connected" if repo.is_db_active() else "demo",
-        "supabase_url": settings.supabase_url or None,
+        "version": "2.0.0",
+        "database": "connected" if store.is_db_active() else "demo",
+        "features": [
+            "gtfs_transit_routing",
+            "osm_cctv_live",
+            "live_gps_safety",
+            "night_shift_filter",
+            "sos_twilio",
+            "green_miles_wallet",
+            "esg_dashboard",
+        ],
     }

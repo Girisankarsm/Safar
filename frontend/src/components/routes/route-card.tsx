@@ -1,133 +1,99 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Clock, Route, Leaf, Coins, ChevronRight, Zap, Shield, Sprout, TrainFront, Bus, Footprints, Video } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { SafetyScore } from "@/components/safety/safety-score";
 import { Button } from "@/components/ui/button";
-import { SafetyMeter } from "./safety-meter";
-import { cn, routeTypeLabel } from "@/lib/utils";
-import type { RouteOption } from "@/lib/types";
+import { Card } from "@/components/ui/card";
+import type { Route } from "@/lib/api";
+import { Clock, Leaf, Shield, Zap } from "lucide-react";
 
-const routeMeta = {
-  fastest: { icon: Zap, color: "text-amber-600 bg-amber-50 border-amber-200" },
-  safest: { icon: Shield, color: "text-primary bg-primary-light border-primary/30" },
-  greenest: { icon: Sprout, color: "text-accent bg-accent-light border-accent/30" },
-};
-
-const modeIcons: Record<string, typeof TrainFront> = {
-  metro: TrainFront,
-  bus: Bus,
-  walk: Footprints,
-};
+const META = {
+  fastest: { icon: Zap, label: "Fastest", emoji: "⚡" },
+  safest: { icon: Shield, label: "Safest", emoji: "🛡" },
+  greenest: { icon: Leaf, label: "Greenest", emoji: "🌱" },
+} as const;
 
 export function RouteCard({
   route,
-  onSelect,
-  highlighted,
-  index = 0,
+  onStart,
+  loading,
+  recommended,
 }: {
-  route: RouteOption;
-  onSelect: (route: RouteOption) => void;
-  highlighted?: boolean;
-  index?: number;
+  route: Route;
+  onStart: () => void;
+  loading?: boolean;
+  recommended?: boolean;
 }) {
-  const meta = routeMeta[route.route_type];
-  const RouteIcon = meta.icon;
+  const type = route.route_type as keyof typeof META;
+  const meta = META[type] || META.safest;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.08 }}
+      transition={{ duration: 0.4 }}
     >
       <Card
-        className={cn(
-          "overflow-hidden transition-all duration-300 hover:shadow-md",
-          highlighted && "ring-2 ring-primary ring-offset-2"
-        )}
+        className={recommended ? "border-white/20 ring-1 ring-white/10" : ""}
+        hover
       >
-        {/* Header */}
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className={cn("flex h-11 w-11 items-center justify-center rounded-xl border", meta.color)}>
-              <RouteIcon className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold">{routeTypeLabel(route.route_type)}</h3>
-                {route.route_type === "safest" && (
-                  <Badge variant="safe">Recommended</Badge>
-                )}
-              </div>
-              <p className="text-sm text-muted">{route.legs.length} segments · {route.distance_km} km total</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Safety meter */}
-        <div className="mb-5">
-          <SafetyMeter score={route.safety_score} label={route.safety_label} />
-        </div>
-
-        {(route.cctv_nearby != null && route.cctv_nearby > 0) && (
-          <div className="mb-4 flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-800">
-            <Video className="h-4 w-4 shrink-0" />
-            {route.cctv_nearby} real OSM CCTV camera{route.cctv_nearby === 1 ? "" : "s"} near route endpoints
-          </div>
+        {recommended && (
+          <span className="mb-3 inline-block rounded-full bg-white px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black">
+            Recommended for you
+          </span>
         )}
-
-        {/* Metrics grid */}
-        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[
-            { icon: Clock, label: "ETA", value: `${route.eta_minutes} min` },
-            { icon: Route, label: "Distance", value: `${route.distance_km} km` },
-            { icon: Leaf, label: "CO₂ Saved", value: `${route.carbon_saved_kg} kg`, accent: true },
-            { icon: Coins, label: "Tokens", value: `+${route.reward_tokens}`, accent: true },
-          ].map(({ icon: Icon, label, value, accent }) => (
-            <div key={label} className="rounded-xl bg-slate-50 px-3 py-2.5">
-              <p className="text-label">{label}</p>
-              <p className={cn("mt-0.5 flex items-center gap-1 text-sm font-bold", accent && "text-accent")}>
-                <Icon className="h-3.5 w-3.5" />
-                {value}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        {/* Route legs */}
-        <div className="mb-5 space-y-2">
-          <p className="text-label">Route Breakdown</p>
-          {route.legs.map((leg, i) => {
-            const ModeIcon = modeIcons[leg.mode] ?? Route;
-            return (
-              <div key={i} className="flex items-center gap-3 rounded-xl border border-border bg-white px-3 py-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100">
-                  <ModeIcon className="h-4 w-4 text-muted" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium capitalize">{leg.mode}</p>
-                  <p className="truncate text-xs text-muted">{leg.from} → {leg.to}</p>
-                </div>
-                <span className="text-xs font-semibold text-muted">{leg.duration_min}m</span>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Recommendations */}
-        {route.recommendations.length > 0 && (
-          <div className="mb-5 space-y-1.5 rounded-xl border border-primary/10 bg-primary-light/30 px-4 py-3">
-            {route.recommendations.map((r) => (
-              <p key={r} className="text-xs font-medium text-blue-800">→ {r}</p>
-            ))}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-lg font-semibold text-white">
+              {meta.emoji} {meta.label}
+            </p>
+            <p className="mt-1 text-sm text-[#a1a1aa]">
+              {route.source} → {route.destination}
+            </p>
           </div>
-        )}
+          <SafetyScore score={route.safety_score} size="sm" />
+        </div>
 
-        <Button className="w-full" size="lg" onClick={() => onSelect(route)}>
-          Start This Route <ChevronRight className="h-4 w-4" />
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <Metric label="ETA" value={`${route.eta_minutes} min`} />
+          <Metric label="Distance" value={`${route.distance_km} km`} />
+          <Metric label="CO₂ saved" value={`${route.carbon_saved_kg} kg`} accent />
+          <Metric label="GreenMiles" value={`+${route.reward_tokens}`} accent />
+        </div>
+
+        <div className="mt-4 flex items-center gap-2 text-xs text-[#a1a1aa]">
+          <Clock className="h-3.5 w-3.5" />
+          {route.legs.length} legs · {route.legs.filter((l) => l.women_only_coach).length > 0 && "Women coach available"}
+        </div>
+
+        <Button
+          className="mt-5 w-full"
+          variant={recommended ? "primary" : "secondary"}
+          onClick={onStart}
+          disabled={loading}
+        >
+          {loading ? "Starting…" : "Start this route"}
         </Button>
       </Card>
     </motion.div>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="rounded-xl bg-black/50 px-3 py-2">
+      <p className="text-[10px] uppercase tracking-wider text-[#a1a1aa]">{label}</p>
+      <p className={accent ? "text-sm font-semibold text-[#22c55e]" : "text-sm font-semibold text-white"}>
+        {value}
+      </p>
+    </div>
   );
 }

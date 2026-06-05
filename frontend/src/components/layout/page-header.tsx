@@ -1,30 +1,19 @@
-import { cn } from "@/lib/utils";
-
 export function PageHeader({
   title,
-  description,
-  badge,
+  subtitle,
   action,
-  className,
 }: {
   title: string;
-  description?: string;
-  badge?: React.ReactNode;
+  subtitle?: string;
   action?: React.ReactNode;
-  className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between", className)}>
+    <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
       <div>
-        {badge && <div className="mb-2">{badge}</div>}
-        <h1 className="text-display text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-          {title}
-        </h1>
-        {description && (
-          <p className="mt-1 max-w-2xl text-sm text-muted md:text-base">{description}</p>
-        )}
+        <h1 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">{title}</h1>
+        {subtitle && <p className="mt-1 text-sm text-gray-400">{subtitle}</p>}
       </div>
-      {action && <div className="mt-3 shrink-0 sm:mt-0">{action}</div>}
+      {action}
     </div>
   );
 }

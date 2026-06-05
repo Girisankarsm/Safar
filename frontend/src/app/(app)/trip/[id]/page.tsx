@@ -1,280 +1,201 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
-import {
-  Shield, Share2, AlertTriangle, CheckCircle, BellOff, Radio,
-  Navigation, Video, MapPin,
-} from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
-import { SafetyMeter } from "@/components/routes/safety-meter";
-import { Card } from "@/components/ui/card";
+import { motion } from "framer-motion";
+import { TripMapDynamic } from "@/components/map/map-dynamic";
+import { SafetyScore } from "@/components/safety/safety-score";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { api } from "@/lib/api/client";
-import { useAppStore } from "@/lib/stores/app-store";
+import { Card } from "@/components/ui/card";
+import { useActiveTrip } from "@/hooks/use-active-trip";
 import { useLiveLocation } from "@/hooks/use-live-location";
-import { getCityConfig } from "@/config/cities";
-import type { CctvCamera, SafetyFactor } from "@/lib/types";
-
-const SafetyMap = dynamic(() => import("@/components/maps/safety-map").then((m) => m.SafetyMap), { ssr: false });
-
-interface LiveSafety {
-  score: number;
-  label: string;
-  breakdown: SafetyFactor[];
-  cctvCount: number;
-  communityReports: number;
-  cctvCameras: CctvCamera[];
-}
+import { api, type Contact, type LiveTripUpdate, type Trip } from "@/lib/api";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Phone,
+  Share2,
+  Shield,
+} from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 export default function LiveTripPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { city, activeTrip, setActiveTrip } = useAppStore();
-  const cityConfig = getCityConfig(city);
+  const setTripId = useActiveTrip((s) => s.setTripId);
+  const [trip, setTrip] = useState<Trip | null>(null);
+  const [live, setLive] = useState<LiveTripUpdate | null>(null);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [toast, setToast] = useState("");
+  const { coords } = useLiveLocation(true);
 
-  const [completing, setCompleting] = useState(false);
-  const [reward, setReward] = useState<{ tokens_earned: number; co2_saved_kg: number; message: string } | null>(null);
-  const [sosSent, setSosSent] = useState(false);
-  const [deviation, setDeviation] = useState(false);
-  const [pathTrail, setPathTrail] = useState<[number, number][]>([]);
-  const [liveSafety, setLiveSafety] = useState<LiveSafety | null>(null);
-  const [previousScore, setPreviousScore] = useState<number | undefined>();
-  const positionRef = useRef<import("@/hooks/use-live-location").LivePosition | null>(null);
-
-  const trip = activeTrip?.id === id ? activeTrip : null;
-  const route = trip?.route;
-
-  const { position, error: gpsError, tracking } = useLiveLocation(!!trip && !reward);
-  positionRef.current = position;
-
-  // Sync GPS → backend + live safety score every 4 seconds
   useEffect(() => {
-    if (!trip || reward) return;
-
-    async function syncLocation() {
-      const pos = positionRef.current;
-      if (!pos) return;
-
-      const { lat, lng } = pos;
-
-      setPathTrail((prev) => {
-        const last = prev[prev.length - 1];
-        if (last && last[0] === lat && last[1] === lng) return prev;
-        return [...prev, [lat, lng] as [number, number]].slice(-50);
-      });
-
-      try {
-        const [tripRes, ctx] = await Promise.all([
-          api.updateTripLocation(id, lat, lng),
-          api.getLocationSafetyContext(lat, lng, 400, city),
-        ]);
-        if (tripRes.deviation_alert) setDeviation(true);
-        setLiveSafety((prev) => {
-          if (prev && prev.score !== ctx.safety_score) {
-            setPreviousScore(prev.score);
-          }
-          return {
-            score: ctx.safety_score,
-            label: ctx.safety_label,
-            breakdown: ctx.safety_breakdown,
-            cctvCount: ctx.cctv_count,
-            communityReports: ctx.community_reports_nearby,
-            cctvCameras: ctx.cctv_cameras ?? [],
-          };
-        });
-      } catch {
-        /* retry on next interval */
-      }
+    if (id) {
+      setTripId(id);
+      api.getTrip(id).then(setTrip).catch(() => null);
+      api.contacts().then((r) => setContacts(r.contacts));
     }
+  }, [id, setTripId]);
 
-    syncLocation();
-    const interval = setInterval(syncLocation, 4000);
-    return () => clearInterval(interval);
-  }, [trip, id, city, reward]);
+  const pushLocation = useCallback(async () => {
+    if (!coords || !id || trip?.status === "completed") return;
+    const data = await api.updateTripLocation(id, coords.lat, coords.lng);
+    setLive(data);
+    setTrip(data.trip);
+  }, [coords, id, trip?.status]);
 
-  async function handleSOS(silent: boolean) {
-    const lat = position?.lat ?? cityConfig.center[0];
-    const lng = position?.lng ?? cityConfig.center[1];
-    await api.triggerSOS({ trip_id: id, silent, latitude: lat, longitude: lng });
-    setSosSent(true);
-  }
+  useEffect(() => {
+    pushLocation();
+  }, [pushLocation]);
 
-  async function handleComplete() {
-    setCompleting(true);
-    try {
-      const result = await api.completeTrip(id);
-      setReward(result);
-      setActiveTrip(null);
-    } finally {
-      setCompleting(false);
-    }
-  }
-
-  if (!route) {
-    return (
-      <Card className="mx-auto max-w-md py-12 text-center">
-        <p className="text-muted">No active trip found.</p>
-        <Button className="mt-4" onClick={() => router.push("/plan")}>Plan New Trip</Button>
-      </Card>
+  async function triggerSOS(silent: boolean) {
+    const res = await api.sos({
+      trip_id: id,
+      silent,
+      latitude: coords?.lat,
+      longitude: coords?.lng,
+    });
+    setToast(
+      silent
+        ? `Silent alert sent to ${res.notified} contact(s)`
+        : `SOS active — location shared with contacts`
     );
   }
 
-  if (reward) {
-    return (
-      <Card className="mx-auto max-w-md overflow-hidden p-0 text-center">
-        <div className="gradient-accent px-6 py-10 text-white">
-          <CheckCircle className="mx-auto mb-4 h-16 w-16" />
-          <h2 className="text-2xl font-bold">Trip Complete!</h2>
-          <p className="mt-2 text-green-100">{reward.message}</p>
-        </div>
-        <div className="grid grid-cols-2 gap-4 p-6">
-          <div className="rounded-xl bg-accent-light p-4">
-            <p className="text-3xl font-bold text-accent">+{reward.tokens_earned}</p>
-            <p className="text-label mt-1">Tokens Earned</p>
-          </div>
-          <div className="rounded-xl bg-accent-light p-4">
-            <p className="text-3xl font-bold text-accent">{reward.co2_saved_kg}</p>
-            <p className="text-label mt-1">kg CO₂ Saved</p>
-          </div>
-        </div>
-        <div className="px-6 pb-6">
-          <Button className="w-full" size="lg" onClick={() => router.push("/wallet")}>View Wallet</Button>
-        </div>
-      </Card>
-    );
+  async function checkIn() {
+    if (!coords) return;
+    await api.checkIn(id, coords.lat, coords.lng, "metro");
+    setToast("Check-in verified · +5 GreenMiles");
   }
 
-  const displayScore = liveSafety?.score ?? route.safety_score;
-  const displayLabel = liveSafety?.label ?? route.safety_label;
-  const mapCenter: [number, number] = position
-    ? [position.lat, position.lng]
-    : cityConfig.center;
-  const userPosition: [number, number] | null = position
-    ? [position.lat, position.lng]
-    : null;
+  async function complete() {
+    const result = await api.completeTrip(id);
+    setTripId(null);
+    router.push(`/trip/${id}/complete`);
+  }
 
-  const cctvFactor = liveSafety?.breakdown.find((f) => f.factor.includes("CCTV"));
+  const route = trip?.route;
+  const progress = route?.legs?.length ? Math.min(85, 20 + (live?.live_context.cctv_count ?? 0) * 5) : 0;
+
+  if (trip?.status === "completed") {
+    router.replace(`/trip/${id}/complete`);
+    return null;
+  }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Live Trip"
-        description={`${route.source} → ${route.destination}`}
-        badge={
-          <Badge className="animate-pulse border-red-200 bg-red-50 text-red-600">
-            <Radio className="mr-1 h-3 w-3" /> LIVE GPS
-          </Badge>
-        }
+    <div className="mx-auto max-w-lg pb-8">
+      {/* Header */}
+      <div className="mb-4 flex items-start justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-wider text-[#a1a1aa]">Live trip</p>
+          <h1 className="mt-1 text-xl font-semibold text-white">
+            {route ? `${route.source} → ${route.destination}` : "Loading…"}
+          </h1>
+        </div>
+        {live && <SafetyScore score={live.safety_score} size="md" showLabel />}
+      </div>
+
+      {/* Map — hero */}
+      <TripMapDynamic
+        legs={route?.legs}
+        currentLat={coords?.lat ?? trip?.current_lat}
+        currentLng={coords?.lng ?? trip?.current_lng}
+        cctv={live?.live_context.cctv_nodes ?? []}
+        height="340px"
       />
 
-      {/* GPS status */}
-      <div className="flex flex-wrap items-center gap-2">
-        {tracking && position && (
-          <Badge variant="safe" className="gap-1">
-            <Navigation className="h-3 w-3" />
-            GPS active · ±{Math.round(position.accuracy)}m
-          </Badge>
-        )}
-        {gpsError && (
-          <Badge variant="risky">GPS unavailable — using route baseline score</Badge>
-        )}
-        {liveSafety && liveSafety.cctvCount > 0 && (
-          <Badge className="border-blue-200 bg-blue-50 text-blue-700 gap-1">
-            <Video className="h-3 w-3" />
-            {liveSafety.cctvCount} CCTV nearby
-          </Badge>
-        )}
-        {position && (
-          <span className="text-xs text-muted">
-            {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
-          </span>
-        )}
+      {/* Progress bar */}
+      <div className="mt-4">
+        <div className="flex justify-between text-xs text-[#a1a1aa]">
+          <span>Route progress</span>
+          <span>{progress}%</span>
+        </div>
+        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[#222222]">
+          <motion.div
+            className="h-full bg-white"
+            initial={{ width: 0 }}
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 0.8 }}
+          />
+        </div>
       </div>
 
-      {deviation && (
-        <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
-          <p className="text-sm font-medium text-amber-800">Route deviation detected — you&apos;ve left the safe path.</p>
-        </div>
+      {/* Live stats */}
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <Card className="!p-4">
+          <p className="text-[10px] uppercase tracking-wider text-[#a1a1aa]">Nearby CCTV</p>
+          <p className="mt-1 text-2xl font-semibold text-[#22c55e]">
+            {live?.live_context.cctv_count ?? "—"}
+          </p>
+        </Card>
+        <Card className="!p-4">
+          <p className="text-[10px] uppercase tracking-wider text-[#a1a1aa]">Lighting</p>
+          <p className="mt-1 text-sm font-medium capitalize text-white">
+            {live?.live_context.lighting?.replace("_", " ") ?? "—"}
+          </p>
+        </Card>
+      </div>
+
+      {live?.carbon_nudge && (
+        <p className="mt-4 rounded-xl border border-[#222222] bg-[#111111] px-4 py-3 text-sm text-[#a1a1aa]">
+          {live.carbon_nudge}
+        </p>
       )}
 
-      <Card className="overflow-hidden p-0">
-        <SafetyMap
-          reports={[]}
-          cctvCameras={liveSafety?.cctvCameras}
-          center={mapCenter}
-          userPosition={userPosition}
-          pathTrail={pathTrail}
-          followUser={!!position}
-          zoom={15}
-          height="300px"
-        />
-      </Card>
-
-      <Card>
-        <SafetyMeter
-          score={displayScore}
-          label={displayLabel}
-          live={!!liveSafety}
-          previousScore={previousScore}
-        />
-
-        {liveSafety && (
-          <div className="mt-4 space-y-2 rounded-xl border border-primary/10 bg-primary-light/20 px-4 py-3">
-            <p className="text-label">Live safety factors at your location</p>
-            {liveSafety.breakdown
-              .filter((f) => Math.abs(f.impact) >= 5)
-              .slice(0, 4)
-              .map((f) => (
-                <p key={f.factor} className="text-xs font-medium text-foreground">
-                  <span className={f.impact >= 0 ? "text-accent" : "text-danger"}>
-                    {f.impact >= 0 ? "+" : ""}{f.impact}
-                  </span>
-                  {" · "}{f.description}
-                </p>
-              ))}
-            {cctvFactor && (
-              <p className="flex items-center gap-1.5 text-xs font-semibold text-blue-700">
-                <Video className="h-3.5 w-3.5" /> {cctvFactor.description}
-              </p>
-            )}
-          </div>
-        )}
-
-        <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3">
-          <p className="text-label">Next Segment</p>
-          <p className="mt-1 font-semibold capitalize">
-            {route.legs[0]?.mode} · {route.legs[0]?.from} → {route.legs[0]?.to}
-          </p>
-          <p className="mt-1 flex items-center gap-1 text-sm text-accent">
-            <MapPin className="h-3.5 w-3.5" />
-            Earning ~{route.reward_tokens} tokens on completion
-          </p>
-        </div>
-      </Card>
-
-      <div className="grid grid-cols-2 gap-3">
-        <Button variant="danger" size="lg" onClick={() => handleSOS(false)} disabled={sosSent}>
-          <Shield className="h-5 w-5" /> SOS Alert
+      {/* Floating SOS */}
+      <div className="mt-6 flex gap-3">
+        <Button variant="danger" className="flex-1" size="lg" onClick={() => triggerSOS(false)}>
+          <AlertTriangle className="h-5 w-5" /> SOS
         </Button>
-        <Button variant="secondary" size="lg" onClick={() => handleSOS(true)} disabled={sosSent}>
-          <BellOff className="h-5 w-5" /> Silent SOS
+        <Button variant="outline" size="lg" onClick={() => triggerSOS(true)}>
+          Silent
         </Button>
-        <Button variant="secondary" size="lg" onClick={() => navigator.clipboard.writeText(trip?.share_link || "")}>
-          <Share2 className="h-5 w-5" /> Share Trip
-        </Button>
-        <Button variant="accent" size="lg" onClick={handleComplete} disabled={completing}>
-          <CheckCircle className="h-5 w-5" /> End Trip
+        <Button variant="secondary" size="lg" onClick={checkIn}>
+          <CheckCircle2 className="h-5 w-5" />
         </Button>
       </div>
 
-      {sosSent && (
-        <p className="text-center text-sm font-semibold text-danger">
-          SOS alert sent with your live GPS coordinates
-        </p>
+      {/* Emergency contacts */}
+      <Card className="mt-4 !p-4">
+        <div className="flex items-center gap-2 text-sm font-medium text-white">
+          <Shield className="h-4 w-4" /> Emergency contacts
+        </div>
+        <ul className="mt-3 space-y-2">
+          {contacts.map((c) => (
+            <li key={c.phone} className="flex items-center justify-between text-sm">
+              <span className="text-[#a1a1aa]">
+                {c.name} · {c.relationship}
+              </span>
+              <Phone className="h-3.5 w-3.5 text-[#a1a1aa]" />
+            </li>
+          ))}
+        </ul>
+        {trip?.share_token && (
+          <button
+            type="button"
+            className="mt-3 flex items-center gap-2 text-xs text-[#a1a1aa] hover:text-white"
+            onClick={() => {
+              const url = `${window.location.origin}/trip/share/${trip.share_token}`;
+              navigator.clipboard?.writeText(url);
+              setToast("Share link copied");
+            }}
+          >
+            <Share2 className="h-3.5 w-3.5" /> Copy trip share link
+          </button>
+        )}
+      </Card>
+
+      <Button variant="ghost" className="mt-6 w-full" onClick={complete}>
+        End trip & earn GreenMiles
+      </Button>
+
+      {toast && (
+        <motion.p
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="fixed bottom-24 left-4 right-4 rounded-xl bg-white px-4 py-3 text-center text-sm font-medium text-black md:bottom-8"
+        >
+          {toast}
+        </motion.p>
       )}
     </div>
   );

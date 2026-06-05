@@ -1,146 +1,43 @@
-# SafarAI
+# SafarAI v2 — Real-time Safe Urban Mobility
 
-**India's AI-Powered Safe Mobility Platform**
+Rebuilt from scratch with live GTFS transit routing, OSM CCTV safety layers, GPS trip tracking, SOS, and GreenMiles wallet. Uses your existing **Supabase** project and local `.env` files.
 
-Built for the OneJourney Mobility Hackathon 2026.
-
-Plan safer, smarter, and greener multi-modal routes across Hyderabad. Earn Green Tokens for public transport. Community-driven safety intelligence.
-
----
-
-## Quick Start (Demo Mode — No Database Required)
-
-### 1. Backend
+## Quick start
 
 ```bash
-cd backend
-python -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+# Backend
+cd backend && source venv/bin/activate
 uvicorn main:app --reload --port 8000
+
+# Frontend (new terminal)
+cd frontend && npm run dev
 ```
 
-API docs: http://localhost:8000/docs
+Open http://localhost:3000
 
-### 2. Frontend
+## Real-time features
 
-```bash
-cd frontend
-npm install
-cp .env.example .env.local
-npm run dev
-```
+| Feature | Source |
+|---------|--------|
+| Metro/bus routing | GTFS-static stops (Chennai CMRL, Hyderabad HMRL) |
+| CCTV safety layer | OpenStreetMap Overpass (cached) |
+| Live trip safety | Browser GPS → `/trips/{id}/location` |
+| Night-shift filter | GTFS `service_end` + walk limits |
+| Community reports | Supabase `safety_reports` |
+| SOS + trip share | Twilio (optional) + share token |
+| GreenMiles / CO₂ | Trip completion → wallet |
 
-App: http://localhost:3000
+## Database
 
-### 3. Demo Flow
+Run once on Supabase SQL editor:
 
-1. Open http://localhost:3000
-2. Click **Get Started** → **Continue as Demo User**
-3. Dashboard → **Find Routes** (HITEC City → Secunderabad Station)
-4. Select **Safest** route → Live Trip → **End** trip
-5. View earned tokens in **Wallet**
-6. Explore **Safety Map** and **Leaderboard**
+1. `database/migrations/001_initial_schema.sql`
+2. `database/seeds/hyderabad_seed.sql`
+3. `database/seeds/chennai_seed.sql`
 
----
+## Env (kept locally, not in git)
 
-## Project Structure
+- `backend/.env` — `DATABASE_URL`, `USE_DATABASE=true`, Supabase keys
+- `frontend/.env.local` — `NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1`
 
-```
-├── docs/           # PRD, Architecture, API docs, Wireframes, Demo script
-├── database/       # PostgreSQL migrations + seed data
-├── backend/        # FastAPI — routing, safety engine, wallet APIs
-└── frontend/       # Next.js 15 — 12 pages, Mapbox/Leaflet maps
-```
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| Frontend | Next.js 15, React, TypeScript, TailwindCSS, Shadcn-style UI, Framer Motion, Zustand |
-| Maps | Leaflet + OpenStreetMap (no API key required) |
-| Backend | FastAPI, Python |
-| Database | PostgreSQL (optional — demo uses in-memory store) |
-| Auth | Clerk-ready + demo mode |
-
----
-
-## Core Features
-
-- **Smart Journey Planner** — Fastest / Safest / Greenest route comparison
-- **AI Safety Score** — 0–100 with factor breakdown
-- **Women Safety Mode** — SOS, silent alert, trip sharing, deviation alerts
-- **Community Safety Layer** — Report, upvote, verify incidents on map
-- **Carbon Rewards** — Green Tokens for metro, bus, walk, cycle
-- **Leaderboard** — Individuals, colleges, companies
-- **Road Intelligence** — Good / Moderate / Poor road overlay
-
----
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/routes/search` | Search 3 route options |
-| POST | `/api/v1/trips/start` | Start live trip |
-| POST | `/api/v1/trips/{id}/complete` | Complete + earn tokens |
-| POST | `/api/v1/sos/trigger` | Trigger SOS alert |
-| GET/POST | `/api/v1/safety/reports` | Community reports |
-| GET | `/api/v1/wallet` | Token balance |
-| GET | `/api/v1/leaderboard` | Rankings |
-
-Full docs: `docs/API_DOCUMENTATION.md`
-
----
-
-## Supabase Integration (Recommended)
-
-Your project: **https://vbrmgcedfsokvtwepuyh.supabase.co**
-
-Full guide: [`docs/SUPABASE_INTEGRATION.md`](docs/SUPABASE_INTEGRATION.md)
-
-**Quick setup:**
-
-1. Run SQL in Supabase SQL Editor:
-   - `database/migrations/001_initial_schema.sql`
-   - `database/seeds/hyderabad_seed.sql`
-
-2. Create `backend/.env`:
-```env
-DATABASE_URL=postgresql://postgres.vbrmgcedfsokvtwepuyh:YOUR_PASSWORD@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres
-USE_DATABASE=true
-SUPABASE_URL=https://vbrmgcedfsokvtwepuyh.supabase.co
-```
-
-3. Restart backend → check `http://localhost:8000/health` shows `"database": "connected"`
-
-## Optional: Local PostgreSQL
-
-```bash
-docker compose up -d postgres
-```
-
----
-
-## Hackathon Deliverables
-
-All documentation in `/docs`:
-
-1. PRD.md
-2. ARCHITECTURE.md
-3. DATABASE_SCHEMA.md
-4. API_DOCUMENTATION.md
-5. WIREFRAMES.md
-6. USER_FLOWS.md
-7. ROADMAP.md
-8. PRESENTATION.md
-9. DEMO_SCRIPT.md
-10. SCALABILITY.md
-
----
-
-## Team
-
-OneJourney Mobility Hackathon 2026 — Hyderabad MVP
+Optional SOS: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` in `backend/.env`.
