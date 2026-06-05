@@ -1,13 +1,35 @@
+# Dependencies
 node_modules/
-.next/
+apps/*/node_modules/
+
+# Python
 __pycache__/
 *.pyc
-.env
-.env.local
 .venv/
 venv/
-*.db
+apps/api/venv/
+*.egg-info/
+
+# Next.js
+apps/web/.next/
+apps/web/out/
+frontend/
+*.tsbuildinfo
+
+# Environment (never commit secrets)
+.env
+.env.local
+.env.*.local
+
+# OS / IDE
 .DS_Store
+*.pem
+.vercel
+
+# Build / logs
 dist/
 build/
-*.egg-info/
+*.db
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
