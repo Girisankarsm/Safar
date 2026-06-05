@@ -15,6 +15,7 @@ export default function RoutesPage() {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [search, setSearch] = useState<{ source: string; destination: string } | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const router = useRouter();
   const setTripId = useActiveTrip((s) => s.setTripId);
 
@@ -47,6 +48,11 @@ export default function RoutesPage() {
   const safestRoute = useMemo(
     () => sorted.find((r) => r.route_type === "safest") ?? sorted[0] ?? null,
     [sorted]
+  );
+
+  const selectedRoute = useMemo(
+    () => sorted.find((r) => r.id === selectedId) ?? null,
+    [sorted, selectedId]
   );
 
   if (!routes.length) {
@@ -104,15 +110,17 @@ export default function RoutesPage() {
           >
             <RouteCard
               route={r}
+              selected={selectedId === r.id}
               recommended={r.route_type === "safest"}
               loading={starting === r.id}
+              onSelect={() => setSelectedId(r.id!)}
               onStart={() => start(r.id!)}
             />
           </motion.div>
         ))}
       </div>
 
-      <RouteSummaryPanel route={safestRoute} />
+      <RouteSummaryPanel route={selectedRoute ?? safestRoute} />
     </div>
   );
 }

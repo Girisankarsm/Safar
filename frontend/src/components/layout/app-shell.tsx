@@ -114,12 +114,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-h-screen flex-col pb-[4.5rem] lg:pl-60 lg:pb-0">
-        <header
-          className={cn(
-            "sticky top-0 z-40 flex items-center justify-between border-b border-[#262626] bg-[#050505]/90 px-5 py-3.5 backdrop-blur-md lg:px-8",
-            isLiveTrip && "lg:hidden"
-          )}
-        >
+        <header className="sticky top-0 z-40 flex items-center justify-between border-b border-[#262626] bg-[#050505]/90 px-5 py-3.5 backdrop-blur-md lg:px-8">
           <Link href="/home" className="flex items-center gap-2 lg:hidden">
             <Shield className="h-5 w-5 text-[#3B82F6]" />
             <span className="text-lg font-bold text-white">SafarAI</span>
@@ -149,7 +144,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className={cn("flex-1", isLiveTrip ? "p-0" : "px-5 py-6 md:px-8 md:py-8")}>
+        <main className={cn("flex-1 px-5 py-6 md:px-8", isLiveTrip ? "md:py-5" : "md:py-8")}>
           {children}
         </main>
       </div>

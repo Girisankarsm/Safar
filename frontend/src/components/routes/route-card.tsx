@@ -36,12 +36,16 @@ const META = {
 export function RouteCard({
   route,
   onStart,
+  onSelect,
   loading,
+  selected,
   recommended,
 }: {
   route: Route;
   onStart: () => void;
+  onSelect: () => void;
   loading?: boolean;
+  selected?: boolean;
   recommended?: boolean;
 }) {
   const type = route.route_type as keyof typeof META;
@@ -60,23 +64,26 @@ export function RouteCard({
     >
       <Card
         className={cn(
-          "relative flex h-full flex-col overflow-hidden",
-          recommended
+          "relative flex h-full cursor-pointer flex-col overflow-hidden transition duration-200",
+          selected
             ? "border-[#3B82F6]/50 shadow-xl shadow-[#3B82F6]/15 ring-1 ring-[#3B82F6]/20"
-            : ""
+            : "border-[#262626]"
         )}
-        hover
+        onClick={onSelect}
       >
         {recommended && (
-          <>
-            <span className="absolute left-4 top-4 z-10 inline-flex items-center rounded-md bg-[#3B82F6] px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-white">
-              Recommended
-            </span>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#3B82F6]/10 to-transparent" />
-          </>
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#3B82F6]/10 to-transparent" />
         )}
 
-        <div className={cn("flex items-start justify-between gap-3", recommended ? "mt-8" : "")}>
+        <div className="relative z-10 mb-4 flex h-7 shrink-0 items-center">
+          {recommended && (
+            <span className="inline-flex items-center rounded-md bg-[#3B82F6] px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-white">
+              Recommended
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
             <div
               className="flex h-11 w-11 items-center justify-center rounded-xl"
@@ -134,7 +141,10 @@ export function RouteCard({
               className="w-full"
               size="lg"
               variant="outline"
-              onClick={() => setOpen((v) => !v)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen((v) => !v);
+              }}
               disabled={loading}
             >
               {open ? (
@@ -148,16 +158,20 @@ export function RouteCard({
               )}
             </Button>
             <Button
-              className={cn("w-full", recommended && "btn-glow")}
+              className={cn("w-full", selected && "btn-glow")}
               size="lg"
-              variant={recommended ? "primary" : "secondary"}
-              onClick={onStart}
+              variant={selected ? "primary" : "secondary"}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect();
+                onStart();
+              }}
               disabled={loading}
             >
               {loading ? "Starting…" : (
                 <>
                   Start Trip
-                  {recommended && <ArrowRight className="h-4 w-4" />}
+                  {selected && <ArrowRight className="h-4 w-4" />}
                 </>
               )}
             </Button>

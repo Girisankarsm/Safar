@@ -19,15 +19,21 @@ export function RouteSummaryPanel({ route }: { route: Route | null }) {
           </div>
           <div>
             <p className="text-base font-bold text-white">Safest choice for you tonight</p>
-            <p className="mt-1 max-w-xl text-sm text-[#A1A1AA]">
-              Based on CCTV coverage, lighting, women safety, and night-shift availability.
-            </p>
+            <div className="mt-2 max-w-xl">
+              <p className="text-sm font-semibold text-white/90">Based on:</p>
+              <ul className="mt-2 space-y-1 text-sm text-[#A1A1AA]">
+                <li>• Transit infrastructure</li>
+                <li>• Known CCTV locations</li>
+                <li>• Community reports</li>
+                <li>• Route connectivity</li>
+              </ul>
+            </div>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-6 lg:gap-8">
           <Stat icon={Camera} value={String(cctvCount)} label="CCTV Cameras" />
-          <Stat icon={Sun} value="High" label="Lighting Score" />
+          <Stat icon={Sun} value="High" label="Safety Coverage" />
           <Stat icon={Shield} value="2.4k+" label="Safe Rides Today" />
         </div>
       </div>
