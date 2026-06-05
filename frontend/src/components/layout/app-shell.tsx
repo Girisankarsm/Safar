@@ -41,8 +41,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 className={cn(
                   "group flex items-center justify-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition lg:justify-start lg:py-2.5",
                   active
-                    ? "bg-[#3B82F6] text-white shadow-lg shadow-[#3B82F6]/25"
-                    : "text-[#A1A1AA] hover:bg-[#171717] hover:text-white"
+                    ? "bg-[#3B82F6] !text-white shadow-lg shadow-[#3B82F6]/40 [&_svg]:!text-white"
+                    : "text-[#A1A1AA] hover:bg-[#262626] hover:!text-white"
                 )}
               >
                 <Icon size={20} strokeWidth={active ? 2.5 : 2} className="shrink-0" />

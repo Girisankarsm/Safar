@@ -69,8 +69,14 @@ export function RouteCard({
 
         <WhyRoute route={route} />
 
-        <Button className="mt-6 w-full" size="lg" variant={recommended ? "primary" : "secondary"} onClick={onStart} disabled={loading}>
-          {loading ? "Starting…" : "Start this route"}
+        <Button
+          className="mt-6 w-full !font-bold"
+          size="lg"
+          variant={recommended ? "primary" : "secondary"}
+          onClick={onStart}
+          disabled={loading}
+        >
+          <span className="!text-white">{loading ? "Starting…" : "Start this route"}</span>
         </Button>
       </Card>
     </motion.div>

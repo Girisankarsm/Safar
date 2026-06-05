@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { CITIES } from "@/config/cities";
 import { useCity } from "@/hooks/use-city";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 import { ArrowRight, MapPin, Navigation } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -16,9 +18,10 @@ export function HeroSearch() {
   const [destination, setDestination] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const canSearch = Boolean(source && destination);
 
   async function search() {
-    if (!source || !destination) return;
+    if (!canSearch) return;
     setLoading(true);
     setError("");
     try {
@@ -42,10 +45,15 @@ export function HeroSearch() {
   const places = CITIES[city].quickPlaces;
 
   return (
-    <div className="rounded-3xl border border-[#262626] bg-[#171717] p-6 md:p-8">
-      <div className="space-y-4">
+    <motion.div
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.15 }}
+      className="rounded-3xl border border-[#404040] bg-[#171717] p-6 shadow-2xl shadow-black/40 md:p-8"
+    >
+      <div className="space-y-5">
         <div>
-          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-[#A1A1AA]">From</label>
+          <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-[#A1A1AA]">From</label>
           <div className="relative">
             <MapPin className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#3B82F6]" />
             <Input
@@ -57,7 +65,7 @@ export function HeroSearch() {
           </div>
         </div>
         <div>
-          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-[#A1A1AA]">To</label>
+          <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-[#A1A1AA]">To</label>
           <div className="relative">
             <Navigation className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#3B82F6]" />
             <Input
@@ -70,28 +78,54 @@ export function HeroSearch() {
         </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        {places.map((p) => (
-          <button
+      <p className="mt-4 text-xs font-medium text-[#A1A1AA]">Quick picks — tap to fill</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {places.map((p, i) => (
+          <motion.button
             key={p}
             type="button"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 + i * 0.04 }}
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.96 }}
             onClick={() => (!source ? setSource(p) : setDestination(p))}
-            className="rounded-full border border-[#262626] bg-[#111111] px-4 py-1.5 text-xs font-medium text-[#A1A1AA] transition hover:border-[#3B82F6]/50 hover:text-white"
+            className="rounded-full border-2 border-[#404040] bg-[#262626] px-4 py-2 text-xs font-semibold !text-white transition-colors hover:border-[#3B82F6] hover:bg-[#3B82F6]/20"
           >
             {p}
-          </button>
+          </motion.button>
         ))}
       </div>
 
-      {error && <p className="mt-4 text-sm text-[#EF4444]">{error}</p>}
+      {error && <p className="mt-4 text-sm font-medium text-[#EF4444]">{error}</p>}
 
-      <Button className="mt-6 w-full" size="lg" onClick={search} disabled={loading || !source || !destination}>
-        {loading ? "Finding routes…" : (
-          <>
-            Compare Routes <ArrowRight className="h-5 w-5" />
-          </>
+      <motion.div
+        className="mt-8"
+        whileHover={canSearch ? { scale: 1.01 } : {}}
+        whileTap={canSearch ? { scale: 0.98 } : {}}
+      >
+        <Button
+          className={cn(
+            "w-full !text-base !font-bold",
+            canSearch && !loading && "btn-glow"
+          )}
+          size="lg"
+          onClick={search}
+          disabled={loading || !canSearch}
+        >
+          {loading ? (
+            <span className="!text-white">Finding routes…</span>
+          ) : (
+            <span className="flex items-center gap-2 !text-white">
+              Compare Routes
+              <ArrowRight className="h-5 w-5 !text-white" />
+            </span>
+          )}
+        </Button>
+        {!canSearch && (
+          <p className="mt-3 text-center text-xs text-[#A1A1AA]">Enter both locations to compare routes</p>
         )}
-      </Button>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
