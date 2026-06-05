@@ -57,23 +57,39 @@ export default function LiveTripPage() {
   }, [id, setTripId]);
 
   useEffect(() => {
-    Promise.all([api.cctv(city), api.reports(city), api.transitStops(city)]).then(([c, r, t]) => {
+    let alive = true;
+
+    (async () => {
+      const [c, r] = await Promise.all([api.cctv(city), api.reports(city)]);
+      if (!alive) return;
       setCctvNodes(c.nodes ?? []);
       setReports(r.reports);
-      const allStops = [
-        ...t.metro_stops.map((s) => ({
-          ...s,
-          mode: "metro",
-          well_lit: true,
-        })),
-        ...t.bus_stops.map((s) => ({
-          ...s,
-          mode: "bus",
-          well_lit: s.night_service,
-        })),
-      ];
-      setStops(allStops);
-    });
+
+      try {
+        const t = await api.transitStops(city);
+        if (!alive) return;
+        const allStops = [
+          ...t.metro_stops.map((s) => ({
+            ...s,
+            mode: "metro",
+            well_lit: true,
+          })),
+          ...t.bus_stops.map((s) => ({
+            ...s,
+            mode: "bus",
+            well_lit: s.night_service,
+          })),
+        ];
+        setStops(allStops);
+      } catch {
+        // Stops are optional for this view; CCTV/reports should still load.
+        setStops([]);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
   }, [city]);
 
   const pushLocation = useCallback(async () => {

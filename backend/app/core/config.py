@@ -1,4 +1,11 @@
-from pydantic_settings import BaseSettings
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_ENV_FILE = _REPO_ROOT / ".env"
+if not _ENV_FILE.exists():
+    _ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 
 class Settings(BaseSettings):
@@ -15,8 +22,11 @@ class Settings(BaseSettings):
     app_public_url: str = "http://localhost:3000"
     demo_user_id: str = "a0000000-0000-0000-0000-000000000001"
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(
+        env_file=str(_ENV_FILE),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     @property
     def database_enabled(self) -> bool:
