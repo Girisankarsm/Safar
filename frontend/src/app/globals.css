@@ -1,5 +1,22 @@
 @import "tailwindcss";
 
+@theme inline {
+  --color-app: #050505;
+  --color-surface: #111111;
+  --color-card: #171717;
+  --color-border: #262626;
+  --color-border-strong: #404040;
+  --color-foreground: #ffffff;
+  --color-muted: #a1a1aa;
+  --color-accent: #3b82f6;
+  --color-accent-hover: #2563eb;
+  --color-secondary: #111111;
+  --color-success: #22c55e;
+  --color-danger: #ef4444;
+  --font-display: var(--font-plus-jakarta), "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-sans: var(--font-inter), "Inter", system-ui, sans-serif;
+}
+
 :root {
   --bg: #050505;
   --surface: #111111;
@@ -27,12 +44,22 @@ body {
   min-height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-inter), "Inter", system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.025em;
 }
 
 a {
   text-decoration: none;
+  color: inherit;
 }
 
 button {
@@ -44,32 +71,22 @@ button:disabled {
   cursor: not-allowed;
 }
 
-/* Ensure CTA labels stay readable on colored buttons */
-button[class*="3B82F6"],
-button[class*="EF4444"],
-a[class*="3B82F6"] {
-  color: #ffffff !important;
-}
-
-button[class*="3B82F6"] span,
-button[class*="3B82F6"] svg,
-a[class*="3B82F6"] span,
-a[class*="3B82F6"] svg {
-  color: #ffffff !important;
-}
-
-@keyframes btn-glow {
+@keyframes btn-lift {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.45), 0 10px 30px -8px rgba(59, 130, 246, 0.5);
+    box-shadow:
+      0 0 0 0 rgba(59, 130, 246, 0.35),
+      0 10px 30px -8px rgba(59, 130, 246, 0.45);
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.12), 0 14px 36px -6px rgba(59, 130, 246, 0.55);
+    box-shadow:
+      0 0 0 6px rgba(59, 130, 246, 0.12),
+      0 14px 36px -6px rgba(59, 130, 246, 0.55);
   }
 }
 
 .btn-glow {
-  animation: btn-glow 2.4s ease-in-out infinite;
+  animation: btn-lift 2.4s ease-in-out infinite;
 }
 
 .leaflet-container {

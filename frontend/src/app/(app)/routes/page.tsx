@@ -53,7 +53,7 @@ export default function RoutesPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-12">
-        <p className="text-sm font-medium text-[#3B82F6]">Route comparison</p>
+        <p className="text-sm font-semibold text-[#3B82F6]">Route comparison</p>
         <h1 className="mt-2 text-3xl font-bold text-white md:text-4xl">Pick your route</h1>
         {search && (
           <p className="mt-3 text-lg text-[#A1A1AA]">

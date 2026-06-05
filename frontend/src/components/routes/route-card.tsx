@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { safetyTier } from "@/lib/safety-copy";
 import type { Route } from "@/lib/api";
-import { Clock, Leaf, Shield, Zap } from "lucide-react";
+import { ChevronDown, ChevronUp, Clock, Leaf, Shield, Zap } from "lucide-react";
+import { useMemo, useState } from "react";
 
 const META = {
   fastest: { icon: Zap, label: "Fastest", color: "#A1A1AA" },
@@ -29,13 +30,12 @@ export function RouteCard({
   const type = route.route_type as keyof typeof META;
   const meta = META[type] || META.safest;
   const tier = safetyTier(route.safety_score);
+  const [open, setOpen] = useState(false);
+  const legs = useMemo(() => route.legs || [], [route.legs]);
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
-      <Card
-        className={recommended ? "border-[#3B82F6]/40 shadow-xl shadow-[#3B82F6]/10" : ""}
-        hover
-      >
+      <Card className={recommended ? "border-[#3B82F6]/40 shadow-xl shadow-[#3B82F6]/10" : ""} hover>
         {recommended && (
           <span className="mb-4 inline-flex items-center rounded-full bg-[#3B82F6] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
             Recommended
@@ -46,7 +46,7 @@ export function RouteCard({
           <div className="flex items-start gap-3">
             <div
               className="flex h-11 w-11 items-center justify-center rounded-xl"
-              style={{ backgroundColor: `${meta.color}20` }}
+              style={{ backgroundColor: `${meta.color}18` }}
             >
               <meta.icon className="h-5 w-5" style={{ color: meta.color }} />
             </div>
@@ -67,17 +67,50 @@ export function RouteCard({
           <Metric label="GreenMiles" value={`+${route.reward_tokens}`} accent="#22C55E" />
         </div>
 
+        {open && (
+          <div className="mt-5 rounded-2xl border border-[#262626] bg-[#111111] p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#A1A1AA]">Route steps</p>
+            <ol className="mt-3 space-y-2">
+              {legs.map((l, idx) => (
+                <li key={`${l.mode}-${idx}`} className="flex items-start justify-between gap-3 text-sm">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-white">
+                      {l.from} → {l.to}
+                    </p>
+                    <p className="mt-0.5 text-xs text-[#A1A1AA]">
+                      {l.mode.toUpperCase()}
+                      {l.women_only_coach ? " · Women coach" : ""}
+                      {l.well_lit_stop ? " · Well-lit" : ""}
+                      {l.night_service ? " · Night service" : ""}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-[#262626] bg-[#171717] px-3 py-1 text-xs font-semibold text-white">
+                    {l.duration_min}m
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
         <WhyRoute route={route} />
 
-        <Button
-          className="mt-6 w-full !font-bold"
-          size="lg"
-          variant={recommended ? "primary" : "secondary"}
-          onClick={onStart}
-          disabled={loading}
-        >
-          <span className="!text-white">{loading ? "Starting…" : "Start this route"}</span>
-        </Button>
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <Button className="w-full" size="lg" variant="outline" onClick={() => setOpen((v) => !v)} disabled={loading}>
+            {open ? (
+              <>
+                Hide Route <ChevronUp className="h-4 w-4" />
+              </>
+            ) : (
+              <>
+                View Route <ChevronDown className="h-4 w-4" />
+              </>
+            )}
+          </Button>
+          <Button className="w-full" size="lg" variant={recommended ? "primary" : "secondary"} onClick={onStart} disabled={loading}>
+            {loading ? "Starting…" : "Start Trip"}
+          </Button>
+        </div>
       </Card>
     </motion.div>
   );

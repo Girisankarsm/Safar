@@ -15,14 +15,14 @@ export default function WalletPage() {
 
   return (
     <div className="mx-auto max-w-lg">
-      <p className="text-sm font-medium text-[#3B82F6]">Rewards</p>
+      <p className="text-sm font-semibold text-[#3B82F6]">Rewards</p>
       <h1 className="mt-2 text-3xl font-bold text-white md:text-4xl">GreenMiles</h1>
       <p className="mt-2 text-[#A1A1AA]">Earn tokens for every safer green trip.</p>
 
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mt-10 rounded-3xl border border-[#262626] bg-[#171717] p-10 text-center"
+        className="mt-10 rounded-3xl border border-[#262626] bg-[#171717] p-10 text-center shadow-2xl shadow-black/40"
       >
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#22C55E]/15">
           <Leaf className="h-7 w-7 text-[#22C55E]" />
@@ -32,11 +32,11 @@ export default function WalletPage() {
       </motion.div>
 
       <div className="mt-6 grid grid-cols-2 gap-4">
-        <div className="rounded-2xl border border-[#262626] bg-[#171717] p-5">
+        <div className="rounded-2xl border border-[#262626] bg-[#171717] p-5 shadow-sm shadow-black/30">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A1A1AA]">Lifetime</p>
           <p className="mt-2 text-2xl font-bold text-white">{wallet?.lifetime_tokens ?? "—"}</p>
         </div>
-        <div className="rounded-2xl border border-[#262626] bg-[#171717] p-5">
+        <div className="rounded-2xl border border-[#262626] bg-[#171717] p-5 shadow-sm shadow-black/30">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A1A1AA]">CO₂ saved</p>
           <p className="mt-2 text-2xl font-bold text-[#22C55E]">{wallet?.lifetime_co2_kg ?? "—"} kg</p>
         </div>

@@ -5,14 +5,14 @@ type Variant = "primary" | "secondary" | "ghost" | "danger" | "outline";
 
 const styles: Record<Variant, string> = {
   primary:
-    "bg-[#3B82F6] !text-white hover:bg-[#2563EB] shadow-lg shadow-[#3B82F6]/40 border border-[#60A5FA]/30 [&_svg]:!text-white [&_span]:!text-white disabled:bg-[#1e40af] disabled:!text-white disabled:opacity-100 disabled:shadow-none",
+    "bg-[#3B82F6] !text-white hover:bg-[#2563EB] shadow-lg shadow-[#3B82F6]/35 border border-[#60A5FA]/30 [&_svg]:!text-white [&_span]:!text-white disabled:bg-[#1e40af] disabled:opacity-100 disabled:shadow-none",
   secondary:
-    "bg-[#262626] !text-white border-2 border-[#404040] hover:border-[#3B82F6] hover:bg-[#333333] [&_svg]:!text-white",
+    "bg-[#171717] !text-white border-2 border-[#262626] hover:border-[#3B82F6]/55 hover:bg-[#1a1a1a] [&_svg]:!text-white [&_span]:!text-white",
   ghost: "bg-transparent !text-[#A1A1AA] hover:!text-white hover:bg-white/8",
   danger:
-    "bg-[#EF4444] !text-white hover:bg-[#dc2626] shadow-lg shadow-[#EF4444]/30 [&_svg]:!text-white",
+    "bg-[#EF4444] !text-white hover:bg-[#dc2626] shadow-lg shadow-[#EF4444]/25 [&_svg]:!text-white",
   outline:
-    "bg-[#111111] !text-white border-2 border-[#404040] hover:border-[#3B82F6] hover:bg-[#1a1a1a] [&_svg]:!text-white",
+    "bg-[#111111] !text-white border-2 border-[#262626] hover:border-[#3B82F6]/55 hover:bg-[#171717] [&_svg]:!text-white",
 };
 
 type BtnProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -30,8 +30,7 @@ export function Button({ className, variant = "primary", size = "md", ...props }
     <button
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-xl font-bold tracking-wide transition-all duration-200",
-        "active:scale-[0.97] hover:scale-[1.01] disabled:scale-100",
-        "disabled:opacity-80 disabled:cursor-not-allowed",
+        "active:scale-[0.97] hover:scale-[1.01] disabled:scale-100 disabled:cursor-not-allowed",
         styles[variant],
         sizes[size],
         className
