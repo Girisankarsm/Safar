@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: safarai
+      POSTGRES_PASSWORD: safarai
+      POSTGRES_DB: safarai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql
+      - ./database/seeds/hyderabad_seed.sql:/docker-entrypoint-initdb.d/002_seed.sql
+
+volumes:
+  pgdata:
