@@ -69,6 +69,7 @@ export default function RoutesPage() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
+            className="h-full"
           >
             <RouteCard
               route={r}

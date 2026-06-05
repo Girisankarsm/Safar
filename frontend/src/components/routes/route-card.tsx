@@ -6,6 +6,7 @@ import { SafetyScore } from "@/components/safety/safety-score";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { safetyTier } from "@/lib/safety-copy";
+import { cn } from "@/lib/utils";
 import type { Route } from "@/lib/api";
 import { ChevronDown, ChevronUp, Clock, Leaf, Shield, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -34,8 +35,19 @@ export function RouteCard({
   const legs = useMemo(() => route.legs || [], [route.legs]);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
-      <Card className={recommended ? "border-[#3B82F6]/40 shadow-xl shadow-[#3B82F6]/10" : ""} hover>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45 }}
+      className="h-full"
+    >
+      <Card
+        className={cn(
+          "flex h-full flex-col",
+          recommended ? "border-[#3B82F6]/40 shadow-xl shadow-[#3B82F6]/10" : ""
+        )}
+        hover
+      >
         {recommended && (
           <span className="mb-4 inline-flex items-center rounded-full bg-[#3B82F6] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
             Recommended
@@ -50,9 +62,9 @@ export function RouteCard({
             >
               <meta.icon className="h-5 w-5" style={{ color: meta.color }} />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xl font-bold text-white">{meta.label}</p>
-              <p className="mt-1 text-sm text-[#A1A1AA]">
+              <p className="mt-1 line-clamp-2 text-sm text-[#A1A1AA]">
                 {route.source} → {route.destination}
               </p>
             </div>
@@ -95,7 +107,8 @@ export function RouteCard({
 
         <WhyRoute route={route} />
 
-        <div className="mt-6 grid grid-cols-2 gap-3">
+        <div className="mt-auto pt-6">
+          <div className="grid grid-cols-2 gap-3">
           <Button className="w-full" size="lg" variant="outline" onClick={() => setOpen((v) => !v)} disabled={loading}>
             {open ? (
               <>
@@ -110,6 +123,7 @@ export function RouteCard({
           <Button className="w-full" size="lg" variant={recommended ? "primary" : "secondary"} onClick={onStart} disabled={loading}>
             {loading ? "Starting…" : "Start Trip"}
           </Button>
+          </div>
         </div>
       </Card>
     </motion.div>
