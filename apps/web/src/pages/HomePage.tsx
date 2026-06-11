@@ -23,7 +23,7 @@ export function HomePage() {
       sessionStorage.setItem("safar-search", JSON.stringify({ source, destination }));
       navigate("/routes");
     } catch (e) {
-      console.error(e);
+      alert(e instanceof Error ? e.message : "Route search failed");
     } finally {
       setLoading(false);
     }

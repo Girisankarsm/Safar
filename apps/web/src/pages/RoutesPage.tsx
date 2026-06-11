@@ -1,9 +1,10 @@
+import { RouteMap } from "@/components/map/RouteMap";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { tripsService } from "@/services/supabase/trips.service";
 import { useCityStore } from "@/stores/city.store";
 import type { PlannedRoute, RouteType } from "@/types/database";
-import { Clock, IndianRupee, Shield } from "lucide-react";
+import { Clock, IndianRupee, MapPin, Shield } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -19,12 +20,17 @@ export function RoutesPage() {
   const navigate = useNavigate();
   const [routes, setRoutes] = useState<PlannedRoute[]>([]);
   const [search, setSearch] = useState<{ source: string; destination: string } | null>(null);
+  const [selected, setSelected] = useState<PlannedRoute | null>(null);
   const [starting, setStarting] = useState(false);
 
   useEffect(() => {
     const cached = sessionStorage.getItem("safar-routes");
     const s = sessionStorage.getItem("safar-search");
-    if (cached) setRoutes(JSON.parse(cached));
+    if (cached) {
+      const parsed = JSON.parse(cached) as PlannedRoute[];
+      setRoutes(parsed);
+      setSelected(parsed[0] ?? null);
+    }
     if (s) setSearch(JSON.parse(s));
   }, []);
 
@@ -43,9 +49,9 @@ export function RoutesPage() {
 
   if (!routes.length) {
     return (
-      <div className="text-center py-20">
+      <div className="py-20 text-center">
         <h1 className="text-2xl font-bold text-white">No routes yet</h1>
-        <Link to="/home" className="text-[#3B82F6] mt-4 inline-block">Search from dashboard →</Link>
+        <Link to="/home" className="mt-4 inline-block text-[#3B82F6]">Search from dashboard →</Link>
       </div>
     );
   }
@@ -54,23 +60,39 @@ export function RoutesPage() {
     <div className="mx-auto max-w-6xl space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-white">Pick your route</h1>
-        {search && <p className="text-[#A1A1AA] mt-1">{search.source} → {search.destination}</p>}
+        {search && <p className="mt-1 text-[#A1A1AA]">{search.source} → {search.destination}</p>}
+        <p className="mt-1 text-xs text-[#71717A]">Routes from OpenRouteService · Safety scored with live OSM + community data</p>
       </div>
+
+      {selected && (
+        <RouteMap
+          geometry={selected.geometry}
+          source={{ lat: selected.source_lat, lng: selected.source_lng }}
+          destination={{ lat: selected.dest_lat, lng: selected.dest_lng }}
+        />
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {routes.map((r) => (
-          <Card key={r.route_type} className="flex flex-col">
+          <Card
+            key={r.route_type}
+            className={`flex cursor-pointer flex-col transition ${selected?.route_type === r.route_type ? "border-[#3B82F6]/50 ring-1 ring-[#3B82F6]/30" : ""}`}
+            onClick={() => setSelected(r)}
+          >
             <div className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-[#3B82F6]" />
               <p className="font-bold text-white">{LABELS[r.route_type]}</p>
             </div>
-            <p className="mt-3 text-3xl font-bold text-white">{r.safety_score}<span className="text-sm text-[#A1A1AA]">/100</span></p>
-            <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-              <span className="flex items-center gap-1 text-[#A1A1AA]"><Clock className="h-3 w-3" />{r.eta_minutes} min</span>
-              <span className="flex items-center gap-1 text-[#A1A1AA]"><IndianRupee className="h-3 w-3" />₹{r.estimated_cost_inr}</span>
-              <span className="text-[#A1A1AA]">Walk {r.walking_distance_km} km</span>
-              <span className="text-[#A1A1AA]">{r.transfer_count} transfers</span>
+            <p className="mt-3 text-3xl font-bold text-white">
+              {r.safety_score}<span className="text-sm text-[#A1A1AA]">/100</span>
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-[#A1A1AA]">
+              <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{r.eta_minutes} min</span>
+              <span className="flex items-center gap-1"><IndianRupee className="h-3 w-3" />₹{r.estimated_cost_inr}</span>
+              <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{r.distance_km} km</span>
+              <span>{r.transfer_count} transfers</span>
             </div>
-            <Button className="mt-auto pt-4 w-full" onClick={() => startTrip(r)} disabled={starting}>
+            <Button className="mt-4 w-full" onClick={(e) => { e.stopPropagation(); startTrip(r); }} disabled={starting}>
               Start trip
             </Button>
           </Card>

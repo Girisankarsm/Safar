@@ -15,18 +15,17 @@ export type ReportType =
 
 export type RouteType = "safest" | "cheapest" | "balanced" | "women_friendly";
 
-export type ZoneType = "safe" | "moderate" | "high_risk";
-
-export type SpotType =
+export type OsmPlaceType =
+  | "hospital"
+  | "police"
   | "petrol_pump"
   | "pharmacy"
-  | "metro"
   | "railway"
-  | "police"
-  | "hospital"
+  | "metro"
+  | "bus_stop"
   | "store";
 
-export interface UserProfile {
+export type UserProfile {
   id: string;
   email: string;
   full_name: string | null;
@@ -55,24 +54,15 @@ export interface SafetyReport {
   created_at: string;
 }
 
-export interface SafetyZone {
-  id: string;
-  city_id: CityId;
-  zone_type: ZoneType;
-  label: string;
-  latitude: number;
-  longitude: number;
-  risk_weight: number;
-}
-
 export interface SafeWaitingSpot {
   id: string;
   city_id: CityId;
-  spot_type: SpotType;
+  spot_type: OsmPlaceType | "store";
   name: string;
   latitude: number;
   longitude: number;
   is_24x7: boolean;
+  safe_waiting_score?: number;
   distance_m?: number;
 }
 
@@ -150,8 +140,10 @@ export interface Database {
       cities: { Row: { id: string; name: string; center_lat: number; center_lng: number } };
       users: { Row: UserProfile };
       safety_reports: { Row: SafetyReport };
-      safety_zones: { Row: SafetyZone };
       safe_waiting_spots: { Row: SafeWaitingSpot };
+      osm_places: { Row: Record<string, unknown> };
+      location_cache: { Row: Record<string, unknown> };
+      route_cache: { Row: Record<string, unknown> };
       trips: { Row: Trip };
       emergency_contacts: { Row: EmergencyContact };
       notifications: { Row: Notification };
