@@ -55,6 +55,10 @@ export function SafetyHeatmap({
   }, [center.lat, center.lng]);
 
   useEffect(() => {
+    mapRef.current?.setView([center.lat, center.lng], 12);
+  }, [center.lat, center.lng]);
+
+  useEffect(() => {
     const map = mapRef.current;
     const overlay = overlayRef.current;
     if (!map || !overlay) return;

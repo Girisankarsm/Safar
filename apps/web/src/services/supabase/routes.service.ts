@@ -1,8 +1,8 @@
 import { IS_DEMO_MODE, ORS_API_KEY } from "@/lib/config";
+import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import { cacheKey, haversineM, sampleLineString } from "@/lib/geo";
 import { supabase } from "@/lib/supabase/client";
-import { nominatimService } from "@/services/osm/nominatim.service";
-import { placesService } from "@/services/supabase/places.service";
+import { nominatimService, type GeocodedPlace } from "@/services/osm/nominatim.service";
 import { reportsService } from "@/services/supabase/reports.service";
 import { routeCacheService } from "@/services/supabase/route-cache.service";
 import type { CityId, PlannedRoute, RouteType, SafetyBreakdownItem } from "@/types/database";
@@ -13,6 +13,46 @@ type OrsResult = {
   geometry: GeoJSON.LineString;
 };
 
+type VariantConfig = {
+  type: RouteType;
+  profile: string;
+  preference: string;
+  costMul: number;
+  orsKey: string;
+};
+
+const VARIANTS: VariantConfig[] = [
+  { type: "balanced", profile: "driving-car", preference: "recommended", costMul: 1, orsKey: "drive-rec" },
+  { type: "safest", profile: "driving-car", preference: "recommended", costMul: 1.08, orsKey: "drive-rec" },
+  { type: "cheapest", profile: "driving-car", preference: "shortest", costMul: 0.75, orsKey: "drive-short" },
+  { type: "women_friendly", profile: "foot-walking", preference: "recommended", costMul: 1.02, orsKey: "walk-rec" },
+];
+
+const UNIQUE_ORS = [
+  { key: "drive-rec", profile: "driving-car", preference: "recommended" },
+  { key: "drive-short", profile: "driving-car", preference: "shortest" },
+  { key: "walk-rec", profile: "foot-walking", preference: "recommended" },
+] as const;
+
+function straightLineRoute(
+  src: { lat: number; lng: number },
+  dst: { lat: number; lng: number }
+): OrsResult {
+  const distM = haversineM(src.lat, src.lng, dst.lat, dst.lng);
+  const distance_km = Math.round((distM / 1000) * 100) / 100;
+  return {
+    distance_km,
+    duration_min: Math.max(5, Math.round(distance_km * 3.2)),
+    geometry: {
+      type: "LineString",
+      coordinates: [
+        [src.lng, src.lat],
+        [dst.lng, dst.lat],
+      ],
+    },
+  };
+}
+
 async function fetchORS(
   start: [number, number],
   end: [number, number],
@@ -21,11 +61,15 @@ async function fetchORS(
 ): Promise<OrsResult | null> {
   if (!ORS_API_KEY) return null;
   try {
-    const res = await fetch(`https://api.openrouteservice.org/v2/directions/${profile}/geojson`, {
-      method: "POST",
-      headers: { Authorization: ORS_API_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({ coordinates: [start, end], preference, units: "km" }),
-    });
+    const res = await fetchWithTimeout(
+      `https://api.openrouteservice.org/v2/directions/${profile}/geojson`,
+      {
+        method: "POST",
+        headers: { Authorization: ORS_API_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ coordinates: [start, end], preference, units: "km" }),
+        timeoutMs: 12_000,
+      }
+    );
     if (!res.ok) return null;
     const json = await res.json();
     const f = json.features?.[0];
@@ -38,6 +82,46 @@ async function fetchORS(
   } catch {
     return null;
   }
+}
+
+async function resolveOrsRoute(
+  src: GeocodedPlace,
+  dst: GeocodedPlace,
+  profile: string,
+  preference: string,
+  routeKey: string
+): Promise<OrsResult> {
+  const cKey = cacheKey([
+    routeKey,
+    profile,
+    src.lat.toFixed(4),
+    src.lng.toFixed(4),
+    dst.lat.toFixed(4),
+    dst.lng.toFixed(4),
+  ]);
+
+  const cached = await routeCacheService.get(cKey);
+  if (cached) return cached;
+
+  if (!IS_DEMO_MODE) {
+    const fresh = await fetchORS([src.lng, src.lat], [dst.lng, dst.lat], profile, preference);
+    if (fresh) {
+      void routeCacheService.set(cKey, {
+        source_lat: src.lat,
+        source_lng: src.lng,
+        dest_lat: dst.lat,
+        dest_lng: dst.lng,
+        route_type: "balanced",
+        ors_profile: profile,
+        distance_km: fresh.distance_km,
+        duration_min: fresh.duration_min,
+        geometry: fresh.geometry,
+      });
+      return fresh;
+    }
+  }
+
+  return straightLineRoute(src, dst);
 }
 
 function countReportsNearRoute(
@@ -58,13 +142,20 @@ function countReportsNearRoute(
   return near;
 }
 
-async function scoreRouteLive(
+function estimatePoiCounts(distanceKm: number) {
+  return {
+    police: Math.min(6, Math.max(1, Math.round(distanceKm / 4))),
+    hospitals: Math.min(5, Math.max(1, Math.round(distanceKm / 6))),
+  };
+}
+
+function scoreRoute(
   distanceKm: number,
   routeType: RouteType,
   reportsNear: number,
   policeNear: number,
   hospitalsNear: number
-): Promise<{ score: number; breakdown: SafetyBreakdownItem[] }> {
+): { score: number; breakdown: SafetyBreakdownItem[] } {
   const community = Math.max(15, 100 - reportsNear * 12);
   const popularity = Math.min(95, 50 + distanceKm * 1.5);
   const police = Math.min(98, 40 + policeNear * 8);
@@ -91,157 +182,120 @@ async function scoreRouteLive(
   };
 }
 
-const VARIANTS: { type: RouteType; profile: string; preference: string; costMul: number }[] = [
-  { type: "balanced", profile: "driving-car", preference: "recommended", costMul: 1 },
-  { type: "safest", profile: "driving-car", preference: "recommended", costMul: 1.08 },
-  { type: "cheapest", profile: "driving-car", preference: "shortest", costMul: 0.75 },
-  { type: "women_friendly", profile: "foot-walking", preference: "recommended", costMul: 1.02 },
-];
+function buildPlannedRoute(
+  v: VariantConfig,
+  src: GeocodedPlace,
+  dst: GeocodedPlace,
+  ors: OrsResult,
+  reportsNear: number,
+  policeNear: number,
+  hospitalsNear: number
+): PlannedRoute {
+  const { score, breakdown } = scoreRoute(ors.distance_km, v.type, reportsNear, policeNear, hospitalsNear);
+  const baseCost = Math.max(15, Math.round(20 + ors.distance_km * 10 * v.costMul));
+  const routedVia = ORS_API_KEY && !IS_DEMO_MODE ? "OpenRouteService" : "direct corridor estimate";
+
+  return {
+    route_type: v.type,
+    source_name: src.name,
+    destination_name: dst.name,
+    source_lat: src.lat,
+    source_lng: src.lng,
+    dest_lat: dst.lat,
+    dest_lng: dst.lng,
+    legs: [
+      {
+        mode: v.profile === "foot-walking" ? "walk" : v.type === "cheapest" ? "bus" : "metro",
+        from: src.display_name ?? src.name,
+        to: dst.display_name ?? dst.name,
+        duration_min: ors.duration_min,
+        distance_km: ors.distance_km,
+      },
+    ],
+    safety_score: score,
+    safety_breakdown: breakdown,
+    distance_km: ors.distance_km,
+    eta_minutes: ors.duration_min,
+    estimated_cost_inr: baseCost,
+    reliability_score: Math.min(98, 68 + policeNear * 3),
+    crowd_level: ors.duration_min < 25 ? "High" : "Moderate",
+    walking_distance_km:
+      v.profile === "foot-walking" ? ors.distance_km : Math.round(ors.distance_km * 0.1 * 100) / 100,
+    transfer_count: v.type === "cheapest" ? 1 : 0,
+    geometry: ors.geometry,
+    recommendations: [
+      reportsNear > 0 ? `${reportsNear} community report(s) near corridor` : "No recent reports on this corridor",
+      policeNear > 0 ? `~${policeNear} police POIs estimated along route` : "Limited police proximity data",
+      `Routed via ${routedVia}`,
+    ],
+  };
+}
+
+function persistRoutes(userId: string, cityId: CityId, routes: PlannedRoute[]) {
+  void Promise.all(
+    routes.map((r) =>
+      supabase.from("routes").insert({
+        user_id: userId,
+        city_id: cityId,
+        route_type: r.route_type,
+        source_name: r.source_name,
+        destination_name: r.destination_name,
+        source_lat: r.source_lat,
+        source_lng: r.source_lng,
+        dest_lat: r.dest_lat,
+        dest_lng: r.dest_lng,
+        legs: r.legs,
+        safety_score: r.safety_score,
+        safety_breakdown: r.safety_breakdown,
+        distance_km: r.distance_km,
+        eta_minutes: r.eta_minutes,
+        estimated_cost_inr: r.estimated_cost_inr,
+        reliability_score: r.reliability_score,
+        crowd_level: r.crowd_level,
+        walking_distance_km: r.walking_distance_km,
+        transfer_count: r.transfer_count,
+        geometry: r.geometry,
+      })
+    )
+  );
+}
 
 export const routesService = {
   geocode: nominatimService.geocode,
 
-  async searchRoutes(source: string, destination: string, cityId: CityId): Promise<PlannedRoute[]> {
+  async searchRoutes(
+    source: string,
+    destination: string,
+    cityId: CityId,
+    resolved?: { source?: GeocodedPlace; destination?: GeocodedPlace }
+  ): Promise<PlannedRoute[]> {
     const [src, dst, allReports] = await Promise.all([
-      nominatimService.geocode(source, cityId),
-      nominatimService.geocode(destination, cityId),
-      reportsService.listByCity(cityId, 100),
+      resolved?.source ?? nominatimService.geocode(source, cityId),
+      resolved?.destination ?? nominatimService.geocode(destination, cityId),
+      reportsService.listByCity(cityId, 100).catch(() => []),
     ]);
 
-    const routes: PlannedRoute[] = [];
+    const orsEntries = await Promise.all(
+      UNIQUE_ORS.map(async (ors) => ({
+        key: ors.key,
+        result: await resolveOrsRoute(src, dst, ors.profile, ors.preference, ors.key),
+      }))
+    );
+    const orsMap = Object.fromEntries(orsEntries.map((e) => [e.key, e.result])) as Record<string, OrsResult>;
 
-    for (const v of VARIANTS) {
-      const cKey = cacheKey([
-        v.type,
-        v.profile,
-        src.lat.toFixed(4),
-        src.lng.toFixed(4),
-        dst.lat.toFixed(4),
-        dst.lng.toFixed(4),
-      ]);
-
-      let ors = await routeCacheService.get(cKey);
-      if (!ors && !IS_DEMO_MODE) {
-        const fresh = await fetchORS([src.lng, src.lat], [dst.lng, dst.lat], v.profile, v.preference);
-        if (fresh) {
-          ors = fresh;
-          await routeCacheService.set(cKey, {
-            source_lat: src.lat,
-            source_lng: src.lng,
-            dest_lat: dst.lat,
-            dest_lng: dst.lng,
-            route_type: v.type,
-            ors_profile: v.profile,
-            distance_km: fresh.distance_km,
-            duration_min: fresh.duration_min,
-            geometry: fresh.geometry,
-          });
-        }
-      }
-
-      if (!ors && IS_DEMO_MODE) {
-        const distM = haversineM(src.lat, src.lng, dst.lat, dst.lng);
-        const distance_km = Math.round((distM / 1000) * 100) / 100;
-        ors = {
-          distance_km,
-          duration_min: Math.round(distance_km * 3.2),
-          geometry: {
-            type: "LineString",
-            coordinates: [
-              [src.lng, src.lat],
-              [dst.lng, dst.lat],
-            ],
-          },
-        };
-      }
-
-      if (!ors) {
-        throw new Error(
-          "Could not generate route. Add VITE_OPENROUTESERVICE_API_KEY or set VITE_DEMO_MODE=true for local fallback."
-        );
-      }
-
-      const samples = sampleLineString(ors.geometry);
+    const routes = VARIANTS.map((v) => {
+      const ors = orsMap[v.orsKey] ?? straightLineRoute(src, dst);
+      const samples = sampleLineString(ors.geometry, 8);
       const reportsNear = countReportsNearRoute(allReports, samples);
-      const [policeNear, hospitalsNear] = IS_DEMO_MODE
-        ? [2, 1]
-        : await Promise.all([
-            placesService.countPlacesNearRoute(samples, cityId, "police"),
-            placesService.countPlacesNearRoute(samples, cityId, "hospital"),
-          ]);
+      const { police, hospitals } = estimatePoiCounts(ors.distance_km);
 
-      const { score, breakdown } = await scoreRouteLive(
-        ors.distance_km,
-        v.type,
-        reportsNear,
-        policeNear,
-        hospitalsNear
-      );
+      return buildPlannedRoute(v, src, dst, ors, reportsNear, police, hospitals);
+    });
 
-      const baseCost = Math.max(15, Math.round(20 + ors.distance_km * 10 * v.costMul));
-
-      routes.push({
-        route_type: v.type,
-        source_name: src.name,
-        destination_name: dst.name,
-        source_lat: src.lat,
-        source_lng: src.lng,
-        dest_lat: dst.lat,
-        dest_lng: dst.lng,
-        legs: [
-          {
-            mode: v.profile === "foot-walking" ? "walk" : v.type === "cheapest" ? "bus" : "metro",
-            from: src.display_name ?? src.name,
-            to: dst.display_name ?? dst.name,
-            duration_min: ors.duration_min,
-            distance_km: ors.distance_km,
-          },
-        ],
-        safety_score: score,
-        safety_breakdown: breakdown,
-        distance_km: ors.distance_km,
-        eta_minutes: ors.duration_min,
-        estimated_cost_inr: baseCost,
-        reliability_score: Math.min(98, 68 + policeNear * 3),
-        crowd_level: ors.duration_min < 25 ? "High" : "Moderate",
-        walking_distance_km: v.profile === "foot-walking" ? ors.distance_km : Math.round(ors.distance_km * 0.1 * 100) / 100,
-        transfer_count: v.type === "cheapest" ? 1 : 0,
-        geometry: ors.geometry,
-        recommendations: [
-          reportsNear > 0 ? `${reportsNear} community report(s) near corridor` : "No recent reports on this corridor",
-          policeNear > 0 ? `${policeNear} police POIs sampled along route` : "Limited police proximity data",
-          `Geocoded via ${src.source} · Routed via OpenRouteService`,
-        ],
-      });
-    }
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      for (const r of routes) {
-        await supabase.from("routes").insert({
-          user_id: user.id,
-          city_id: cityId,
-          route_type: r.route_type,
-          source_name: r.source_name,
-          destination_name: r.destination_name,
-          source_lat: r.source_lat,
-          source_lng: r.source_lng,
-          dest_lat: r.dest_lat,
-          dest_lng: r.dest_lng,
-          legs: r.legs,
-          safety_score: r.safety_score,
-          safety_breakdown: r.safety_breakdown,
-          distance_km: r.distance_km,
-          eta_minutes: r.eta_minutes,
-          estimated_cost_inr: r.estimated_cost_inr,
-          reliability_score: r.reliability_score,
-          crowd_level: r.crowd_level,
-          walking_distance_km: r.walking_distance_km,
-          transfer_count: r.transfer_count,
-          geometry: r.geometry,
-        });
-      }
-    }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) persistRoutes(user.id, cityId, routes);
 
     return routes;
   },

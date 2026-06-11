@@ -46,7 +46,7 @@ export const authService = {
       provider: "google",
       options: {
         redirectTo: getRedirectUrl("/login"),
-        queryParams: { access_type: "offline", prompt: "consent" },
+        queryParams: { access_type: "offline" },
       },
     });
     if (error) throw error;

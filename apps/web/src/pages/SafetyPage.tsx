@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { IS_DEMO_MODE } from "@/lib/config";
-import { DEMO_CITY_CENTERS } from "@/lib/demo-data";
+import { getCityConfig } from "@/config/cities";
 import { heatmapService, type HeatmapPoint } from "@/services/supabase/heatmap.service";
 import { placesService } from "@/services/supabase/places.service";
 import { reportsService } from "@/services/supabase/reports.service";
@@ -25,12 +25,17 @@ export function SafetyPage() {
   const { city } = useCityStore();
   const [heatPoints, setHeatPoints] = useState<HeatmapPoint[]>([]);
   const [reports, setReports] = useState<SafetyReport[]>([]);
-  const [center, setCenter] = useState(DEMO_CITY_CENTERS[city]);
+  const [center, setCenter] = useState(() => {
+    const c = getCityConfig(city);
+    return { lat: c.center_lat, lng: c.center_lng, name: c.name };
+  });
   const [showForm, setShowForm] = useState(false);
   const [type, setType] = useState<ReportType>("harassment");
   const [desc, setDesc] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     const [heat, r, cities] = await Promise.all([
@@ -45,6 +50,10 @@ export function SafetyPage() {
   }, [city]);
 
   useEffect(() => {
+    const c = getCityConfig(city);
+    setCenter({ lat: c.center_lat, lng: c.center_lng, name: c.name });
+    setCoords(null);
+    setShowForm(false);
     load();
     navigator.geolocation?.getCurrentPosition((p) =>
       setCoords({ lat: p.coords.latitude, lng: p.coords.longitude })
@@ -54,22 +63,30 @@ export function SafetyPage() {
   }, [city, load]);
 
   async function submit() {
-    const lat = coords?.lat ?? center.lat;
-    const lng = coords?.lng ?? center.lng;
-    let image_url: string | undefined;
-    if (file) image_url = await storageService.uploadReportImage(file);
-    await reportsService.create({
-      city_id: city,
-      report_type: type,
-      description: desc,
-      latitude: lat,
-      longitude: lng,
-      image_url,
-    });
-    setShowForm(false);
-    setDesc("");
-    setFile(null);
-    load();
+    setError("");
+    setSubmitting(true);
+    try {
+      const lat = coords?.lat ?? center.lat;
+      const lng = coords?.lng ?? center.lng;
+      let image_url: string | undefined;
+      if (file) image_url = await storageService.uploadReportImage(file);
+      await reportsService.create({
+        city_id: city,
+        report_type: type,
+        description: desc,
+        latitude: lat,
+        longitude: lng,
+        image_url,
+      });
+      setShowForm(false);
+      setDesc("");
+      setFile(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not submit report");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -117,9 +134,14 @@ export function SafetyPage() {
           </div>
           <Input placeholder="Description" value={desc} onChange={(e) => setDesc(e.target.value)} />
           <input type="file" accept="image/*" className="mt-3 text-sm text-[#A1A1AA]" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          {error && <p className="mt-3 text-sm text-[#EF4444]">{error}</p>}
           <div className="mt-4 flex gap-2">
-            <Button onClick={submit}>Submit</Button>
-            <Button variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
+            <Button onClick={submit} disabled={submitting}>
+              {submitting ? "Submitting…" : "Submit"}
+            </Button>
+            <Button variant="ghost" onClick={() => setShowForm(false)} disabled={submitting}>
+              Cancel
+            </Button>
           </div>
         </Card>
       )}

@@ -6,10 +6,10 @@ type Variant = "primary" | "secondary" | "ghost" | "danger" | "outline";
 const styles: Record<Variant, string> = {
   primary:
     "bg-[#3B82F6] text-white hover:bg-[#2563EB] shadow-lg shadow-[#3B82F6]/35 border border-[#60A5FA]/30",
-  secondary: "bg-[#171717] text-white border-2 border-[#262626] hover:border-[#3B82F6]/55",
+  secondary: "bg-[#18181d] text-white border border-[#2a2a32] hover:border-[#3B82F6]/55 hover:bg-[#1f1f26]",
   ghost: "bg-transparent text-[#A1A1AA] hover:text-white hover:bg-white/8",
-  danger: "bg-[#EF4444] text-white hover:bg-[#dc2626]",
-  outline: "bg-[#111111] text-white border-2 border-[#262626] hover:border-[#3B82F6]/55",
+  danger: "bg-[#EF4444] text-white hover:bg-[#dc2626] shadow-lg shadow-[#EF4444]/20",
+  outline: "bg-transparent text-white border border-[#2a2a32] hover:border-[#3B82F6]/50 hover:bg-[#18181d]/80",
 };
 
 export function Button({

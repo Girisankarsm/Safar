@@ -1,4 +1,4 @@
-import type { Route } from "@/lib/api";
+import type { PlannedRoute } from "@/types/database";
 
 export type SafetyTier = "SAFE" | "MODERATE" | "RISKY";
 
@@ -13,52 +13,37 @@ export function tierColor(tier: SafetyTier) {
 }
 
 /** Generate human-readable bullets from existing route data */
-export function whyThisRoute(route: Route): string[] {
+export function whyThisRoute(route: PlannedRoute): string[] {
   const reasons: string[] = [];
-  const litStops = route.legs.filter((l) => l.well_lit_stop && l.mode !== "walk");
-  const womenCoach = route.legs.some((l) => l.women_only_coach);
-  const metroLegs = route.legs.filter((l) => l.mode === "metro");
 
-  if (litStops.length > 0) {
-    const stop = litStops[0];
-    reasons.push(`Well-lit transfer at ${stop.from}`);
-  }
-  if (womenCoach) {
-    reasons.push("Women-only coach available");
-  }
   if (route.safety_score >= 70) {
-    const estCctv = Math.max(4, Math.round(route.safety_score / 6));
-    reasons.push(`${estCctv} CCTV cameras along corridor`);
+    reasons.push("Strong community safety score along this corridor");
   }
-  if (route.night_safe) {
-    reasons.push("Night-shift service verified");
+  if (route.route_type === "cheapest") {
+    reasons.push("Lowest fare option");
   }
-  if (route.route_type === "cheapest" || route.route_type === "greenest") {
-    reasons.push("Lowest fare via bus & metro");
-    reasons.push("Shared mobility optimized");
-  }
-  if (route.route_type === "balanced" || route.route_type === "fastest") {
+  if (route.route_type === "balanced") {
     reasons.push("Best balance of time and safety");
-    reasons.push("Direct metro connectivity");
   }
   if (route.route_type === "safest") {
-    reasons.push("Highest CCTV & community ratings");
-    reasons.push("Well-traveled corridor");
+    reasons.push("Highest safety weighting applied");
   }
   if (route.route_type === "women_friendly") {
-    reasons.push("Active roads with public visibility");
-    reasons.push("Safe waiting points nearby");
+    reasons.push("Prioritizes well-lit, visible corridors");
   }
-  if (metroLegs.length >= 2) {
-    reasons.push("Minimal street walking");
+  if (route.transfer_count === 0) {
+    reasons.push("Direct route with no transfers");
   }
   if (route.recommendations?.length) {
-    reasons.push("Community-verified corridor");
+    reasons.push(...route.recommendations.slice(0, 2));
   }
 
   return reasons.slice(0, 4);
 }
 
 export function cityDisplayName(city: string) {
-  return city === "chennai" ? "Chennai" : city === "hyderabad" ? "Hyderabad" : city;
+  if (city === "chennai") return "Chennai";
+  if (city === "trivandrum") return "Trivandrum";
+  if (city === "bangalore") return "Bengaluru";
+  return city;
 }

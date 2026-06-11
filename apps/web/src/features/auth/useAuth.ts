@@ -7,13 +7,14 @@ export function useAuth() {
   const { session, profile, loading, setSession, setProfile, setLoading } = useAuthStore();
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const { session: nextSession } = await authService.signIn(email, password);
-    if (nextSession?.user) {
-      const userProfile = await authService.ensureUserProfile(nextSession.user);
+    const { session: nextSession, user } = await authService.signIn(email, password);
+    setSession(nextSession);
+    if (user) {
+      const userProfile = await authService.ensureUserProfile(user);
       setProfile(userProfile);
     }
     return nextSession;
-  }, [setProfile]);
+  }, [setSession, setProfile]);
 
   const signUp = useCallback(async (email: string, password: string, fullName: string) => {
     return authService.signUp(email, password, fullName);

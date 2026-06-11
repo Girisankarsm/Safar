@@ -1,4 +1,5 @@
 import { OVERPASS_URL } from "@/lib/config";
+import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import type { OsmPlaceType } from "@/types/database";
 
 const TYPE_FILTERS: Record<OsmPlaceType, string[]> = {
@@ -29,30 +30,33 @@ function buildQuery(lat: number, lng: number, placeType: OsmPlaceType, radiusM: 
   return `[out:json][timeout:30];\n(\n${filters}\n);\nout center 80;`;
 }
 
-export async function fetchOsmPlacesNear(
-  lat: number,
-  lng: number,
-  placeType: OsmPlaceType,
-  radiusM = 5000
-): Promise<OverpassPlace[]> {
-  const res = await fetch(OVERPASS_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `data=${encodeURIComponent(buildQuery(lat, lng, placeType, radiusM))}`,
-  });
+const EMERGENCY_TYPES: OsmPlaceType[] = [
+  "hospital",
+  "police",
+  "pharmacy",
+  "petrol_pump",
+  "metro",
+  "railway",
+];
 
-  if (!res.ok) throw new Error(`Overpass API error: ${res.status}`);
+function buildCombinedEmergencyQuery(lat: number, lng: number, radiusM: number): string {
+  const filters = EMERGENCY_TYPES.flatMap((placeType) =>
+    TYPE_FILTERS[placeType].map((f) => `  ${f}(around:${radiusM},${lat},${lng});`)
+  ).join("\n");
+  return `[out:json][timeout:15];\n(\n${filters}\n);\nout center 40;`;
+}
 
-  const json = await res.json();
-  const elements: Array<{
+function parseOverpassElements(
+  elements: Array<{
     type: string;
     id: number;
     lat?: number;
     lon?: number;
     center?: { lat: number; lon: number };
     tags?: Record<string, string>;
-  }> = json.elements ?? [];
-
+  }>,
+  defaultType: OsmPlaceType
+): OverpassPlace[] {
   return elements
     .map((el) => {
       const coords =
@@ -62,8 +66,17 @@ export async function fetchOsmPlacesNear(
             ? { lat: el.center.lat, lng: el.center.lon }
             : null;
       if (!coords) return null;
-      const name =
-        el.tags?.name ?? el.tags?.["name:en"] ?? `${placeType.replace(/_/g, " ")} #${el.id}`;
+
+      const tags = el.tags ?? {};
+      let placeType = defaultType;
+      if (tags.amenity === "hospital") placeType = "hospital";
+      else if (tags.amenity === "police") placeType = "police";
+      else if (tags.amenity === "pharmacy") placeType = "pharmacy";
+      else if (tags.amenity === "fuel") placeType = "petrol_pump";
+      else if (tags.railway === "subway_entrance" || tags.station === "subway") placeType = "metro";
+      else if (tags.railway === "station") placeType = "railway";
+
+      const name = tags.name ?? tags["name:en"] ?? `${placeType.replace(/_/g, " ")} #${el.id}`;
       return {
         osm_id: el.id,
         osm_type: (el.type === "way" ? "way" : el.type === "relation" ? "relation" : "node") as OverpassPlace["osm_type"],
@@ -71,10 +84,49 @@ export async function fetchOsmPlacesNear(
         name,
         latitude: coords.lat,
         longitude: coords.lng,
-        tags: el.tags ?? {},
+        tags,
       };
     })
     .filter(Boolean) as OverpassPlace[];
+}
+
+/** Single Overpass request for all emergency-safe place types */
+export async function fetchEmergencyPlacesNear(
+  lat: number,
+  lng: number,
+  radiusM = 4000,
+  timeoutMs = 10_000
+): Promise<OverpassPlace[]> {
+  const res = await fetchWithTimeout(OVERPASS_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `data=${encodeURIComponent(buildCombinedEmergencyQuery(lat, lng, radiusM))}`,
+    timeoutMs,
+  });
+
+  if (!res.ok) throw new Error(`Overpass API error: ${res.status}`);
+
+  const json = await res.json();
+  return parseOverpassElements(json.elements ?? [], "hospital");
+}
+
+export async function fetchOsmPlacesNear(
+  lat: number,
+  lng: number,
+  placeType: OsmPlaceType,
+  radiusM = 5000
+): Promise<OverpassPlace[]> {
+  const res = await fetchWithTimeout(OVERPASS_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `data=${encodeURIComponent(buildQuery(lat, lng, placeType, radiusM))}`,
+    timeoutMs: 10_000,
+  });
+
+  if (!res.ok) throw new Error(`Overpass API error: ${res.status}`);
+
+  const json = await res.json();
+  return parseOverpassElements(json.elements ?? [], placeType);
 }
 
 export async function fetchAllPlaceTypesNear(

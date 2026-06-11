@@ -1,10 +1,11 @@
+import { LocationAutocomplete, type SelectedPlace } from "@/components/location/LocationAutocomplete";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { getCityConfig } from "@/config/cities";
 import { routesService } from "@/services/supabase/routes.service";
 import { useCityStore } from "@/stores/city.store";
-import type { PlannedRoute } from "@/types/database";
-import { Shield } from "lucide-react";
-import { useState } from "react";
+import { Map, Shield, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 export function HomePage() {
@@ -12,51 +13,131 @@ export function HomePage() {
   const navigate = useNavigate();
   const [source, setSource] = useState("");
   const [destination, setDestination] = useState("");
+  const [sourcePlace, setSourcePlace] = useState<SelectedPlace | null>(null);
+  const [destinationPlace, setDestinationPlace] = useState<SelectedPlace | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setSource("");
+    setDestination("");
+    setSourcePlace(null);
+    setDestinationPlace(null);
+    setError("");
+  }, [city]);
 
   async function search() {
-    if (!source.trim() || !destination.trim()) return;
+    if (!source.trim() || !destination.trim()) {
+      setError("Enter both source and destination.");
+      return;
+    }
+    setError("");
     setLoading(true);
     try {
-      const routes = await routesService.searchRoutes(source, destination, city);
+      const routes = await Promise.race([
+        routesService.searchRoutes(source, destination, city, {
+          source: sourcePlace ?? undefined,
+          destination: destinationPlace ?? undefined,
+        }),
+        new Promise<never>((_, reject) =>
+          window.setTimeout(() => reject(new Error("Route search timed out. Please try again.")), 25_000)
+        ),
+      ]);
       sessionStorage.setItem("safar-routes", JSON.stringify(routes));
-      sessionStorage.setItem("safar-search", JSON.stringify({ source, destination }));
+      sessionStorage.setItem("safar-routes-city", city);
+      sessionStorage.setItem(
+        "safar-search",
+        JSON.stringify({
+          source: sourcePlace?.label ?? source,
+          destination: destinationPlace?.label ?? destination,
+        })
+      );
       navigate("/routes");
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Route search failed");
+      setError(e instanceof Error ? e.message : "Route search failed");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-[#3B82F6] font-semibold">Safar Command Center</p>
-          <h1 className="text-3xl font-bold text-white mt-1">Smart Route Planner</h1>
-        </div>
-        <Link to="/emergency" className="flex items-center gap-2 rounded-xl border border-[#EF4444]/30 bg-[#EF4444]/10 px-4 py-2 text-sm font-bold text-[#EF4444]">
-          <Shield className="h-4 w-4" /> Emergency Shield
-        </Link>
-      </div>
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow="Safar Command Center"
+        title="Smart Route Planner"
+        subtitle={`Compare safer routes in ${getCityConfig(city).name} with live community intelligence and OpenStreetMap data.`}
+        action={
+          <Link
+            to="/emergency"
+            className="inline-flex items-center gap-2 rounded-xl border border-[#EF4444]/30 bg-[#EF4444]/10 px-4 py-2.5 text-sm font-semibold text-[#EF4444] transition hover:bg-[#EF4444]/15"
+          >
+            <Shield className="h-4 w-4" />
+            Emergency Shield
+          </Link>
+        }
+      />
 
-      <div className="rounded-2xl border border-[#262626] bg-[#111111] p-6 space-y-4">
-        <Input placeholder="Source (e.g. T Nagar)" value={source} onChange={(e) => setSource(e.target.value)} />
-        <Input placeholder="Destination (e.g. Chennai Central)" value={destination} onChange={(e) => setDestination(e.target.value)} />
+      <div className="surface-card space-y-5 rounded-2xl p-6 md:p-8">
+        <div className="flex items-center gap-2 text-xs font-medium text-[#71717A]">
+          <Sparkles className="h-3.5 w-3.5 text-[#3B82F6]" />
+          Pick places from suggestions for the most accurate routes
+        </div>
+        <LocationAutocomplete
+          key={`${city}-from`}
+          label="From"
+          placeholder={`Search in ${getCityConfig(city).name} — e.g. station, college, area`}
+          cityId={city}
+          value={source}
+          selectedPlace={sourcePlace}
+          onValueChange={setSource}
+          onPlaceSelect={setSourcePlace}
+          disabled={loading}
+        />
+        <LocationAutocomplete
+          key={`${city}-to`}
+          label="To"
+          placeholder={`Destination in ${getCityConfig(city).name}`}
+          cityId={city}
+          value={destination}
+          selectedPlace={destinationPlace}
+          onValueChange={setDestination}
+          onPlaceSelect={setDestinationPlace}
+          disabled={loading}
+        />
+        {error && (
+          <p className="rounded-xl border border-[#EF4444]/30 bg-[#EF4444]/10 px-4 py-3 text-sm text-[#FCA5A5]">
+            {error}
+          </p>
+        )}
         <Button onClick={search} disabled={loading} className="w-full" size="lg">
           {loading ? "Finding routes…" : "Compare routes"}
         </Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Link to="/safety" className="rounded-2xl border border-[#262626] bg-[#111111] p-5 hover:border-[#3B82F6]/30 transition">
-          <p className="font-bold text-white">Safety Heatmap</p>
-          <p className="text-sm text-[#A1A1AA] mt-1">Live community reports & zones</p>
+        <Link
+          to="/safety"
+          className="group surface-card flex gap-4 rounded-2xl p-5 transition hover:border-[#3B82F6]/30"
+        >
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#3B82F6]/15 transition group-hover:bg-[#3B82F6]/25">
+            <Map className="h-5 w-5 text-[#3B82F6]" />
+          </div>
+          <div>
+            <p className="font-bold text-white">Safety Heatmap</p>
+            <p className="mt-1 text-sm text-[#A1A1AA]">Live community reports & zones</p>
+          </div>
         </Link>
-        <Link to="/emergency" className="rounded-2xl border border-[#262626] bg-[#111111] p-5 hover:border-[#EF4444]/30 transition">
-          <p className="font-bold text-white">Safe Waiting Spots</p>
-          <p className="text-sm text-[#A1A1AA] mt-1">Nearest safe locations</p>
+        <Link
+          to="/emergency"
+          className="group surface-card flex gap-4 rounded-2xl p-5 transition hover:border-[#EF4444]/30"
+        >
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EF4444]/15 transition group-hover:bg-[#EF4444]/25">
+            <Shield className="h-5 w-5 text-[#EF4444]" />
+          </div>
+          <div>
+            <p className="font-bold text-white">Safe Waiting Spots</p>
+            <p className="mt-1 text-sm text-[#A1A1AA]">Hospitals, police & 24/7 places nearby</p>
+          </div>
         </Link>
       </div>
     </div>
