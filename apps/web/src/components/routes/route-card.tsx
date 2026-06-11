@@ -9,28 +9,47 @@ import { Card } from "@/components/ui/card";
 import { safetyTier, tierColor } from "@/lib/safety-copy";
 import { cn } from "@/lib/utils";
 import type { Route } from "@/lib/api";
-import { ArrowRight, ChevronDown, ChevronUp, Clock, Leaf, Shield, Zap } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Footprints,
+  IndianRupee,
+  Shield,
+  Shuffle,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 
 const META = {
-  fastest: {
-    icon: Zap,
-    label: "Fastest",
-    subtitle: "Quickest travel time",
-    color: "#A1A1AA",
-  },
   safest: {
     icon: Shield,
-    label: "Safest",
-    subtitle: "Most secure for you",
+    label: "Safest Route",
+    subtitle: "Community ratings & CCTV coverage",
     color: "#3B82F6",
   },
-  greenest: {
-    icon: Leaf,
-    label: "Greenest",
-    subtitle: "Lowest carbon footprint",
+  cheapest: {
+    icon: Wallet,
+    label: "Cheapest Route",
+    subtitle: "Metro, bus & shared mobility",
     color: "#22C55E",
   },
+  balanced: {
+    icon: Shuffle,
+    label: "Balanced Route",
+    subtitle: "Time, safety & cost optimized",
+    color: "#A1A1AA",
+  },
+  women_friendly: {
+    icon: Users,
+    label: "Women-Friendly",
+    subtitle: "Active roads & safe waiting points",
+    color: "#EC4899",
+  },
+  fastest: { icon: Shuffle, label: "Balanced Route", subtitle: "Time optimized", color: "#A1A1AA" },
+  greenest: { icon: Wallet, label: "Cheapest Route", subtitle: "Lowest fare", color: "#22C55E" },
 } as const;
 
 export function RouteCard({
@@ -102,10 +121,14 @@ export function RouteCard({
         <RouteTimeline legs={legs} />
 
         <div className="mt-5 grid grid-cols-2 gap-2.5">
-          <Metric icon={Clock} label="ETA" value={`${route.eta_minutes} min`} />
-          <Metric label="Safety Level" value={tier} accent={tierClr} />
-          <Metric label="CO₂ Saved" value={`${route.carbon_saved_kg} kg`} accent="#22C55E" />
-          <Metric label="GreenMiles" value={`+${route.reward_tokens}`} accent="#22C55E" />
+          <Metric icon={Clock} label="Travel time" value={`${route.eta_minutes} min`} />
+          <Metric icon={IndianRupee} label="Est. cost" value={`₹${route.estimated_cost_inr ?? "—"}`} />
+          <Metric label="Safety" value={tier} accent={tierClr} />
+          <Metric label="Reliability" value={`${route.reliability_score ?? "—"}%`} accent="#3B82F6" />
+          <Metric label="Crowd" value={route.crowd_level ?? "—"} />
+          <Metric icon={Footprints} label="Walking" value={`${route.walking_distance_km ?? 0} km`} />
+          <Metric label="Transfers" value={`${route.transfer_count ?? 0}`} />
+          <Metric label="Distance" value={`${route.distance_km} km`} />
         </div>
 
         {open && (

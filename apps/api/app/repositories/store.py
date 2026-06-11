@@ -465,6 +465,42 @@ def reports_near(lat: float, lng: float, city: str, radius_km: float = 1.0) -> l
     return out
 
 
+def vote_report(report_id: str, vote_type: str) -> dict | None:
+    if is_db_active():
+        with db.SessionLocal() as session:
+            row = session.get(SafetyReport, _uid(report_id))
+            if not row:
+                return None
+            if vote_type == "upvote":
+                row.upvotes = (row.upvotes or 0) + 1
+            elif vote_type == "verify":
+                row.verifications = (row.verifications or 0) + 1
+                if (row.verifications or 0) >= 2:
+                    row.is_verified = True
+            session.commit()
+            session.refresh(row)
+            return {
+                "id": str(row.id),
+                "report_type": row.report_type,
+                "description": row.description,
+                "latitude": float(row.latitude),
+                "longitude": float(row.longitude),
+                "upvotes": row.upvotes,
+                "verifications": row.verifications,
+                "is_verified": row.is_verified,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            }
+    for r in _mem["reports"]:
+        if r.get("id") == report_id:
+            if vote_type == "upvote":
+                r["upvotes"] = r.get("upvotes", 0) + 1
+            elif vote_type == "verify":
+                r["verifications"] = r.get("verifications", 0) + 1
+                r["is_verified"] = r.get("verifications", 0) >= 2
+            return r
+    return None
+
+
 def list_reports(city: str, limit: int = 50) -> list[dict]:
     if is_db_active():
         with db.SessionLocal() as session:
@@ -477,7 +513,9 @@ def list_reports(city: str, limit: int = 50) -> list[dict]:
                 "description": r.description,
                 "latitude": float(r.latitude),
                 "longitude": float(r.longitude),
-                "upvotes": r.upvotes,
+                "upvotes": r.upvotes or 0,
+                "verifications": getattr(r, "verifications", 0) or 0,
+                "is_verified": getattr(r, "is_verified", False) or False,
                 "created_at": r.created_at.isoformat() if r.created_at else None,
             } for r in rows]
     return [r for r in _mem["reports"] if r.get("city", city) == city][:limit]

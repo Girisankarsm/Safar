@@ -13,9 +13,15 @@ export const CITIES = {
   },
   bangalore: {
     id: "bangalore",
-    name: "Bangalore",
+    name: "Bengaluru",
     center: { lat: 12.9716, lng: 77.5946 },
     quickPlaces: ["MG Road", "Indiranagar", "Koramangala", "Whitefield", "Airport", "Majestic"],
+  },
+  trivandrum: {
+    id: "trivandrum",
+    name: "Trivandrum",
+    center: { lat: 8.5241, lng: 76.9366 },
+    quickPlaces: ["Technopark", "Palayam", "Kazhakoottam", "Central Station", "East Fort", "Kovalam"],
   },
 } as const;
 

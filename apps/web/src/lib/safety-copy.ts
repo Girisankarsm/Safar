@@ -33,17 +33,21 @@ export function whyThisRoute(route: Route): string[] {
   if (route.night_safe) {
     reasons.push("Night-shift service verified");
   }
-  if (route.route_type === "greenest") {
-    reasons.push("Public bus — lower emissions");
-    reasons.push("Eco-friendly commute");
+  if (route.route_type === "cheapest" || route.route_type === "greenest") {
+    reasons.push("Lowest fare via bus & metro");
+    reasons.push("Shared mobility optimized");
   }
-  if (route.route_type === "fastest") {
-    reasons.push("Fewer stops on metro");
+  if (route.route_type === "balanced" || route.route_type === "fastest") {
+    reasons.push("Best balance of time and safety");
     reasons.push("Direct metro connectivity");
-    reasons.push("High frequency service");
   }
   if (route.route_type === "safest") {
-    reasons.push("Shorter walking distance");
+    reasons.push("Highest CCTV & community ratings");
+    reasons.push("Well-traveled corridor");
+  }
+  if (route.route_type === "women_friendly") {
+    reasons.push("Active roads with public visibility");
+    reasons.push("Safe waiting points nearby");
   }
   if (metroLegs.length >= 2) {
     reasons.push("Minimal street walking");

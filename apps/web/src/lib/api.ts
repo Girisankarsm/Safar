@@ -70,6 +70,25 @@ export const api = {
     safeRequest<{ reports: SafetyReport[] }>(`/safety/reports?city=${city}`, { reports: [] }),
   createReport: (body: ReportInput) =>
     request("/safety/reports", { method: "POST", body: JSON.stringify(body) }),
+  voteReport: (reportId: string, vote_type: "upvote" | "verify") =>
+    request<{ report: SafetyReport }>(`/safety/reports/${reportId}/vote`, {
+      method: "POST",
+      body: JSON.stringify({ vote_type }),
+    }),
+  safetyZones: (city: string) =>
+    safeRequest<SafetyZonesResponse>(`/safety/zones?city=${city}`, {
+      city,
+      zones: [],
+      summary: { safe: 0, moderate: 0, high_risk: 0 },
+    }),
+  safeSpots: (city: string, lat?: number, lng?: number) => {
+    const coords = lat != null && lng != null ? `&lat=${lat}&lng=${lng}` : "";
+    return safeRequest<SafeSpotsResponse>(`/safety/safe-spots?city=${city}${coords}`, {
+      city,
+      spots: [],
+      count: 0,
+    });
+  },
   transitStops: (city: string) => request<TransitData>(`/transit/stops?city=${city}`),
   wallet: () => request<Wallet>("/wallet"),
   leaderboard: (city: string) => request<{ entries: LeaderEntry[] }>(`/leaderboard?city=${city}`),
@@ -117,6 +136,13 @@ export type RouteLeg = {
   to_lng?: number;
 };
 
+export type SafetyBreakdownItem = {
+  factor: string;
+  weight_pct: number;
+  score: number;
+  contribution: number;
+};
+
 export type Route = {
   id: string;
   route_type: string;
@@ -129,6 +155,7 @@ export type Route = {
   legs: RouteLeg[];
   safety_score: number;
   safety_label: string;
+  safety_breakdown?: SafetyBreakdownItem[];
   distance_km: number;
   eta_minutes: number;
   carbon_saved_kg: number;
@@ -137,6 +164,11 @@ export type Route = {
   recommendations: string[];
   city: string;
   night_safe?: boolean;
+  estimated_cost_inr?: number;
+  reliability_score?: number;
+  crowd_level?: string;
+  walking_distance_km?: number;
+  transfer_count?: number;
 };
 
 export type RouteSearch = {
@@ -209,7 +241,38 @@ export type SafetyReport = {
   description?: string;
   latitude: number;
   longitude: number;
+  upvotes?: number;
+  verifications?: number;
+  is_verified?: boolean;
   created_at?: string;
+};
+
+export type SafetyZone = {
+  lat: number;
+  lng: number;
+  weight: number;
+  zone_type: "safe" | "moderate" | "high_risk";
+  label: string;
+};
+
+export type SafetyZonesResponse = {
+  city: string;
+  zones: SafetyZone[];
+  summary: { safe: number; moderate: number; high_risk: number };
+};
+
+export type SafeSpot = {
+  name: string;
+  type: string;
+  lat: number;
+  lng: number;
+  distance_m?: number;
+};
+
+export type SafeSpotsResponse = {
+  city: string;
+  spots: SafeSpot[];
+  count: number;
 };
 
 export type ReportInput = {

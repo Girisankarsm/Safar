@@ -1,4 +1,4 @@
-"""Real GTFS-static route builder — fastest, safest, greenest variants."""
+"""Route builder — Safest, Cheapest, Balanced, Women-Friendly variants."""
 
 import json
 from pathlib import Path
@@ -9,7 +9,6 @@ from app.services.safety.scoring import score_route
 from app.repositories import store
 
 DATA_ROOT = Path(__file__).resolve().parent.parent.parent / "data"
-DEMO_USER_ID = "a0000000-0000-0000-0000-000000000001"
 
 
 def _resolve_place(name: str, city_id: str) -> dict | None:
@@ -41,6 +40,34 @@ def _transit_co2(km: float) -> float:
     return round(km * 0.035, 2)
 
 
+def _route_metrics(legs: list[dict], safety_score: int) -> dict:
+    walk_km = round(sum(l["distance_km"] for l in legs if l["mode"] == "walk"), 2)
+    transit_legs = [l for l in legs if l["mode"] in ("metro", "bus")]
+    transfers = max(0, len(transit_legs) - 1)
+
+    # Estimated INR cost: metro ₹40 base + ₹5/km, bus ₹25, walk free
+    cost = 0.0
+    for leg in legs:
+        if leg["mode"] == "metro":
+            cost += 40 + leg["distance_km"] * 5
+        elif leg["mode"] == "bus":
+            cost += 25 + leg["distance_km"] * 2
+    cost = round(max(15, cost))
+
+    reliability = min(98, 70 + len(transit_legs) * 8 + (10 if safety_score >= 70 else 0))
+    crowd_levels = ["Low", "Moderate", "High", "Very High"]
+    crowd_idx = min(3, transfers + (1 if any(l["mode"] == "metro" for l in legs) else 0))
+    crowd = crowd_levels[crowd_idx]
+
+    return {
+        "walking_distance_km": walk_km,
+        "transfer_count": transfers,
+        "estimated_cost_inr": cost,
+        "reliability_score": reliability,
+        "crowd_level": crowd,
+    }
+
+
 def build_routes(
     source: str,
     destination: str,
@@ -57,22 +84,27 @@ def build_routes(
     slat, slng = src["lat"], src["lng"]
     dlat, dlng = dst["lat"], dst["lng"]
 
-    fastest_legs = gtfs_service.build_metro_route(
+    balanced_legs = gtfs_service.build_metro_route(
         slat, slng, dlat, dlng, city_id, src_name, dst_name, prefer_lit=False
     )
     safest_legs = gtfs_service.build_metro_route(
         slat, slng, dlat, dlng, city_id, src_name, dst_name, prefer_lit=True, extra_stops=True
     )
-    green_legs = gtfs_service.build_bus_route(
+    cheapest_legs = gtfs_service.build_bus_route(
         slat, slng, dlat, dlng, city_id, src_name, dst_name, night_only=night_mode
     )
-    if not green_legs:
-        green_legs = safest_legs
+    if not cheapest_legs:
+        cheapest_legs = balanced_legs
+
+    women_legs = gtfs_service.build_metro_route(
+        slat, slng, dlat, dlng, city_id, src_name, dst_name, prefer_lit=True, extra_stops=True
+    )
 
     variants = [
-        ("fastest", fastest_legs),
         ("safest", safest_legs),
-        ("greenest", green_legs),
+        ("cheapest", cheapest_legs),
+        ("balanced", balanced_legs),
+        ("women_friendly", women_legs),
     ]
 
     reports_near = len(store.reports_near((slat + dlat) / 2, (slng + dlng) / 2, city_id, 1.2))
@@ -84,20 +116,26 @@ def build_routes(
         if night_mode and not gtfs_service.is_night_safe_route(legs):
             continue
 
-        safety = score_route(legs, city_id, reports_near, women_mode=women_mode)
+        use_women = women_mode or route_type == "women_friendly"
+        safety = score_route(legs, city_id, reports_near, women_mode=use_women)
         km, mins = _totals(legs)
         car_co2 = _car_co2(km)
         transit_co2 = _transit_co2(km)
         saved = round(car_co2 - transit_co2, 2)
         tokens = max(5, int(saved * 8))
+        metrics = _route_metrics(legs, safety["score"])
 
         recs = []
         if safety["score"] < 60:
             recs.append("Prefer metro over long walks after 10 PM")
         if any(l.get("women_only_coach") for l in legs):
             recs.append("Board women-only coach (first/last metro car)")
-        if safety["cctv_nearby"] < 2:
+        if safety.get("cctv_nearby", 0) < 2:
             recs.append("Share live trip with emergency contacts")
+        if route_type == "cheapest":
+            recs.append("Lowest fare via bus and shared mobility")
+        if route_type == "women_friendly":
+            recs.append("Active roads with higher public visibility")
 
         out.append({
             "route_type": route_type,
@@ -121,6 +159,7 @@ def build_routes(
             "city": city_id,
             "night_safe": gtfs_service.is_night_safe_route(legs),
             "data_sources": ["gtfs_static", "osm_cctv", "community_reports"],
+            **metrics,
         })
 
     return out

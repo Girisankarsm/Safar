@@ -14,8 +14,9 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "SafarAI — Safer Public Transit",
-  description: "Choose safer routes. Especially for women. Chennai & Hyderabad.",
+  title: "Safar — Travel Smarter. Travel Safer.",
+  description:
+    "India's community-powered mobility platform. Smart route planning, safety heatmaps, and emergency shield for Indian commuters.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -81,6 +81,8 @@ class SafetyReport(Base):
     latitude: Mapped[float] = mapped_column(Numeric(10, 7))
     longitude: Mapped[float] = mapped_column(Numeric(10, 7))
     upvotes: Mapped[int] = mapped_column(Integer, default=0)
+    verifications: Mapped[int] = mapped_column(Integer, default=0)
+    is_verified: Mapped[bool] = mapped_column(default=False)
     city: Mapped[str] = mapped_column(String(50), default="chennai")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 

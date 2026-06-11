@@ -17,6 +17,10 @@ class ReportCreate(BaseModel):
     city: str = "chennai"
 
 
+class ReportVote(BaseModel):
+    vote_type: str
+
+
 class TripStartRequest(BaseModel):
     route_id: str
 

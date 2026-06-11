@@ -99,7 +99,7 @@ export default function RoutesPage() {
   }
 
   const sorted = [...routes].sort((a, b) => {
-    const order = { safest: 0, fastest: 1, greenest: 2 };
+    const order = { safest: 0, balanced: 1, cheapest: 2, women_friendly: 3, fastest: 1, greenest: 2 };
     return (order[a.route_type as keyof typeof order] ?? 9) - (order[b.route_type as keyof typeof order] ?? 9);
   });
 
@@ -174,7 +174,7 @@ export default function RoutesPage() {
         />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
         {sorted.map((r, i) => (
           <motion.div
             key={r.id}

@@ -24,11 +24,13 @@ export function SafetyMap({
   className,
   userLat,
   userLng,
+  showHeatmap = false,
 }: {
   height?: string;
   className?: string;
   userLat?: number;
   userLng?: number;
+  showHeatmap?: boolean;
 }) {
   const { city } = useCity();
   const center = CITIES[city].center;
@@ -125,6 +127,29 @@ export function SafetyMap({
         },
       });
 
+      map.addSource("heatmap", { type: "geojson", data: EMPTY_FC });
+      map.addLayer({
+        id: "heatmap-layer",
+        type: "heatmap",
+        source: "heatmap",
+        paint: {
+          "heatmap-weight": ["get", "weight"],
+          "heatmap-intensity": 0.8,
+          "heatmap-radius": 40,
+          "heatmap-opacity": 0.65,
+          "heatmap-color": [
+            "interpolate",
+            ["linear"],
+            ["heatmap-density"],
+            0, "rgba(34,197,94,0)",
+            0.3, "rgba(34,197,94,0.5)",
+            0.55, "rgba(245,158,11,0.6)",
+            0.8, "rgba(239,68,68,0.75)",
+            1, "rgba(239,68,68,0.95)",
+          ],
+        },
+      });
+
       map.addSource("user", { type: "geojson", data: EMPTY_FC });
       map.addLayer({
         id: "user-layer",
@@ -193,7 +218,8 @@ export function SafetyMap({
       api.cctv(city, center.lat, center.lng),
       api.reports(city),
       api.transitStops(city),
-    ]).then(([c, r, t]) => {
+      showHeatmap ? api.safetyZones(city) : Promise.resolve({ zones: [] as { lat: number; lng: number; weight: number }[] }),
+    ]).then(([c, r, t, zones]) => {
       if (!alive) return;
       const map = mapRef.current;
       if (!map) return;
@@ -219,10 +245,20 @@ export function SafetyMap({
             ...t.bus_stops.slice(0, 60).map((s) => ({ lat: s.lat, lng: s.lng, name: s.name })),
           ])
         );
+        if (showHeatmap && zones.zones?.length) {
+          (map.getSource("heatmap") as mapboxgl.GeoJSONSource | undefined)?.setData({
+            type: "FeatureCollection",
+            features: zones.zones.map((z) => ({
+              type: "Feature",
+              properties: { weight: z.weight },
+              geometry: { type: "Point", coordinates: [z.lng, z.lat] },
+            })),
+          });
+        }
       });
     });
     return () => { alive = false; };
-  }, [city]);
+  }, [city, center.lat, center.lng, showHeatmap]);
 
   useEffect(() => {
     const map = mapRef.current;

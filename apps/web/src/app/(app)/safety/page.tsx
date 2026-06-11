@@ -1,5 +1,7 @@
 "use client";
 
+import { CommunityReportsFeed } from "@/components/safety/community-reports-feed";
+import { SafeWaitingSpots } from "@/components/safety/safe-waiting-spots";
 import { motion } from "framer-motion";
 import { SafetyMapDynamic } from "@/components/map/map-dynamic";
 import { Button } from "@/components/ui/button";
@@ -10,13 +12,17 @@ import { useCity } from "@/hooks/use-city";
 import { useLiveLocation } from "@/hooks/use-live-location";
 import { api } from "@/lib/api";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 
 const REPORT_TYPES = [
-  { id: "unsafe_area", label: "Unsafe area" },
-  { id: "broken_light", label: "Broken light" },
   { id: "harassment", label: "Harassment" },
-  { id: "dangerous_crossing", label: "Dangerous crossing" },
+  { id: "poor_lighting", label: "Poor lighting" },
+  { id: "unsafe_bus_stop", label: "Unsafe bus stop" },
+  { id: "suspicious_activity", label: "Suspicious activity" },
+  { id: "flooded_road", label: "Flooded area" },
+  { id: "road_damage", label: "Road damage" },
+  { id: "stray_animal", label: "Stray animal risk" },
+  { id: "construction", label: "Construction" },
 ];
 
 function SafetyContent() {
@@ -24,20 +30,29 @@ function SafetyContent() {
   const { coords } = useLiveLocation();
   const params = useSearchParams();
   const [showReport, setShowReport] = useState(params.get("report") === "1");
-  const [stats, setStats] = useState({ cctv: 0, reports: 0, risk: 0 });
+  const [stats, setStats] = useState({ safe: 0, moderate: 0, high: 0, reports: 0 });
   const [type, setType] = useState(REPORT_TYPES[0].id);
   const [desc, setDesc] = useState("");
   const [msg, setMsg] = useState("");
+  const [mapKey, setMapKey] = useState(0);
+
+  const refreshStats = useCallback(() => {
+    const { lat, lng } = CITIES[city].center;
+    Promise.all([api.safetyZones(city), api.reports(city), api.cctv(city, lat, lng)]).then(
+      ([zones, reports]) => {
+        setStats({
+          safe: zones.summary.safe,
+          moderate: zones.summary.moderate,
+          high: zones.summary.high_risk,
+          reports: reports.reports.length,
+        });
+      }
+    );
+  }, [city]);
 
   useEffect(() => {
-    const { lat, lng } = CITIES[city].center;
-    Promise.all([api.cctv(city, lat, lng), api.reports(city)]).then(([c, r]) => {
-      const risk = r.reports.filter((x) =>
-        ["unsafe_area", "harassment", "dangerous_crossing"].includes(x.report_type)
-      ).length;
-      setStats({ cctv: c.count, reports: r.reports.length, risk });
-    });
-  }, [city]);
+    refreshStats();
+  }, [refreshStats]);
 
   async function submitReport() {
     if (!coords) return;
@@ -48,42 +63,61 @@ function SafetyContent() {
       longitude: coords.lng,
       city,
     });
-    setMsg("Report verified — safety map updated");
+    setMsg("Report submitted — community map updated");
     setShowReport(false);
     setDesc("");
+    setMapKey((k) => k + 1);
+    refreshStats();
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col md:h-[calc(100vh-6rem)]">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="relative flex-1 overflow-hidden rounded-2xl border border-[#222222]"
-      >
-        <SafetyMapDynamic height="100%" userLat={coords?.lat} userLng={coords?.lng} />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-white md:text-3xl">Safety Heatmap</h1>
+        <p className="mt-1 text-sm text-[#A1A1AA]">
+          Live community intelligence for {CITIES[city].name}
+        </p>
+      </div>
 
-        {/* Legend — heatmap storytelling */}
-        <div className="absolute left-4 top-4 space-y-2 rounded-2xl border border-[#222222] bg-black/90 p-4 backdrop-blur-md">
-          <p className="text-xs font-semibold text-white">Safety heatmap</p>
-          <LegendItem color="#ef4444" label="High-risk areas" count={stats.risk} />
-          <LegendItem color="#22c55e" label="CCTV clusters" count={stats.cctv} />
-          <LegendItem color="#ffffff" label="Verified safe stops" />
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setShowReport(true)}
-          className="absolute bottom-5 right-5 rounded-full bg-[#3B82F6] px-6 py-3.5 text-sm font-semibold text-white shadow-2xl shadow-[#3B82F6]/30 transition hover:bg-[#2563EB] active:scale-[0.98]"
+      <div className="flex h-[calc(100vh-14rem)] flex-col lg:h-[480px]">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="relative flex-1 overflow-hidden rounded-2xl border border-[#222222]"
         >
-          Report issue
-        </button>
-      </motion.div>
+          <SafetyMapDynamic
+            key={mapKey}
+            height="100%"
+            userLat={coords?.lat}
+            userLng={coords?.lng}
+            showHeatmap
+          />
+
+          <div className="absolute left-4 top-4 z-[2] max-w-[240px] space-y-2 rounded-2xl border border-[#222222] bg-black/90 p-4 backdrop-blur-md">
+            <p className="text-xs font-semibold text-white">Zone legend</p>
+            <LegendItem color="#22c55e" label="Safe zones" count={stats.safe} />
+            <LegendItem color="#f59e0b" label="Moderate zones" count={stats.moderate} />
+            <LegendItem color="#ef4444" label="High-risk zones" count={stats.high} />
+            <LegendItem color="#3b82f6" label="Community reports" count={stats.reports} />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowReport(true)}
+            className="absolute bottom-5 right-5 rounded-full bg-[#3B82F6] px-6 py-3.5 text-sm font-semibold text-white shadow-2xl shadow-[#3B82F6]/30 transition hover:bg-[#2563EB] active:scale-[0.98]"
+          >
+            Report issue
+          </button>
+        </motion.div>
+      </div>
 
       {showReport && (
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-          <Card className="mt-5 !p-6">
-            <h2 className="text-xl font-semibold text-white">Report a safety issue</h2>
-            <p className="mt-2 text-sm text-[#a1a1aa]">Helps every commuter choose safer routes.</p>
+          <Card className="!p-6">
+            <h2 className="text-xl font-semibold text-white">Community safety report</h2>
+            <p className="mt-2 text-sm text-[#a1a1aa]">
+              Your report helps every commuter choose safer routes.
+            </p>
             <div className="mt-5 flex flex-wrap gap-2">
               {REPORT_TYPES.map((t) => (
                 <button
@@ -91,14 +125,21 @@ function SafetyContent() {
                   type="button"
                   onClick={() => setType(t.id)}
                   className={`rounded-full px-4 py-2 text-xs font-medium transition ${
-                    type === t.id ? "bg-[#3B82F6] text-white" : "border border-[#262626] text-[#A1A1AA]"
+                    type === t.id
+                      ? "bg-[#3B82F6] text-white"
+                      : "border border-[#262626] text-[#A1A1AA]"
                   }`}
                 >
                   {t.label}
                 </button>
               ))}
             </div>
-            <Input className="mt-4" placeholder="Details (optional)" value={desc} onChange={(e) => setDesc(e.target.value)} />
+            <Input
+              className="mt-4"
+              placeholder="Describe what you observed (optional)"
+              value={desc}
+              onChange={(e) => setDesc(e.target.value)}
+            />
             <div className="mt-5 flex gap-3">
               <Button className="flex-1" onClick={submitReport} disabled={!coords}>
                 Submit report
@@ -107,11 +148,24 @@ function SafetyContent() {
                 Cancel
               </Button>
             </div>
+            {!coords && (
+              <p className="mt-2 text-xs text-[#F59E0B]">Enable location to attach GPS coordinates.</p>
+            )}
           </Card>
         </motion.div>
       )}
 
-      {msg && <p className="mt-4 text-center text-sm text-[#22c55e]">{msg}</p>}
+      {msg && <p className="text-center text-sm text-[#22c55e]">{msg}</p>}
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div>
+          <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-[#A1A1AA]">
+            Live community reports
+          </h2>
+          <CommunityReportsFeed city={city} />
+        </div>
+        <SafeWaitingSpots city={city} />
+      </div>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { SafetyScoreBreakdown } from "@/components/safety/safety-score-breakdown";
 import { useCity } from "@/hooks/use-city";
 import type { Route } from "@/lib/api";
 import { api } from "@/lib/api";
@@ -29,9 +30,19 @@ export function RouteSummaryPanel({ route }: { route: Route | null }) {
 
   const tier = safetyTier(route.safety_score);
   const coverage = tier === "SAFE" ? "High" : tier === "MODERATE" ? "Moderate" : "Low";
+  const typeLabels: Record<string, string> = {
+    safest: "Safest",
+    cheapest: "Cheapest",
+    balanced: "Balanced",
+    women_friendly: "Women-Friendly",
+  };
 
   return (
     <div className="mt-8 space-y-3">
+      {route.safety_breakdown && route.safety_breakdown.length > 0 && (
+        <SafetyScoreBreakdown score={route.safety_score} breakdown={route.safety_breakdown} />
+      )}
+
       <div className="flex flex-col gap-5 rounded-2xl border border-[#3B82F6]/25 bg-[#111111] p-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#3B82F6]/15">
@@ -39,8 +50,7 @@ export function RouteSummaryPanel({ route }: { route: Route | null }) {
           </div>
           <div>
             <p className="text-base font-bold text-white">
-              {route.route_type === "safest" ? "Safest" : route.route_type === "fastest" ? "Fastest" : "Greenest"}{" "}
-              route · {route.safety_score}/100
+              {typeLabels[route.route_type] ?? route.route_type} route · {route.safety_score}/100
             </p>
             <div className="mt-2 max-w-xl">
               <p className="text-sm font-semibold text-white/90">Based on:</p>

@@ -14,6 +14,7 @@ export const SafetyMapDynamic = dynamic(
   className?: string;
   userLat?: number;
   userLng?: number;
+  showHeatmap?: boolean;
 }>;
 
 export const HomeRouteMapDynamic = dynamic(

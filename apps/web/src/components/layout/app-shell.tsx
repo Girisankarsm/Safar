@@ -15,6 +15,7 @@ import {
   Route,
   Settings,
   Shield,
+  Siren,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
@@ -22,11 +23,11 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const NAV = [
-  { href: "/home", label: "Home", icon: Home },
+  { href: "/home", label: "Dashboard", icon: Home },
   { href: "/routes", label: "Routes", icon: Route },
   { href: "/trip", label: "Trip", icon: Map, dynamic: true },
   { href: "/safety", label: "Safety", icon: Shield },
-  { href: "/wallet", label: "Wallet", icon: Wallet },
+  { href: "/emergency", label: "SOS", icon: Siren },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -55,8 +56,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Shield className="h-5 w-5 text-[#3B82F6]" strokeWidth={2.5} />
           </div>
           <div>
-            <p className="text-base font-bold tracking-tight text-white">SafarAI</p>
-            <p className="text-[10px] font-medium text-[#A1A1AA]">Safer transit, every ride</p>
+            <p className="text-base font-bold tracking-tight text-white">Safar</p>
+            <p className="text-[10px] font-medium text-[#A1A1AA]">Travel Smarter. Travel Safer.</p>
           </div>
         </div>
 
@@ -117,7 +118,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-40 flex items-center justify-between border-b border-[#262626] bg-[#050505]/90 px-5 py-3.5 backdrop-blur-md lg:px-8">
           <Link href="/home" className="flex items-center gap-2 lg:hidden">
             <Shield className="h-5 w-5 text-[#3B82F6]" />
-            <span className="text-lg font-bold text-white">SafarAI</span>
+            <span className="text-lg font-bold text-white">Safar</span>
           </Link>
 
           <div className="ml-auto flex items-center gap-2.5">

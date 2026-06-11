@@ -1,4 +1,4 @@
-# SafarAI — Real-time Safe Urban Mobility
+# Safar — Travel Smarter. Travel Safer.
 
 AI-powered public transit safety for Indian commuters (Chennai, Hyderabad & Bangalore).
 
