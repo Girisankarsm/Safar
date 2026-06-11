@@ -1,28 +1,15 @@
 {
-  "name": "safarai",
-  "version": "2.0.0",
+  "name": "safar",
+  "version": "3.0.0",
   "private": true,
-  "description": "SafarAI — real-time safe urban mobility monorepo",
+  "description": "Safar — Travel Smarter. Travel Safer. Supabase-powered mobility platform.",
   "workspaces": [
     "apps/*"
   ],
   "scripts": {
-    "predev": "node scripts/ensure-env.mjs",
-    "dev": "concurrently -k -n api,web -c blue,green \"npm run dev:api\" \"npm run dev:web:wait\"",
-    "dev:api": "node scripts/run-backend.mjs",
-    "dev:web": "node scripts/run-frontend.mjs",
-    "dev:web:wait": "wait-on -t 60000 http-get://127.0.0.1:8000/health && npm run dev:web",
-    "setup": "npm run setup:api && npm install",
-    "setup:api": "pip3 install -r apps/api/requirements.txt",
-    "build": "npm run build -w @safarai/web",
-    "start": "concurrently -k -n api,web -c blue,green \"npm run start:api\" \"npm run start:web\"",
-    "start:api": "node scripts/run-backend.mjs --prod",
-    "start:web": "npm run start -w @safarai/web",
-    "lint": "npm run lint -w @safarai/web",
-    "health": "curl -sf http://127.0.0.1:8000/health | python3 -m json.tool"
-  },
-  "devDependencies": {
-    "concurrently": "^9.1.2",
-    "wait-on": "^8.0.1"
+    "dev": "npm run dev -w @safar/web",
+    "build": "npm run build -w @safar/web",
+    "preview": "npm run preview -w @safar/web",
+    "lint": "npm run lint -w @safar/web"
   }
 }

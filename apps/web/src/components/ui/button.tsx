@@ -1,36 +1,31 @@
 import { cn } from "@/lib/utils";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "outline";
 
 const styles: Record<Variant, string> = {
   primary:
-    "bg-[#3B82F6] !text-white hover:bg-[#2563EB] shadow-lg shadow-[#3B82F6]/35 border border-[#60A5FA]/30 [&_svg]:!text-white [&_span]:!text-white disabled:bg-[#1e40af] disabled:opacity-100 disabled:shadow-none",
-  secondary:
-    "bg-[#171717] !text-white border-2 border-[#262626] hover:border-[#3B82F6]/55 hover:bg-[#1a1a1a] [&_svg]:!text-white [&_span]:!text-white",
-  ghost: "bg-transparent !text-[#A1A1AA] hover:!text-white hover:bg-white/8",
-  danger:
-    "bg-[#EF4444] !text-white hover:bg-[#dc2626] shadow-lg shadow-[#EF4444]/25 [&_svg]:!text-white",
-  outline:
-    "bg-[#111111] !text-white border-2 border-[#262626] hover:border-[#3B82F6]/55 hover:bg-[#171717] [&_svg]:!text-white",
+    "bg-[#3B82F6] text-white hover:bg-[#2563EB] shadow-lg shadow-[#3B82F6]/35 border border-[#60A5FA]/30",
+  secondary: "bg-[#171717] text-white border-2 border-[#262626] hover:border-[#3B82F6]/55",
+  ghost: "bg-transparent text-[#A1A1AA] hover:text-white hover:bg-white/8",
+  danger: "bg-[#EF4444] text-white hover:bg-[#dc2626]",
+  outline: "bg-[#111111] text-white border-2 border-[#262626] hover:border-[#3B82F6]/55",
 };
 
-type BtnProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+export function Button({
+  className,
+  variant = "primary",
+  size = "md",
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: Variant;
   size?: "sm" | "md" | "lg";
-};
-
-export function Button({ className, variant = "primary", size = "md", ...props }: BtnProps) {
-  const sizes = {
-    sm: "min-h-[36px] px-4 py-2 text-xs",
-    md: "min-h-[44px] px-5 py-2.5 text-sm",
-    lg: "min-h-[52px] px-6 py-3.5 text-base",
-  };
+}) {
+  const sizes = { sm: "min-h-9 px-4 text-xs", md: "min-h-11 px-5 text-sm", lg: "min-h-13 px-6 text-base" };
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl font-bold tracking-wide transition-all duration-200",
-        "active:scale-[0.97] hover:scale-[1.01] disabled:scale-100 disabled:cursor-not-allowed",
+        "inline-flex items-center justify-center gap-2 rounded-xl font-bold transition active:scale-[0.97]",
         styles[variant],
         sizes[size],
         className
@@ -41,28 +36,24 @@ export function Button({ className, variant = "primary", size = "md", ...props }
 }
 
 export function ButtonLink({
-  href,
+  to,
   className,
   variant = "primary",
   size = "md",
   children,
 }: {
-  href: string;
+  to: string;
   className?: string;
   variant?: Variant;
   size?: "sm" | "md" | "lg";
   children: React.ReactNode;
 }) {
-  const sizes = {
-    sm: "min-h-[36px] px-4 py-2 text-xs",
-    md: "min-h-[44px] px-5 py-2.5 text-sm",
-    lg: "min-h-[52px] px-6 py-3.5 text-base",
-  };
+  const sizes = { sm: "min-h-9 px-4 text-xs", md: "min-h-11 px-5 text-sm", lg: "min-h-13 px-6 text-base" };
   return (
     <Link
-      href={href}
+      to={to}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl font-bold tracking-wide transition-all duration-200 hover:scale-[1.01] active:scale-[0.97]",
+        "inline-flex items-center justify-center gap-2 rounded-xl font-bold transition hover:scale-[1.01]",
         styles[variant],
         sizes[size],
         className

@@ -10,9 +10,10 @@ venv/
 apps/api/venv/
 *.egg-info/
 
-# Next.js
+# Next.js (legacy)
 apps/web/.next/
 apps/web/out/
+apps/web/dist/
 frontend/
 *.tsbuildinfo
 

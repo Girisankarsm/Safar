@@ -1,85 +1,85 @@
 # Safar — Travel Smarter. Travel Safer.
 
-AI-powered public transit safety for Indian commuters (Chennai, Hyderabad & Bangalore).
+India's community-powered mobility platform. **Supabase is the entire backend** — no custom API server required.
 
-## Project structure
-
-```
-safarai/
-├── apps/
-│   ├── api/                 # FastAPI backend (Python)
-│   │   ├── app/             # Application code
-│   │   │   ├── api/         # REST routes
-│   │   │   ├── core/        # Config, database
-│   │   │   ├── models/      # SQLAlchemy models
-│   │   │   ├── repositories/# Data access layer
-│   │   │   ├── schemas/     # Pydantic schemas
-│   │   │   ├── services/    # Business logic (routing, CCTV, safety)
-│   │   │   └── data/        # GTFS + OSM cache (Chennai/Hyderabad)
-│   │   ├── main.py
-│   │   └── requirements.txt
-│   └── web/                 # Next.js frontend (TypeScript)
-│       ├── src/
-│       │   ├── app/         # Pages & layouts
-│       │   ├── components/  # UI components
-│       │   ├── hooks/       # React hooks
-│       │   └── lib/         # API client, utilities
-│       └── public/
-├── database/
-│   ├── migrations/          # Supabase schema
-│   └── seeds/               # Demo data
-├── scripts/                 # Dev orchestration
-├── .env                     # Single env file (not in git)
-├── package.json             # Monorepo root (npm workspaces)
-└── docker-compose.yml       # Local Postgres (optional)
-```
-
-## Quick start
-
-```bash
-# 1. Environment
-cp .env.example .env
-# Fill in Supabase + optional MAPBOX token
-
-# 2. Install (first time)
-npm run setup          # Python deps + npm workspaces
-
-# 3. Run API + web together
-npm run dev
-```
-
-- **Web:** http://localhost:3000  
-- **API:** http://localhost:8000/health  
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start API + web (hot reload) |
-| `npm run build` | Production build (web) |
-| `npm run start` | Production servers |
-| `npm run lint` | ESLint (web) |
-| `npm run health` | Check API status |
-
-## Database (Supabase)
-
-Run once in SQL editor:
-
-1. `database/migrations/001_initial_schema.sql`
-2. `database/seeds/update_demo_user.sql`
-3. `database/seeds/chennai_seed.sql`
-
-## Environment
-
-Single root `.env` — see `.env.example`. Key variables:
-
-- `DATABASE_URL`, `USE_DATABASE=true`, `SUPABASE_*`
-- `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_MAPBOX_TOKEN` (optional, for map tiles)
-
-## Tech stack
+## Stack
 
 | Layer | Technology |
 |-------|------------|
-| Web | Next.js 16, React 19, Tailwind 4, Mapbox GL |
-| API | FastAPI, SQLAlchemy, Supabase PostgreSQL |
-| Data | GTFS transit, OSM Overpass CCTV, Nominatim geocoding |
+| Frontend | Vite · React 19 · TypeScript · Tailwind CSS · React Router |
+| Maps | Leaflet · OpenStreetMap |
+| Routing | OpenRouteService API |
+| Backend | **Supabase only** (Auth · PostgreSQL · Storage · Realtime · RLS) |
+| Deploy | Vercel (frontend) + Supabase (backend) |
+
+## Environment variables
+
+Create `apps/web/.env` with **only** these three keys:
+
+```bash
+VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_OPENROUTESERVICE_API_KEY=your-ors-key
+```
+
+No `DATABASE_URL`, `API_URL`, `MAPBOX_TOKEN`, or service role key needed in the frontend.
+
+## Setup
+
+### 1. Supabase project
+
+1. Create a project at [supabase.com](https://supabase.com)
+2. Run migrations in order (SQL Editor or `supabase db push`):
+   - `supabase/migrations/20240611000001_initial_schema.sql`
+   - `supabase/migrations/20240611000002_rls_policies.sql`
+   - `supabase/migrations/20240611000003_storage.sql`
+3. Run seed data: `supabase/seed.sql`
+4. Enable Email auth in Authentication → Providers
+
+### 2. Local development
+
+```bash
+cp apps/web/.env.example apps/web/.env
+# Fill in your Supabase + ORS keys
+
+npm install
+npm run dev
+```
+
+Open http://localhost:5173
+
+### 3. Deploy to Vercel
+
+- Root directory: `apps/web`
+- Framework: Vite
+- Add the three `VITE_*` environment variables in Vercel dashboard
+
+## Architecture
+
+```
+apps/web/src/services/supabase/
+  auth.service.ts        # Supabase Auth
+  reports.service.ts     # Safety reports + Realtime
+  routes.service.ts      # OpenRouteService + route cache in Supabase
+  trips.service.ts       # Live trips + SOS + Realtime
+  notifications.service.ts
+  storage.service.ts     # Image compression + Supabase Storage
+  zones.service.ts       # Heatmap zones + safe waiting spots
+  contacts.service.ts    # Emergency contacts
+```
+
+**Never** put Supabase queries in UI components — always use the service layer.
+
+## Features
+
+- Email signup / login / password reset
+- Protected routes with session persistence
+- Smart route planner (4 route types)
+- Safety heatmap with realtime community reports
+- Report voting & verification (Realtime)
+- Emergency Shield + safe waiting spots
+- Image uploads with compression (Supabase Storage)
+
+## Cities (seeded)
+
+Chennai · Trivandrum · Bengaluru
