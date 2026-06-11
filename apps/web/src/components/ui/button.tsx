@@ -21,11 +21,11 @@ export function Button({
   variant?: Variant;
   size?: "sm" | "md" | "lg";
 }) {
-  const sizes = { sm: "min-h-9 px-4 text-xs", md: "min-h-11 px-5 text-sm", lg: "min-h-13 px-6 text-base" };
+  const sizes = { sm: "min-h-9 px-4 text-xs", md: "min-h-11 px-5 text-sm", lg: "min-h-12 px-6 text-base" };
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl font-bold transition active:scale-[0.97]",
+        "inline-flex items-center justify-center gap-2 rounded-xl font-bold leading-none transition active:scale-[0.97]",
         styles[variant],
         sizes[size],
         className
@@ -48,12 +48,12 @@ export function ButtonLink({
   size?: "sm" | "md" | "lg";
   children: React.ReactNode;
 }) {
-  const sizes = { sm: "min-h-9 px-4 text-xs", md: "min-h-11 px-5 text-sm", lg: "min-h-13 px-6 text-base" };
+  const sizes = { sm: "min-h-9 px-4 text-xs", md: "min-h-11 px-5 text-sm", lg: "min-h-12 px-6 text-base" };
   return (
     <Link
       to={to}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl font-bold transition hover:scale-[1.01]",
+        "inline-flex items-center justify-center gap-2 rounded-xl font-bold leading-none transition hover:scale-[1.01]",
         styles[variant],
         sizes[size],
         className

@@ -1,4 +1,4 @@
-import { useAuthStore } from "@/stores/auth.store";
+import { UserMenu } from "@/features/auth";
 import { useCityStore } from "@/stores/city.store";
 import { cn } from "@/lib/utils";
 import { Home, Map, Route, Shield, Siren } from "lucide-react";
@@ -20,9 +20,7 @@ const CITIES = [
 
 export function AppShell() {
   const path = useLocation().pathname;
-  const { profile } = useAuthStore();
   const { city, setCity } = useCityStore();
-  const name = profile?.full_name?.split(" ")[0] ?? "User";
 
   return (
     <div className="min-h-screen bg-[#050505]">
@@ -66,9 +64,7 @@ export function AppShell() {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
-          <Link to="/profile" className="ml-3 hidden rounded-xl border border-[#262626] bg-[#111111] px-3 py-2 text-sm font-semibold text-white sm:inline hover:border-[#3B82F6]/40">
-            {name}
-          </Link>
+          <UserMenu className="ml-3" />
         </header>
         <main className="px-5 py-6 md:px-8">
           <Outlet />

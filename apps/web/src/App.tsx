@@ -1,5 +1,4 @@
-import { AuthProvider } from "@/components/auth/AuthProvider";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { AuthProvider, ProtectedRoute } from "@/features/auth";
 import { AppShell } from "@/components/layout/AppShell";
 import { EmergencyPage } from "@/pages/EmergencyPage";
 import { HomePage } from "@/pages/HomePage";
