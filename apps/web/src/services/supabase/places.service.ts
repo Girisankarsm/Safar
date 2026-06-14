@@ -86,56 +86,71 @@ function cacheOsmPlaces(places: OverpassPlace[], cityId: CityId) {
   );
 }
 
+/**
+ * Progressively expand the search radius (1 km → 2 km → 3 km → 5 km → 8 km)
+ * until at least one safe spot is found. Both the Overpass query radius and the
+ * result filter expand together so spots found at wider radii are never discarded.
+ * Returns the found spots along with the effective radius used.
+ */
 async function fetchLiveNearby(
   lat: number,
   lng: number,
-  cityId: CityId,
-  maxDistanceM: number
-): Promise<SafeWaitingSpot[]> {
-  for (const radiusM of [maxDistanceM, maxDistanceM + 500, maxDistanceM + 1000]) {
+  cityId: CityId
+): Promise<{ spots: SafeWaitingSpot[]; radiusM: number }> {
+  const SEARCH_STEPS_M = [1000, 2000, 3000, 5000, 8000];
+
+  for (const radiusM of SEARCH_STEPS_M) {
     try {
-      const livePlaces = await fetchEmergencyPlacesNear(lat, lng, radiusM, 12_000);
+      const livePlaces = await fetchEmergencyPlacesNear(lat, lng, radiusM, 14_000);
       if (!livePlaces.length) continue;
       cacheOsmPlaces(livePlaces, cityId);
-      const ranked = rankPlacesAsSpots(livePlaces, lat, lng, cityId, maxDistanceM);
-      if (ranked.length) return ranked;
+      const ranked = rankPlacesAsSpots(livePlaces, lat, lng, cityId, radiusM);
+      if (ranked.length) return { spots: ranked, radiusM };
     } catch {
       continue;
     }
   }
-  return [];
+  return { spots: [], radiusM: 0 };
 }
 
 export const placesService = {
+  /**
+   * Finds safe waiting spots with progressive radius expansion.
+   * Tries 1 km → 2 km → 3 km → 5 km → 8 km until spots are found.
+   * Returns spots sorted by distance (nearest first) and the effective radius used.
+   */
   async getSafeWaitingSpots(
     cityId: CityId,
     lat: number,
-    lng: number,
-    maxDistanceM = MAX_WALKING_DISTANCE_M
-  ): Promise<SafeWaitingSpot[]> {
-    const live = await fetchLiveNearby(lat, lng, cityId, maxDistanceM);
-    if (live.length) return live;
+    lng: number
+  ): Promise<{ spots: SafeWaitingSpot[]; radiusM: number }> {
+    const { spots: live, radiusM } = await fetchLiveNearby(lat, lng, cityId);
+    if (live.length) return { spots: live, radiusM };
 
     if (IS_DEMO_MODE) {
-      const demo = filterWalkingDistance(withDistance(demoSafeSpots(cityId), lat, lng), maxDistanceM);
-      if (demo.length) return demo;
+      for (const r of [1000, 2000, 3000, 5000, 8000]) {
+        const demo = filterWalkingDistance(withDistance(demoSafeSpots(cityId), lat, lng), r);
+        if (demo.length) return { spots: demo, radiusM: r };
+      }
     }
 
     const { data } = await supabase
       .from("safe_waiting_spots")
       .select("*")
       .eq("city_id", cityId)
-      .limit(24);
+      .limit(32);
 
     if (data?.length) {
-      const nearby = filterWalkingDistance(withDistance(data as SafeWaitingSpot[], lat, lng), maxDistanceM);
-      if (nearby.length) return nearby.slice(0, 8);
+      const sorted = withDistance(data as SafeWaitingSpot[], lat, lng);
+      for (const r of [1000, 2000, 3000, 5000, 8000]) {
+        const nearby = filterWalkingDistance(sorted, r);
+        if (nearby.length) return { spots: nearby.slice(0, 8), radiusM: r };
+      }
+      return { spots: sorted.slice(0, 8), radiusM: Math.round((sorted[0]?.distance_m ?? 0) + 100) };
     }
 
-    return filterWalkingDistance(
-      withDistance(emergencyFallbackSpots(cityId), lat, lng),
-      maxDistanceM
-    ).slice(0, 8);
+    const fallback = withDistance(emergencyFallbackSpots(cityId), lat, lng);
+    return { spots: fallback.slice(0, 8), radiusM: Math.round((fallback[0]?.distance_m ?? 5000) + 100) };
   },
 
   async getCities() {

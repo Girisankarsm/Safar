@@ -6,8 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/use-i18n";
 import { NATIONAL_HELPLINES } from "@/lib/helplines";
 import { getCityConfig } from "@/config/cities";
-import { IS_DEMO_MODE } from "@/lib/config";
-import { formatWalkingDistance, MAX_WALKING_DISTANCE_M } from "@/lib/geo";
+import { formatWalkingDistance } from "@/lib/geo";
 import { contactsService } from "@/services/supabase/contacts.service";
 import { placesService } from "@/services/supabase/places.service";
 import { tripsService } from "@/services/supabase/trips.service";
@@ -61,6 +60,7 @@ export function EmergencyPage() {
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [spotNote, setSpotNote] = useState("");
+  const [searchRadiusM, setSearchRadiusM] = useState(0);
   const [sosLinks, setSosLinks] = useState<{ name: string; url: string }[]>([]);
   const [showAddContact, setShowAddContact] = useState(false);
   const [newName, setNewName] = useState("");
@@ -81,25 +81,31 @@ export function EmergencyPage() {
   const loadSpots = useCallback(async () => {
     setLoading(true);
     setSpotNote("");
+    setSearchRadiusM(0);
     try {
       const gps = await requestLocation();
       const coords = gps ?? getCityCenter(city);
-      const results = await placesService.getSafeWaitingSpots(
+      const { spots: results, radiusM } = await placesService.getSafeWaitingSpots(
         city,
         coords.lat,
-        coords.lng,
-        MAX_WALKING_DISTANCE_M
+        coords.lng
       );
       setSpots(results);
+      setSearchRadiusM(radiusM);
+
       if (!results.length) {
         setSpotNote(
           gps
-            ? `No safe spots within ${MAX_WALKING_DISTANCE_M} m of you. Try moving to a busier, lit area.`
-            : "Enable location access to find safe spots within walking distance (under 1 km)."
+            ? "No safe spots found within 8 km. Try moving to a busier area or call a helpline below."
+            : "Enable location access to find the nearest safe spots around you."
         );
       } else if (!gps) {
         setSpotNote(
-          "Enable location for spots near you — only showing places within 1 km of city centre."
+          `Showing spots within ${radiusM >= 1000 ? `${radiusM / 1000} km` : `${radiusM} m`} of city centre — enable location for spots near your exact position.`
+        );
+      } else if (radiusM > 1000) {
+        setSpotNote(
+          `No spots within 1 km — expanded to ${radiusM >= 1000 ? `${radiusM / 1000} km` : `${radiusM} m`} to find the nearest safe locations.`
         );
       }
     } catch {
@@ -203,7 +209,13 @@ export function EmergencyPage() {
       <PageHeader
         eyebrow={t("emergency.eyebrow")}
         title={t("emergency.title")}
-        subtitle={t("emergency.subtitle", { m: MAX_WALKING_DISTANCE_M })}
+        subtitle={
+          searchRadiusM
+            ? t("emergency.subtitle", {
+                m: searchRadiusM >= 1000 ? `${searchRadiusM / 1000} km` : `${searchRadiusM} m`,
+              })
+            : t("emergency.subtitle", { m: "1 km" })
+        }
       />
 
       <Card className="!border-[#EF4444]/30 text-center">
@@ -346,7 +358,20 @@ export function EmergencyPage() {
 
       <div>
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="text-sm font-bold uppercase tracking-widest text-[#A1A1AA]">{t("emergency.safeSpots")}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-[#A1A1AA]">{t("emergency.safeSpots")}</h2>
+            {!loading && spots.length > 0 && searchRadiusM > 0 && (
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                searchRadiusM <= 1000
+                  ? "bg-[#22C55E]/15 text-[#86EFAC]"
+                  : searchRadiusM <= 2000
+                  ? "bg-[#3B82F6]/15 text-[#93C5FD]"
+                  : "bg-[#F59E0B]/15 text-[#FCD34D]"
+              }`}>
+                {searchRadiusM >= 1000 ? `${searchRadiusM / 1000} km radius` : `${searchRadiusM} m radius`}
+              </span>
+            )}
+          </div>
           <button
             type="button"
             onClick={loadSpots}
@@ -357,7 +382,18 @@ export function EmergencyPage() {
           </button>
         </div>
 
-        {loading && <p className="text-sm text-[#A1A1AA]">{t("emergency.fetching")}</p>}
+        {loading && (
+          <div className="space-y-1.5">
+            <p className="text-sm text-[#A1A1AA]">{t("emergency.fetching")}</p>
+            <div className="flex gap-1.5">
+              {[1, 2, 3, 5, 8].map((km) => (
+                <span key={km} className="animate-pulse rounded-full bg-[#22C55E]/15 px-2 py-0.5 text-[10px] text-[#22C55E]">
+                  {km} km
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {spotNote && !loading && <p className="mb-3 text-xs text-[#F59E0B]">{spotNote}</p>}
 
