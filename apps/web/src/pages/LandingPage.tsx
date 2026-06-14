@@ -1,6 +1,7 @@
 import { ButtonLink } from "@/components/ui/button";
 import { CountUp } from "@/components/ui/count-up";
 import { DEMO_LANDING_METRICS } from "@/lib/demo-hackathon";
+import { CITY_LIST } from "@/config/cities";
 import { IS_DEMO_MODE } from "@/lib/config";
 import { motion } from "framer-motion";
 import {
@@ -17,7 +18,7 @@ import { Link } from "react-router-dom";
 
 const METRICS = IS_DEMO_MODE
   ? DEMO_LANDING_METRICS
-  : { safeTrips: 1200, communityReports: 48, citiesCovered: 3, emergencyResponses: 86 };
+  : { safeTrips: 1200, communityReports: 48, citiesCovered: CITY_LIST.length, emergencyResponses: 86 };
 
 const FEATURES = [
   {
@@ -230,7 +231,7 @@ export function LandingPage() {
                 { label: "AI Routes", value: "4 types", color: "#3B82F6" },
                 { label: "Live Maps", value: "Realtime", color: "#22C55E" },
                 { label: "SOS Shield", value: "24/7", color: "#EF4444" },
-                { label: "Cities", value: "3 live", color: "#EC4899" },
+                { label: "Cities", value: `${CITY_LIST.length} live`, color: "#EC4899" },
               ].map((tile) => (
                 <div
                   key={tile.label}

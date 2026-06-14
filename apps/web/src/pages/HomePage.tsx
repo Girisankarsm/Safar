@@ -24,7 +24,18 @@ import { Link, useNavigate } from "react-router-dom";
 
 export function HomePage() {
   const { city } = useCityStore();
-  const { departureHour, setDepartureHour, lowDataMode } = useSettingsStore();
+  const { departureHour, departureHourCustom, setDepartureHour, lowDataMode } = useSettingsStore();
+  const [liveHour, setLiveHour] = useState(() => new Date().getHours());
+
+  useEffect(() => {
+    if (departureHourCustom) return;
+    const sync = () => setLiveHour(new Date().getHours());
+    sync();
+    const id = window.setInterval(sync, 60_000);
+    return () => window.clearInterval(id);
+  }, [departureHourCustom]);
+
+  const effectiveDepartureHour = departureHourCustom ? departureHour : liveHour;
   const { t } = useI18n();
   const navigate = useNavigate();
   const [source, setSource] = useState("");
@@ -93,7 +104,7 @@ export function HomePage() {
         routesService.searchRoutes(source, destination, city, {
           source: sourcePlace ?? undefined,
           destination: destinationPlace ?? undefined,
-        }, { departureHour }),
+        }, { departureHour: effectiveDepartureHour }),
         new Promise<never>((_, reject) =>
           window.setTimeout(() => reject(new Error("Route search timed out. Please try again.")), 25_000)
         ),
@@ -106,7 +117,7 @@ export function HomePage() {
         JSON.stringify({
           source: sourcePlace?.label ?? source,
           destination: destinationPlace?.label ?? destination,
-          departureHour,
+          departureHour: effectiveDepartureHour,
         })
       );
       navigate("/routes");
@@ -172,20 +183,21 @@ export function HomePage() {
           onPlaceSelect={setDestinationPlace}
           disabled={loading}
         />
-        <div className="grid gap-2 sm:grid-cols-2">
-          <label className="block text-xs font-semibold text-[#A1A1AA]">
+        <div className="flex flex-wrap items-end gap-4">
+          <label className="block w-44 shrink-0 text-xs font-semibold text-[#A1A1AA]">
             {t("home.departure")}
             <input
               type="range"
               min={0}
               max={23}
-              value={departureHour}
+              value={effectiveDepartureHour}
               onChange={(e) => setDepartureHour(Number(e.target.value))}
               className="mt-2 w-full accent-[#3B82F6]"
             />
             <span className="mt-1 block text-sm font-bold text-white">
-              {formatDepartureLabel(departureHour)} — {t("home.timeSafety")}
+              {formatDepartureLabel(effectiveDepartureHour)}
             </span>
+            <span className="mt-0.5 block text-[10px] text-[#71717A]">{t("home.timeSafety")}</span>
           </label>
           {lowDataMode && (
             <p className="rounded-xl border border-[#3B82F6]/25 bg-[#3B82F6]/10 px-3 py-2 text-xs text-[#93C5FD]">

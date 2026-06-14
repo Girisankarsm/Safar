@@ -1,4 +1,5 @@
 import type { SafetyReport } from "@/types/database";
+import { CITY_LIST } from "@/config/cities";
 
 export type ActivityItem = {
   id: string;
@@ -87,7 +88,7 @@ export type PlatformStats = {
 
 export function computePlatformStats(
   reports: SafetyReport[],
-  citiesCount = 3
+  citiesCount = CITY_LIST.length
 ): PlatformStats {
   const verified = reports.filter((r) => r.is_verified).length;
   const uniqueUsers = new Set(reports.map((r) => r.user_id)).size;

@@ -196,12 +196,12 @@ export const DEMO_PLATFORM_STATS: PlatformStats = {
   verifiedReports: 89,
   activeUsers: 156,
   safetyCoverage: 78,
-  citiesSupported: 3,
+  citiesSupported: 4,
 };
 
 export const DEMO_LANDING_METRICS = {
   safeTrips: 12400,
   communityReports: 247,
-  citiesCovered: 3,
+  citiesCovered: 4,
   emergencyResponses: 340,
 };
