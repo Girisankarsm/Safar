@@ -5,6 +5,20 @@ import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  test: {
+    environment: "node",
+    globals: true,
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+    include: ["src/**/*.test.ts", "src/**/*.spec.ts"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json-summary"],
+      include: ["src/lib/**/*.ts"],
+      exclude: ["src/lib/supabase.ts", "src/lib/api.ts"],
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),

@@ -1,4 +1,4 @@
-import { ORS_API_KEY } from "@/lib/config";
+import { ORS_API_KEY, ORS_PROXY_URL } from "@/lib/config";
 import { estimateRouteFare } from "@/lib/fare-estimates";
 import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import { cacheKey, haversineM, sampleLineString } from "@/lib/geo";
@@ -63,18 +63,29 @@ async function fetchORS(
   profile: string,
   preference: string
 ): Promise<OrsResult | null> {
-  if (!ORS_API_KEY) return null;
+  const body = JSON.stringify({ coordinates: [start, end], preference, units: "km" });
+
   try {
-    const res = await fetchWithTimeout(
-      `https://api.openrouteservice.org/v2/directions/${profile}/geojson`,
-      {
-        method: "POST",
-        headers: { Authorization: ORS_API_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify({ coordinates: [start, end], preference, units: "km" }),
-        timeoutMs: 12_000,
-      }
-    );
-    if (!res.ok) return null;
+    let res: Response | null = null;
+
+    if (ORS_PROXY_URL) {
+      res = await fetchWithTimeout(
+        `${ORS_PROXY_URL}?path=/v2/directions/${profile}/geojson`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body, timeoutMs: 14_000 }
+      );
+    } else if (ORS_API_KEY) {
+      res = await fetchWithTimeout(
+        `https://api.openrouteservice.org/v2/directions/${profile}/geojson`,
+        {
+          method: "POST",
+          headers: { Authorization: ORS_API_KEY, "Content-Type": "application/json" },
+          body,
+          timeoutMs: 12_000,
+        }
+      );
+    }
+
+    if (!res?.ok) return null;
     const json = await res.json();
     const f = json.features?.[0];
     if (!f?.geometry?.coordinates?.length) return null;

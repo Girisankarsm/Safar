@@ -8,7 +8,7 @@ import {
   type VehicleQuote,
 } from "@/lib/platform-fares";
 import type { PlannedRoute } from "@/types/database";
-import { ArrowDownUp, Car, Clock, IndianRupee, Shield, Sparkles } from "lucide-react";
+import { ArrowDownUp, Car, Clock, Database, IndianRupee, Shield, Sparkles, Wifi } from "lucide-react";
 import { useMemo, useState } from "react";
 
 type SortKey = "fare" | "safety" | "eta";
@@ -97,9 +97,17 @@ export function PlatformFareComparison({
     <section className="surface-card space-y-4 rounded-2xl p-5 md:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Sparkles className="h-4 w-4 text-[#3B82F6]" />
             <h3 className="font-bold text-white">{t("routes.platformCompare")}</h3>
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#F59E0B]/10 px-2 py-0.5 text-[10px] font-bold text-[#FCD34D]">
+              <Database className="h-2.5 w-2.5" />
+              Est. fares
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#22C55E]/10 px-2 py-0.5 text-[10px] font-bold text-[#86EFAC]">
+              <Wifi className="h-2.5 w-2.5" />
+              Live safety
+            </span>
           </div>
           <p className="mt-1 text-sm text-[#A1A1AA]">{t("routes.platformCompareDesc")}</p>
         </div>
@@ -190,6 +198,7 @@ export function PlatformFareComparison({
                       <IndianRupee className="h-3.5 w-3.5" />
                       {vehicle.fareInr}
                     </span>
+                    <span className="ml-1 text-[10px] text-[#52525B]">est.</span>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {quote.highlights.includes("cheapest") && (
                         <span className="rounded-full bg-[#F59E0B]/15 px-2 py-0.5 text-[10px] font-bold text-[#FCD34D]">
@@ -217,6 +226,9 @@ export function PlatformFareComparison({
                         }`}
                       />
                       <SafetyLevelBadge score={vehicle.safetyScore} size="sm" showBar={false} />
+                      <span className="text-[10px] text-[#52525B]">
+                        {brandId === "safar" ? "live" : "est."}
+                      </span>
                       {quote.highlights.includes("safest") && (
                         <span className="rounded-full bg-[#22C55E]/15 px-2 py-0.5 text-[10px] font-bold text-[#86EFAC]">
                           {t("routes.safestTag")}
@@ -232,6 +244,16 @@ export function PlatformFareComparison({
         </div>
       )}
 
+      <div className="flex flex-wrap items-center gap-3 border-t border-[var(--border-subtle)] pt-3">
+        <span className="inline-flex items-center gap-1 text-[10px] text-[#52525B]">
+          <Database className="h-2.5 w-2.5 text-[#F59E0B]" />
+          Est. fare — typical city rate × distance ± surge
+        </span>
+        <span className="inline-flex items-center gap-1 text-[10px] text-[#52525B]">
+          <Wifi className="h-2.5 w-2.5 text-[#22C55E]" />
+          Live safety — real OSM corridor + community reports from Supabase
+        </span>
+      </div>
       <p className="text-[10px] text-[#52525B]">{t("routes.platformDisclaimer")}</p>
     </section>
   );

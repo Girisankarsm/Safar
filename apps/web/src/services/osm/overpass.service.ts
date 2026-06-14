@@ -1,4 +1,4 @@
-import { OVERPASS_URL } from "@/lib/config";
+import { OVERPASS_PROXY_URL, OVERPASS_URL } from "@/lib/config";
 import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import type { OsmPlaceType } from "@/types/database";
 
@@ -90,6 +90,23 @@ function parseOverpassElements(
     .filter(Boolean) as OverpassPlace[];
 }
 
+async function overpassFetch(query: string, timeoutMs = 10_000): Promise<Response> {
+  if (OVERPASS_PROXY_URL && OVERPASS_PROXY_URL !== OVERPASS_URL) {
+    return fetchWithTimeout(OVERPASS_PROXY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+      timeoutMs,
+    });
+  }
+  return fetchWithTimeout(OVERPASS_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `data=${encodeURIComponent(query)}`,
+    timeoutMs,
+  });
+}
+
 /** Single Overpass request for all emergency-safe place types */
 export async function fetchEmergencyPlacesNear(
   lat: number,
@@ -97,12 +114,7 @@ export async function fetchEmergencyPlacesNear(
   radiusM = 4000,
   timeoutMs = 10_000
 ): Promise<OverpassPlace[]> {
-  const res = await fetchWithTimeout(OVERPASS_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `data=${encodeURIComponent(buildCombinedEmergencyQuery(lat, lng, radiusM))}`,
-    timeoutMs,
-  });
+  const res = await overpassFetch(buildCombinedEmergencyQuery(lat, lng, radiusM), timeoutMs);
 
   if (!res.ok) throw new Error(`Overpass API error: ${res.status}`);
 
@@ -116,12 +128,7 @@ export async function fetchOsmPlacesNear(
   placeType: OsmPlaceType,
   radiusM = 5000
 ): Promise<OverpassPlace[]> {
-  const res = await fetchWithTimeout(OVERPASS_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `data=${encodeURIComponent(buildQuery(lat, lng, placeType, radiusM))}`,
-    timeoutMs: 10_000,
-  });
+  const res = await overpassFetch(buildQuery(lat, lng, placeType, radiusM));
 
   if (!res.ok) throw new Error(`Overpass API error: ${res.status}`);
 
