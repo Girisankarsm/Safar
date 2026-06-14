@@ -37,6 +37,35 @@ export type PlatformQuote = VehicleQuote & {
   brandColor: string;
 };
 
+export type VehicleCategory = "auto" | "bike" | "economy" | "premium" | "transit";
+
+export const VEHICLE_CATEGORIES: VehicleCategory[] = [
+  "auto",
+  "bike",
+  "economy",
+  "premium",
+  "transit",
+];
+
+const VEHICLE_CATEGORY_BY_ID: Record<RidePlatformId, VehicleCategory> = {
+  uber_go: "economy",
+  uber_premier: "premium",
+  uber_auto: "auto",
+  ola_mini: "economy",
+  ola_prime: "premium",
+  ola_bike: "bike",
+  rapido_bike: "bike",
+  rapido_auto: "auto",
+  namma_yatri: "auto",
+  local_auto: "auto",
+  safar_transit: "transit",
+};
+
+export type CategoryComparisonRow = {
+  brand: PlatformBrand;
+  vehicle: VehicleQuote;
+};
+
 type RateCard = {
   name: string;
   mode: string;
@@ -244,6 +273,22 @@ function buildVehicleQuote(
       : platformSafetyScore(route.safety_score, card, departureHour, womenMode),
     safetyNote: card.safetyNote,
   };
+}
+
+export function compareByVehicleCategory(
+  route: PlannedRoute,
+  category: VehicleCategory,
+  options?: { departureHour?: number; womenSafetyMode?: boolean }
+): CategoryComparisonRow[] {
+  const brands = comparePlatformBrands(route, options);
+  return brands
+    .map((brand) => {
+      const vehicle = brand.vehicles.find(
+        (v) => VEHICLE_CATEGORY_BY_ID[v.id] === category
+      );
+      return vehicle ? { brand, vehicle } : null;
+    })
+    .filter((row): row is CategoryComparisonRow => row != null);
 }
 
 export function comparePlatformBrands(
