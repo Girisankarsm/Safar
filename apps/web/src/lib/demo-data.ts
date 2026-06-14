@@ -123,6 +123,10 @@ export function demoSafeSpots(cityId: CityId): SafeWaitingSpot[] {
 export function emergencyFallbackSpots(cityId: CityId): SafeWaitingSpot[] {
   const spots: Record<CityId, SafeWaitingSpot[]> = {
     chennai: [
+      { id: "fb-chen-ripon", city_id: "chennai", spot_type: "police", name: "Chennai City Police HQ", latitude: 13.0845, longitude: 80.272, is_24x7: true, safe_waiting_score: 90 },
+      { id: "fb-chen-gh", city_id: "chennai", spot_type: "hospital", name: "Rajiv Gandhi Govt General Hospital", latitude: 13.079, longitude: 80.268, is_24x7: true, safe_waiting_score: 88 },
+      { id: "fb-chen-metro", city_id: "chennai", spot_type: "metro", name: "Government Estate Metro", latitude: 13.0785, longitude: 80.2745, is_24x7: true, safe_waiting_score: 84 },
+      { id: "fb-chen-pharm", city_id: "chennai", spot_type: "pharmacy", name: "Parry's Corner 24/7 Pharmacy", latitude: 13.0865, longitude: 80.281, is_24x7: true, safe_waiting_score: 74 },
       { id: "fb-apollo", city_id: "chennai", spot_type: "hospital", name: "Apollo Hospitals Greams Road", latitude: 13.0604, longitude: 80.2517, is_24x7: true, safe_waiting_score: 92 },
       { id: "fb-egmore-police", city_id: "chennai", spot_type: "police", name: "Egmore Police Station", latitude: 13.0735, longitude: 80.2612, is_24x7: true, safe_waiting_score: 90 },
       { id: "fb-central", city_id: "chennai", spot_type: "railway", name: "Chennai Central Railway Station", latitude: 13.0827, longitude: 80.2751, is_24x7: true, safe_waiting_score: 85 },
@@ -133,12 +137,18 @@ export function emergencyFallbackSpots(cityId: CityId): SafeWaitingSpot[] {
       { id: "fb-omr-fuel", city_id: "chennai", spot_type: "petrol_pump", name: "OMR BP Fuel Station", latitude: 12.9496, longitude: 80.2372, is_24x7: true, safe_waiting_score: 78 },
     ],
     trivandrum: [
+      { id: "fb-tvm-central-near", city_id: "trivandrum", spot_type: "railway", name: "Thampanoor Station Security", latitude: 8.4878, longitude: 76.953, is_24x7: true, safe_waiting_score: 86 },
+      { id: "fb-tvm-palayam-near", city_id: "trivandrum", spot_type: "pharmacy", name: "Palayam Junction Pharmacy", latitude: 8.5105, longitude: 76.966, is_24x7: false, safe_waiting_score: 72 },
+      { id: "fb-tvm-med-near", city_id: "trivandrum", spot_type: "hospital", name: "Medical College Emergency", latitude: 8.5255, longitude: 76.9375, is_24x7: true, safe_waiting_score: 90 },
       { id: "fb-tvm-hosp", city_id: "trivandrum", spot_type: "hospital", name: "Medical College Hospital", latitude: 8.5241, longitude: 76.9366, is_24x7: true, safe_waiting_score: 90 },
       { id: "fb-tvm-police", city_id: "trivandrum", spot_type: "police", name: "Thampanoor Police Station", latitude: 8.4875, longitude: 76.9525, is_24x7: true, safe_waiting_score: 88 },
       { id: "fb-technopark", city_id: "trivandrum", spot_type: "metro", name: "Technopark Campus Security", latitude: 8.5581, longitude: 76.8816, is_24x7: true, safe_waiting_score: 82 },
       { id: "fb-palayam", city_id: "trivandrum", spot_type: "pharmacy", name: "Palayam Medical Stores", latitude: 8.5099, longitude: 76.9655, is_24x7: false, safe_waiting_score: 72 },
     ],
     bangalore: [
+      { id: "fb-blr-majestic", city_id: "bangalore", spot_type: "police", name: "Kempegowda Bus Stand Police", latitude: 12.9768, longitude: 77.5725, is_24x7: true, safe_waiting_score: 88 },
+      { id: "fb-blr-victoria-near", city_id: "bangalore", spot_type: "hospital", name: "Victoria Hospital Emergency", latitude: 12.9595, longitude: 77.5845, is_24x7: true, safe_waiting_score: 90 },
+      { id: "fb-blr-mg-near", city_id: "bangalore", spot_type: "metro", name: "MG Road Metro Station", latitude: 12.9758, longitude: 77.6068, is_24x7: true, safe_waiting_score: 84 },
       { id: "fb-victoria", city_id: "bangalore", spot_type: "hospital", name: "Victoria Hospital", latitude: 12.9592, longitude: 77.5841, is_24x7: true, safe_waiting_score: 90 },
       { id: "fb-kg-police", city_id: "bangalore", spot_type: "police", name: "Majestic Police Station", latitude: 12.9772, longitude: 77.5665, is_24x7: true, safe_waiting_score: 88 },
       { id: "fb-mg-metro", city_id: "bangalore", spot_type: "metro", name: "MG Road Metro Station", latitude: 12.9756, longitude: 77.6063, is_24x7: true, safe_waiting_score: 84 },
@@ -146,6 +156,9 @@ export function emergencyFallbackSpots(cityId: CityId): SafeWaitingSpot[] {
       { id: "fb-whitefield", city_id: "bangalore", spot_type: "petrol_pump", name: "Whitefield 24/7 Fuel Station", latitude: 12.9698, longitude: 77.7499, is_24x7: true, safe_waiting_score: 76 },
     ],
     hyderabad: [
+      { id: "fb-hyd-sec-near", city_id: "hyderabad", spot_type: "railway", name: "Secunderabad Station Security", latitude: 17.4402, longitude: 78.4988, is_24x7: true, safe_waiting_score: 85 },
+      { id: "fb-hyd-ameerpet", city_id: "hyderabad", spot_type: "metro", name: "Ameerpet Metro Interchange", latitude: 17.4358, longitude: 78.445, is_24x7: true, safe_waiting_score: 83 },
+      { id: "fb-hyd-banjara", city_id: "hyderabad", spot_type: "police", name: "Banjara Hills Police Station", latitude: 17.416, longitude: 78.435, is_24x7: true, safe_waiting_score: 87 },
       { id: "fb-hyd-hosp", city_id: "hyderabad", spot_type: "hospital", name: "Apollo Hospitals Jubilee Hills", latitude: 17.4194, longitude: 78.4102, is_24x7: true, safe_waiting_score: 91 },
       { id: "fb-hyd-police", city_id: "hyderabad", spot_type: "police", name: "Banjara Hills Police Station", latitude: 17.4156, longitude: 78.4347, is_24x7: true, safe_waiting_score: 87 },
       { id: "fb-hyd-metro", city_id: "hyderabad", spot_type: "metro", name: "Ameerpet Metro Station", latitude: 17.4355, longitude: 78.4446, is_24x7: true, safe_waiting_score: 83 },

@@ -1,10 +1,14 @@
 import type { HeatmapPoint } from "@/services/supabase/heatmap.service";
 import type { SafetyReport } from "@/types/database";
+import { useSettingsStore } from "@/stores/settings.store";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useEffect, useRef } from "react";
 
 import "leaflet.heat";
+
+const MAX_MAP_REPORTS = 30;
+const MAX_HEAT_POINTS = 40;
 
 const ZONE_COLORS: Record<string, string> = {
   safe: "#22c55e",
@@ -79,6 +83,8 @@ export function SafetyHeatmap({
   const onMapClickRef = useRef(onMapClick);
   const hasFitRef = useRef(false);
   const centerRef = useRef(center);
+  const lowDataMode = useSettingsStore((s) => s.lowDataMode);
+  const mapMaxZoom = lowDataMode ? 15 : 19;
 
   useEffect(() => {
     centerRef.current = center;
@@ -99,7 +105,7 @@ export function SafetyHeatmap({
 
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
       attribution: '&copy; OSM &copy; CARTO',
-      maxZoom: 19,
+      maxZoom: mapMaxZoom,
     }).addTo(map);
 
     overlayRef.current = L.layerGroup().addTo(map);
@@ -135,13 +141,15 @@ export function SafetyHeatmap({
     overlay.clearLayers();
 
     const bounds: L.LatLngExpression[] = [];
+    const cappedHeat = heatPoints.slice(0, MAX_HEAT_POINTS);
+    const cappedReports = reports.slice(0, MAX_MAP_REPORTS);
     const zonePoints = layers.safeZones
-      ? heatPoints.filter((p) => p.source === "ncrb")
+      ? cappedHeat.filter((p) => p.source === "ncrb")
       : [];
-    const clusterPoints = heatPoints.filter((p) => p.source !== "ncrb");
+    const clusterPoints = cappedHeat.filter((p) => p.source !== "ncrb");
 
-    if (layers.heatmap && heatPoints.length > 0) {
-      const heatData: [number, number, number][] = heatPoints.map((p) => [
+    if (layers.heatmap && cappedHeat.length > 0) {
+      const heatData: [number, number, number][] = cappedHeat.map((p) => [
         p.lat,
         p.lng,
         Math.max(0.25, p.weight),
@@ -152,11 +160,11 @@ export function SafetyHeatmap({
           heatLayer: (d: [number, number, number][], o?: object) => L.Layer;
         }
       ).heatLayer(heatData, {
-        radius: 42,
-        blur: 28,
-        maxZoom: 17,
+        radius: lowDataMode ? 28 : 36,
+        blur: lowDataMode ? 18 : 24,
+        maxZoom: 15,
         max: 1,
-        minOpacity: 0.35,
+        minOpacity: 0.3,
         gradient: HEAT_GRADIENT,
       });
       overlay.addLayer(heat);
@@ -193,18 +201,14 @@ export function SafetyHeatmap({
     });
 
     if (layers.reports) {
-      reports.forEach((r) => {
+      cappedReports.forEach((r) => {
         L.circleMarker([r.latitude, r.longitude], {
-          radius: 10,
+          radius: 8,
           color: "#ffffff",
           fillColor: "#ef4444",
           fillOpacity: 0.95,
-          weight: 3,
-        })
-          .bindPopup(
-            `<strong>${r.report_type.replace(/_/g, " ")}</strong>${r.is_verified ? " · verified" : ""}${r.description ? `<br/>${r.description}` : ""}<br/><small>${r.upvotes} upvotes</small>`
-          )
-          .addTo(overlay);
+          weight: 2,
+        }).addTo(overlay);
         bounds.push([r.latitude, r.longitude]);
       });
     }
@@ -251,6 +255,7 @@ export function SafetyHeatmap({
     layers.safeZones,
     layers.userLocation,
     fitOnLoad,
+    lowDataMode,
   ]);
 
   useEffect(() => {

@@ -3,9 +3,11 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useI18n } from "@/i18n/use-i18n";
 import { NATIONAL_HELPLINES } from "@/lib/helplines";
 import { getCityConfig } from "@/config/cities";
 import { IS_DEMO_MODE } from "@/lib/config";
+import { formatWalkingDistance, MAX_WALKING_DISTANCE_M } from "@/lib/geo";
 import { contactsService } from "@/services/supabase/contacts.service";
 import { placesService } from "@/services/supabase/places.service";
 import { tripsService } from "@/services/supabase/trips.service";
@@ -19,7 +21,7 @@ function getCityCenter(city: Parameters<typeof getCityConfig>[0]) {
   return { lat: c.center_lat, lng: c.center_lng };
 }
 
-function requestLocation(timeoutMs = 5000): Promise<{ lat: number; lng: number } | null> {
+function requestLocation(timeoutMs = 12_000): Promise<{ lat: number; lng: number } | null> {
   return new Promise((resolve) => {
     if (!navigator.geolocation) {
       resolve(null);
@@ -37,7 +39,7 @@ function requestLocation(timeoutMs = 5000): Promise<{ lat: number; lng: number }
         window.clearTimeout(timer);
         resolve(null);
       },
-      { enableHighAccuracy: false, maximumAge: 60_000, timeout: timeoutMs }
+      { enableHighAccuracy: true, maximumAge: 30_000, timeout: timeoutMs }
     );
   });
 }
@@ -52,6 +54,7 @@ function buildWhatsAppLink(phone: string, lat: number, lng: number, name: string
 }
 
 export function EmergencyPage() {
+  const { t } = useI18n();
   const { city } = useCityStore();
   const [spots, setSpots] = useState<SafeWaitingSpot[]>([]);
   const [contactList, setContactList] = useState<EmergencyContact[]>([]);
@@ -81,12 +84,23 @@ export function EmergencyPage() {
     try {
       const gps = await requestLocation();
       const coords = gps ?? getCityCenter(city);
-      const results = await placesService.getSafeWaitingSpots(city, coords.lat, coords.lng);
-      setSpots(results.slice(0, 8));
+      const results = await placesService.getSafeWaitingSpots(
+        city,
+        coords.lat,
+        coords.lng,
+        MAX_WALKING_DISTANCE_M
+      );
+      setSpots(results);
       if (!results.length) {
-        setSpotNote("No safe spots found nearby. Try switching city or check back later.");
+        setSpotNote(
+          gps
+            ? `No safe spots within ${MAX_WALKING_DISTANCE_M} m of you. Try moving to a busier, lit area.`
+            : "Enable location access to find safe spots within walking distance (under 1 km)."
+        );
       } else if (!gps) {
-        setSpotNote("Showing spots near city center — enable location for results near you.");
+        setSpotNote(
+          "Enable location for spots near you — only showing places within 1 km of city centre."
+        );
       }
     } catch {
       setSpots([]);
@@ -187,9 +201,9 @@ export function EmergencyPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <PageHeader
-        eyebrow="Safety first"
-        title="Emergency Shield"
-        subtitle={`Safe waiting spots from ${IS_DEMO_MODE ? "offline fallback" : "OpenStreetMap"} — hospitals, police, fuel, pharmacies, and transit.`}
+        eyebrow={t("emergency.eyebrow")}
+        title={t("emergency.title")}
+        subtitle={t("emergency.subtitle", { m: MAX_WALKING_DISTANCE_M })}
       />
 
       <Card className="!border-[#EF4444]/30 text-center">
@@ -200,8 +214,8 @@ export function EmergencyPage() {
         >
           <Siren className="h-12 w-12 text-white" />
         </button>
-        <p className="mt-4 font-bold text-white">Tap for SOS</p>
-        <p className="text-sm text-[#A1A1AA]">{contactList.length} trusted contact(s)</p>
+        <p className="mt-4 font-bold text-white">{t("emergency.tapSos")}</p>
+        <p className="text-sm text-[#A1A1AA]">{t("emergency.contacts", { n: contactList.length })}</p>
         {status && <p className="mt-2 text-sm text-[#22C55E]">{status}</p>}
         {sosLinks.length > 0 && (
           <div className="mt-4 space-y-2 text-left">
@@ -224,7 +238,7 @@ export function EmergencyPage() {
       {!loading && spots.length > 0 && (
         <Card className="!border-[#22C55E]/20">
           <p className="mb-4 text-[10px] font-bold uppercase tracking-widest text-[#22C55E]">
-            Nearest Emergency Resources
+            {t("emergency.nearestResources")}
           </p>
           <NearestResources spots={spots} />
         </Card>
@@ -234,11 +248,11 @@ export function EmergencyPage() {
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <UserPlus className="text-[#3B82F6]" />
-            <h3 className="font-bold text-white">Emergency Contacts</h3>
+            <h3 className="font-bold text-white">{t("emergency.contactsTitle")}</h3>
           </div>
           <Button variant="ghost" className="!px-3 !py-1.5 text-xs" onClick={() => setShowAddContact((v) => !v)}>
             <Plus className="mr-1 h-3.5 w-3.5" />
-            Add
+            {t("emergency.add")}
           </Button>
         </div>
 
@@ -258,7 +272,7 @@ export function EmergencyPage() {
         )}
 
         {contactList.length === 0 ? (
-          <p className="text-sm text-[#71717A]">No contacts yet. Add family or friends to enable SOS alerts.</p>
+          <p className="text-sm text-[#71717A]">{t("emergency.noContacts")}</p>
         ) : (
           <div className="space-y-2">
             {contactList.map((c) => (
@@ -290,7 +304,7 @@ export function EmergencyPage() {
       <Card>
         <div className="mb-4 flex items-center gap-2">
           <Phone className="text-[#3B82F6]" />
-          <h3 className="font-bold text-white">National helplines</h3>
+          <h3 className="font-bold text-white">{t("emergency.helplines")}</h3>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           {NATIONAL_HELPLINES.map((h) => (
@@ -312,19 +326,19 @@ export function EmergencyPage() {
       <Card>
         <div className="mb-4 flex items-center gap-2">
           <Heart className="text-[#EC4899]" />
-          <h3 className="font-bold text-white">Women&apos;s Emergency</h3>
+          <h3 className="font-bold text-white">{t("emergency.womenTitle")}</h3>
         </div>
         <a href="tel:1091" className="mb-2 flex items-center gap-3 rounded-xl border border-[#262626] p-4">
           <Phone className="text-[#EC4899]" />
           <div>
-            <p className="font-semibold text-white">Women Helpline</p>
+            <p className="font-semibold text-white">{t("emergency.womenHelpline")}</p>
             <p className="text-xs text-[#A1A1AA]">1091</p>
           </div>
         </a>
         <a href="tel:181" className="flex items-center gap-3 rounded-xl border border-[#262626] p-4">
           <Phone className="text-[#EC4899]" />
           <div>
-            <p className="font-semibold text-white">Domestic Violence</p>
+            <p className="font-semibold text-white">{t("emergency.domesticViolence")}</p>
             <p className="text-xs text-[#A1A1AA]">181</p>
           </div>
         </a>
@@ -332,18 +346,18 @@ export function EmergencyPage() {
 
       <div>
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="text-sm font-bold uppercase tracking-widest text-[#A1A1AA]">Safe Waiting Spots</h2>
+          <h2 className="text-sm font-bold uppercase tracking-widest text-[#A1A1AA]">{t("emergency.safeSpots")}</h2>
           <button
             type="button"
             onClick={loadSpots}
             disabled={loading}
             className="text-xs font-semibold text-[#3B82F6] disabled:opacity-50"
           >
-            Refresh
+            {t("emergency.refresh")}
           </button>
         </div>
 
-        {loading && <p className="text-sm text-[#A1A1AA]">Fetching nearby places from OpenStreetMap…</p>}
+        {loading && <p className="text-sm text-[#A1A1AA]">{t("emergency.fetching")}</p>}
 
         {spotNote && !loading && <p className="mb-3 text-xs text-[#F59E0B]">{spotNote}</p>}
 
@@ -369,7 +383,7 @@ export function EmergencyPage() {
                 </div>
                 {s.distance_m != null && (
                   <span className="ml-3 shrink-0 text-xs font-bold text-[#22C55E]">
-                    {s.distance_m < 1000 ? `${s.distance_m}m` : `${(s.distance_m / 1000).toFixed(1)}km`}
+                    {formatWalkingDistance(s.distance_m)}
                   </span>
                 )}
               </a>
@@ -377,7 +391,7 @@ export function EmergencyPage() {
         </div>
 
         {!loading && spots.length === 0 && (
-          <p className="text-sm text-[#71717A]">No safe waiting spots to show.</p>
+          <p className="text-sm text-[#71717A]">{t("emergency.noSpots")}</p>
         )}
       </div>
     </div>

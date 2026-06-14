@@ -10,7 +10,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
-      devOptions: { enabled: true },
+      devOptions: { enabled: false },
       includeAssets: ["shield.svg"],
       manifest: {
         name: "Safar — Travel Smarter. Travel Safer.",

@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/layout/page-header";
 import { SafetyHeatmap } from "@/components/map/SafetyHeatmap";
 import { SafetyMapControls, type MapLayers, type TimeFilter } from "@/components/safety/safety-map-controls";
 import { SafetyMapLegend } from "@/components/safety/safety-map-legend";
@@ -5,19 +6,20 @@ import { SafetyReportCard } from "@/components/safety/safety-report-card";
 import { SafetyReportComments } from "@/components/safety/safety-report-comments";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { debounce } from "@/lib/debounce-callback";
+import { useI18n } from "@/i18n/use-i18n";
 import { getCityConfig } from "@/config/cities";
 import { useAuth } from "@/features/auth";
 import { IS_DEMO_MODE } from "@/lib/config";
 import { offlineCache } from "@/lib/offline-cache";
 import { demoCommentCount, demoComments, demoReports } from "@/lib/demo-hackathon";
 import { heatmapService, type HeatmapPoint } from "@/services/supabase/heatmap.service";
-import { placesService } from "@/services/supabase/places.service";
 import { reportsService } from "@/services/supabase/reports.service";
 import { storageService } from "@/services/supabase/storage.service";
 import { useCityStore } from "@/stores/city.store";
 import type { CommunityComment, ReportType, SafetyReport } from "@/types/database";
 import { ChevronDown, Crosshair, Filter, MapPin, Plus, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const REPORT_TYPES: { id: ReportType; label: string }[] = [
   { id: "harassment", label: "Harassment" },
@@ -47,6 +49,7 @@ function filterByTime(reports: SafetyReport[], time: TimeFilter) {
 }
 
 export function SafetyPage() {
+  const { t } = useI18n();
   const { city } = useCityStore();
   const { user, profile } = useAuth();
   const [heatPoints, setHeatPoints] = useState<HeatmapPoint[]>([]);
@@ -93,26 +96,21 @@ export function SafetyPage() {
   const load = useCallback(async () => {
     try {
       setLoadError("");
-      const [heat, r, cities] = await Promise.all([
+      const [heat, r] = await Promise.all([
         heatmapService.getHeatmapPoints(city),
         IS_DEMO_MODE
           ? Promise.resolve(demoReports(city))
           : reportsService.listByCity(city).catch(() => []),
-        placesService.getCities(),
       ]);
       setHeatPoints(heat);
       setReports(r);
       if (!IS_DEMO_MODE && r.length) {
         offlineCache.saveSafetySnapshot(city, r);
+        const counts = await reportsService.countCommentsBatch(r.map((report) => report.id));
+        setCommentCounts(counts);
       }
-      if (!IS_DEMO_MODE) {
-        const counts = await Promise.all(
-          r.map(async (report) => [report.id, await reportsService.countComments(report.id)] as const)
-        );
-        setCommentCounts(Object.fromEntries(counts));
-      }
-      const c = cities.find((x) => x.id === city);
-      if (c) setCenter({ lat: c.center_lat, lng: c.center_lng, name: c.name });
+      const c = getCityConfig(city);
+      setCenter({ lat: c.center_lat, lng: c.center_lng, name: c.name });
     } catch (err) {
       const cached = offlineCache.getSafetySnapshot(city);
       if (cached?.length) {
@@ -124,6 +122,12 @@ export function SafetyPage() {
     }
   }, [city]);
 
+  const debouncedLoadRef = useRef<ReturnType<typeof debounce<() => void>> | null>(null);
+  useEffect(() => {
+    debouncedLoadRef.current = debounce(() => void load(), 900);
+    return () => debouncedLoadRef.current?.cancel();
+  }, [load]);
+
   useEffect(() => {
     const c = getCityConfig(city);
     setCenter({ lat: c.center_lat, lng: c.center_lng, name: c.name });
@@ -131,16 +135,19 @@ export function SafetyPage() {
     setShowForm(false);
     setShowAllReports(false);
     load();
-    navigator.geolocation?.getCurrentPosition((p) =>
-      setUserCoords({ lat: p.coords.latitude, lng: p.coords.longitude })
+    navigator.geolocation?.getCurrentPosition(
+      (p) => setUserCoords({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      undefined,
+      { enableHighAccuracy: false, maximumAge: 120_000, timeout: 8_000 }
     );
 
     if (IS_DEMO_MODE) return;
 
     const channel = reportsService.subscribe(city, () => {
-      void load();
+      debouncedLoadRef.current?.();
     });
     return () => {
+      debouncedLoadRef.current?.cancel();
       void channel.unsubscribe();
     };
   }, [city, load]);
@@ -256,6 +263,12 @@ export function SafetyPage() {
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        eyebrow={t("safety.eyebrow")}
+        title={t("safety.title")}
+        subtitle={t("safety.subtitle", { city: getCityConfig(city).name })}
+      />
+
       {loadError && (
         <p className="rounded-xl border border-[#EF4444]/30 bg-[#EF4444]/10 px-4 py-3 text-sm text-[#FCA5A5]">
           {loadError}
@@ -386,7 +399,7 @@ export function SafetyPage() {
             className="gap-2 rounded-xl px-5 shadow-lg shadow-[#3B82F6]/20"
           >
             <Plus className="h-4 w-4" />
-            Report Issue
+            {t("safety.report")}
           </Button>
           <div className="flex items-center gap-2 text-xs text-[#A1A1AA]">
             <Filter className="h-3.5 w-3.5" />
@@ -444,7 +457,7 @@ export function SafetyPage() {
                 className="mt-4 w-full rounded-xl border border-[#262626] py-6 text-sm font-semibold text-[#A1A1AA] hover:border-[#3B82F6]/30 hover:text-white"
                 onClick={() => setShowAllReports(true)}
               >
-                View All Reports ({filteredReports.length})
+                {t("safety.viewAll")} ({filteredReports.length})
               </Button>
             )}
           </>

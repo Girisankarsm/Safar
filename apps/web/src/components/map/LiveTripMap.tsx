@@ -1,5 +1,6 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { useI18n } from "@/i18n/use-i18n";
 import { addLabeledMarker } from "@/components/map/map-markers";
 import { useEffect, useRef } from "react";
 
@@ -24,6 +25,7 @@ export function LiveTripMap({
   showUser?: boolean;
   height?: number;
 }) {
+  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
 
@@ -126,10 +128,10 @@ export function LiveTripMap({
         className="overflow-hidden rounded-2xl border border-[var(--border)] shadow-inner"
       />
       <div className="pointer-events-none absolute bottom-3 left-3 z-[500] flex flex-wrap gap-2 text-[10px] font-semibold">
-        <span className="rounded-md bg-black/80 px-2 py-1 text-[#22C55E]">A Start</span>
-        <span className="rounded-md bg-black/80 px-2 py-1 text-[#EF4444]">B Destination</span>
+        <span className="rounded-md bg-black/80 px-2 py-1 text-[#22C55E]">{t("map.start")}</span>
+        <span className="rounded-md bg-black/80 px-2 py-1 text-[#EF4444]">{t("map.destination")}</span>
         {showUser && (
-          <span className="rounded-md bg-black/80 px-2 py-1 text-[#3B82F6]">● You (live)</span>
+          <span className="rounded-md bg-black/80 px-2 py-1 text-[#3B82F6]">{t("map.youLive")}</span>
         )}
       </div>
     </div>

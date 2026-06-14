@@ -4,7 +4,7 @@ import { LowDataToggle } from "@/components/layout/LowDataToggle";
 import { SafetyIntelligenceWidget } from "@/components/safety/safety-intelligence-widget";
 import { getCityConfig } from "@/config/cities";
 import { UserMenu } from "@/features/auth";
-import { useLanguageStore } from "@/stores/language.store";
+import { useI18n } from "@/i18n/use-i18n";
 import { useCityStore } from "@/stores/city.store";
 import { cn } from "@/lib/utils";
 import { Home, Map, Route, Shield, Siren } from "lucide-react";
@@ -15,7 +15,7 @@ export function AppShell() {
   const isSafety = path.startsWith("/safety");
   const { city, revision } = useCityStore();
   const cityConfig = getCityConfig(city);
-  const t = useLanguageStore((s) => s.t);
+  const t = useI18n().t;
 
   const NAV_I18N = [
     { to: "/home", key: "nav.dashboard", icon: Home },

@@ -1,6 +1,6 @@
 import { IS_DEMO_MODE } from "@/lib/config";
 import { DEMO_CITY_CENTERS, demoSafeSpots, emergencyFallbackSpots } from "@/lib/demo-data";
-import { haversineM } from "@/lib/geo";
+import { haversineM, MAX_WALKING_DISTANCE_M } from "@/lib/geo";
 import { supabase } from "@/lib/supabase/client";
 import { fetchEmergencyPlacesNear, type OverpassPlace } from "@/services/osm/overpass.service";
 import type { CityId, OsmPlaceType, SafeWaitingSpot } from "@/types/database";
@@ -19,8 +19,9 @@ const SCORE_BASE: Record<OsmPlaceType, number> = {
 function computeSafeWaitingScore(place: OverpassPlace, distanceM: number): number {
   let score = SCORE_BASE[place.place_type] ?? 60;
   if (place.tags.opening_hours === "24/7" || place.tags["fuel:lpg"] === "yes") score += 5;
-  if (distanceM < 500) score += 3;
-  else if (distanceM > 3000) score -= 5;
+  if (distanceM < 300) score += 5;
+  else if (distanceM < 600) score += 3;
+  else if (distanceM > 800) score -= 3;
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
@@ -29,7 +30,8 @@ function rankPlacesAsSpots(
   userLat: number,
   userLng: number,
   cityId: CityId,
-  limit = 12
+  maxDistanceM: number,
+  limit = 8
 ): SafeWaitingSpot[] {
   return places
     .map((p) => {
@@ -48,7 +50,8 @@ function rankPlacesAsSpots(
         distance_m,
       };
     })
-    .sort((a, b) => (b.safe_waiting_score ?? 0) - (a.safe_waiting_score ?? 0) || (a.distance_m ?? 0) - (b.distance_m ?? 0))
+    .filter((s) => (s.distance_m ?? 0) <= maxDistanceM)
+    .sort((a, b) => (a.distance_m ?? 0) - (b.distance_m ?? 0))
     .slice(0, limit);
 }
 
@@ -59,6 +62,10 @@ function withDistance(spots: SafeWaitingSpot[], lat: number, lng: number): SafeW
       distance_m: Math.round(haversineM(lat, lng, s.latitude, s.longitude)),
     }))
     .sort((a, b) => (a.distance_m ?? 0) - (b.distance_m ?? 0));
+}
+
+function filterWalkingDistance(spots: SafeWaitingSpot[], maxM = MAX_WALKING_DISTANCE_M) {
+  return spots.filter((s) => (s.distance_m ?? Infinity) <= maxM);
 }
 
 function cacheOsmPlaces(places: OverpassPlace[], cityId: CityId) {
@@ -79,34 +86,56 @@ function cacheOsmPlaces(places: OverpassPlace[], cityId: CityId) {
   );
 }
 
-export const placesService = {
-  async getSafeWaitingSpots(cityId: CityId, lat: number, lng: number): Promise<SafeWaitingSpot[]> {
-    if (IS_DEMO_MODE) {
-      return withDistance(demoSafeSpots(cityId), lat, lng);
-    }
-
+async function fetchLiveNearby(
+  lat: number,
+  lng: number,
+  cityId: CityId,
+  maxDistanceM: number
+): Promise<SafeWaitingSpot[]> {
+  for (const radiusM of [maxDistanceM, maxDistanceM + 500, maxDistanceM + 1000]) {
     try {
-      const livePlaces = await fetchEmergencyPlacesNear(lat, lng, 4000, 10_000);
-      if (livePlaces.length > 0) {
-        cacheOsmPlaces(livePlaces, cityId);
-        return rankPlacesAsSpots(livePlaces, lat, lng, cityId);
-      }
+      const livePlaces = await fetchEmergencyPlacesNear(lat, lng, radiusM, 12_000);
+      if (!livePlaces.length) continue;
+      cacheOsmPlaces(livePlaces, cityId);
+      const ranked = rankPlacesAsSpots(livePlaces, lat, lng, cityId, maxDistanceM);
+      if (ranked.length) return ranked;
     } catch {
-      // fall through to offline list
+      continue;
+    }
+  }
+  return [];
+}
+
+export const placesService = {
+  async getSafeWaitingSpots(
+    cityId: CityId,
+    lat: number,
+    lng: number,
+    maxDistanceM = MAX_WALKING_DISTANCE_M
+  ): Promise<SafeWaitingSpot[]> {
+    const live = await fetchLiveNearby(lat, lng, cityId, maxDistanceM);
+    if (live.length) return live;
+
+    if (IS_DEMO_MODE) {
+      const demo = filterWalkingDistance(withDistance(demoSafeSpots(cityId), lat, lng), maxDistanceM);
+      if (demo.length) return demo;
     }
 
     const { data } = await supabase
       .from("safe_waiting_spots")
       .select("*")
       .eq("city_id", cityId)
-      .order("safe_waiting_score", { ascending: false })
-      .limit(12);
+      .limit(24);
 
     if (data?.length) {
-      return withDistance(data as SafeWaitingSpot[], lat, lng);
+      const nearby = filterWalkingDistance(withDistance(data as SafeWaitingSpot[], lat, lng), maxDistanceM);
+      if (nearby.length) return nearby.slice(0, 8);
     }
 
-    return withDistance(emergencyFallbackSpots(cityId), lat, lng);
+    return filterWalkingDistance(
+      withDistance(emergencyFallbackSpots(cityId), lat, lng),
+      maxDistanceM
+    ).slice(0, 8);
   },
 
   async getCities() {

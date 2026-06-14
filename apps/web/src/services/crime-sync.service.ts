@@ -1,6 +1,5 @@
 import { supabase } from "@/lib/supabase/client";
 import { crimeService } from "@/services/supabase/crime.service";
-import { reportsService } from "@/services/supabase/reports.service";
 
 const REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours while app is open
 const STORAGE_KEY = "safar:crime-sync:last";
@@ -47,7 +46,6 @@ async function refreshFromRpc(): Promise<boolean> {
 }
 
 async function ensureCrimeData() {
-  void reportsService.expireOld();
   const scores = await crimeService.listCityScores();
   const hasAllCities =
     scores.length >= 4 && scores.every((s) => !s.id.startsWith("fallback-"));
@@ -57,12 +55,17 @@ async function ensureCrimeData() {
   }
 }
 
-/** Start background NCRB sync — runs on app boot and every 6h while tab is open. */
+/** Start background NCRB sync — deferred so it does not block first paint. */
 export function startCrimeDataSync() {
   if (started) return;
   started = true;
 
-  void ensureCrimeData();
+  const run = () => void ensureCrimeData();
+  if (typeof requestIdleCallback === "function") {
+    requestIdleCallback(run, { timeout: 10_000 });
+  } else {
+    setTimeout(run, 4_000);
+  }
 
   timer = setInterval(() => {
     void ensureCrimeData();

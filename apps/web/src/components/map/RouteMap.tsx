@@ -1,5 +1,6 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { useI18n } from "@/i18n/use-i18n";
 import { addLabeledMarker } from "@/components/map/map-markers";
 import { useSettingsStore } from "@/stores/settings.store";
 import { useEffect, useRef } from "react";
@@ -23,6 +24,7 @@ export function RouteMap({
   destinationName?: string;
   height?: number;
 }) {
+  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const estimate = isStraightLine(geometry);
@@ -104,8 +106,8 @@ export function RouteMap({
         className="overflow-hidden rounded-2xl border border-[#262626]"
       />
       <div className="pointer-events-none absolute bottom-3 left-3 z-[500] flex flex-wrap gap-2 text-[10px] font-semibold">
-        <span className="rounded-md bg-black/80 px-2 py-1 text-[#22C55E]">A Start</span>
-        <span className="rounded-md bg-black/80 px-2 py-1 text-[#EF4444]">B Destination</span>
+        <span className="rounded-md bg-black/80 px-2 py-1 text-[#22C55E]">{t("map.start")}</span>
+        <span className="rounded-md bg-black/80 px-2 py-1 text-[#EF4444]">{t("map.destination")}</span>
         <span className={`rounded-md bg-black/80 px-2 py-1 ${estimate ? "text-[#F59E0B]" : "text-[#3B82F6]"}`}>
           {estimate ? "Estimated path" : "Road route"}
         </span>

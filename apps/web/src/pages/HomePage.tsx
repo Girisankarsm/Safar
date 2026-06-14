@@ -11,22 +11,21 @@ import {
 import { IS_DEMO_MODE } from "@/lib/config";
 import { offlineCache } from "@/lib/offline-cache";
 import { formatDepartureLabel } from "@/lib/time-safety";
-import { getCityConfig } from "@/config/cities";
-import { CITY_LIST } from "@/config/cities";
+import { debounce } from "@/lib/debounce-callback";
+import { useI18n } from "@/i18n/use-i18n";
+import { getCityConfig, CITY_LIST } from "@/config/cities";
 import { reportsService } from "@/services/supabase/reports.service";
 import { routesService } from "@/services/supabase/routes.service";
 import { useCityStore } from "@/stores/city.store";
 import { useSettingsStore } from "@/stores/settings.store";
-import { useLanguageStore } from "@/stores/language.store";
 import { Map, Shield, Sparkles } from "lucide-react";
-import { motion } from "framer-motion";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 export function HomePage() {
   const { city } = useCityStore();
   const { departureHour, setDepartureHour, lowDataMode } = useSettingsStore();
-  const t = useLanguageStore((s) => s.t);
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [source, setSource] = useState("");
   const [destination, setDestination] = useState("");
@@ -60,6 +59,12 @@ export function HomePage() {
     }
   }, [city]);
 
+  const debouncedLoadRef = useRef<ReturnType<typeof debounce<() => void>> | null>(null);
+  useEffect(() => {
+    debouncedLoadRef.current = debounce(() => void loadCommunityData(), 900);
+    return () => debouncedLoadRef.current?.cancel();
+  }, [loadCommunityData]);
+
   useEffect(() => {
     setSource("");
     setDestination("");
@@ -67,15 +72,18 @@ export function HomePage() {
     setDestinationPlace(null);
     setError("");
     loadCommunityData();
-    const channel = reportsService.subscribe(city, loadCommunityData);
+    const channel = reportsService.subscribe(city, () => {
+      debouncedLoadRef.current?.();
+    });
     return () => {
+      debouncedLoadRef.current?.cancel();
       channel.unsubscribe();
     };
   }, [city, loadCommunityData]);
 
   async function search() {
     if (!source.trim() || !destination.trim()) {
-      setError("Enter both source and destination.");
+      setError(t("home.errorBoth"));
       return;
     }
     setError("");
@@ -121,34 +129,30 @@ export function HomePage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow="Safar Command Center"
-        title="Smart Route Planner"
-        subtitle={`Compare safer routes in ${getCityConfig(city).name} with live community intelligence and OpenStreetMap data.`}
+        eyebrow={t("home.eyebrow")}
+        title={t("home.title")}
+        subtitle={t("home.subtitle", { city: getCityConfig(city).name })}
         action={
           <Link
             to="/emergency"
             className="inline-flex items-center gap-2 rounded-xl border border-[#EF4444]/30 bg-[#EF4444]/10 px-4 py-2.5 text-sm font-semibold text-[#EF4444] transition hover:bg-[#EF4444]/15"
           >
             <Shield className="h-4 w-4" />
-            Emergency Shield
+            {t("home.emergencyShield")}
           </Link>
         }
       />
 
       <SafetyStatisticsPanel stats={stats} />
 
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="surface-card space-y-5 rounded-2xl p-6 md:p-8"
-      >
+      <div className="surface-card space-y-5 rounded-2xl p-6 md:p-8">
         <div className="flex items-center gap-2 text-xs font-medium text-[#71717A]">
           <Sparkles className="h-3.5 w-3.5 text-[#3B82F6]" />
-          Pick places from suggestions for the most accurate routes
+          {t("home.pickPlaces")}
         </div>
         <LocationAutocomplete
           key={`${city}-from`}
-          label="From"
+          label={t("home.from")}
           placeholder={`Search in ${getCityConfig(city).name} — e.g. station, college, area`}
           cityId={city}
           value={source}
@@ -159,7 +163,7 @@ export function HomePage() {
         />
         <LocationAutocomplete
           key={`${city}-to`}
-          label="To"
+          label={t("home.to")}
           placeholder={`Destination in ${getCityConfig(city).name}`}
           cityId={city}
           value={destination}
@@ -197,7 +201,7 @@ export function HomePage() {
         <Button onClick={search} disabled={loading} className="w-full" size="lg">
           {loading ? t("home.searching") : t("home.search")}
         </Button>
-      </motion.div>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <CommunityActivityFeed items={activity} loading={feedLoading} />
@@ -211,8 +215,8 @@ export function HomePage() {
               <Map className="h-5 w-5 text-[#3B82F6]" />
             </div>
             <div>
-              <p className="font-bold text-white">Safety Heatmap</p>
-              <p className="mt-1 text-sm text-[#A1A1AA]">Live community reports & zones</p>
+              <p className="font-bold text-white">{t("home.safetyHeatmap")}</p>
+              <p className="mt-1 text-sm text-[#A1A1AA]">{t("home.safetyHeatmapDesc")}</p>
             </div>
           </Link>
           <Link
@@ -223,8 +227,8 @@ export function HomePage() {
               <Shield className="h-5 w-5 text-[#EF4444]" />
             </div>
             <div>
-              <p className="font-bold text-white">Safe Waiting Spots</p>
-              <p className="mt-1 text-sm text-[#A1A1AA]">Hospitals, police & 24/7 places nearby</p>
+              <p className="font-bold text-white">{t("home.safeWaiting")}</p>
+              <p className="mt-1 text-sm text-[#A1A1AA]">{t("home.safeWaitingDesc")}</p>
             </div>
           </Link>
         </div>

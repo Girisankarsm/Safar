@@ -1,5 +1,5 @@
 import type { SafeWaitingSpot } from "@/types/database";
-import { motion } from "framer-motion";
+import { formatWalkingDistance } from "@/lib/geo";
 import { Building2, Cross, MapPin, Pill, Shield } from "lucide-react";
 
 const TYPE_CONFIG: Record<string, { icon: typeof Shield; color: string; label: string }> = {
@@ -7,11 +7,6 @@ const TYPE_CONFIG: Record<string, { icon: typeof Shield; color: string; label: s
   hospital: { icon: Cross, color: "#EF4444", label: "Nearest Hospital" },
   pharmacy: { icon: Pill, color: "#22C55E", label: "Nearest Pharmacy" },
 };
-
-function formatDistance(m?: number) {
-  if (m == null) return "—";
-  return m < 1000 ? `${m}m` : `${(m / 1000).toFixed(1)}km`;
-}
 
 function nearestOfType(spots: SafeWaitingSpot[], type: SafeWaitingSpot["spot_type"]) {
   return spots
@@ -45,16 +40,12 @@ export function NearestResources({ spots }: { spots: SafeWaitingSpot[] }) {
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      {cards.map(({ spot, label, icon: Icon, color }, i) => (
-        <motion.a
+      {cards.map(({ spot, label, icon: Icon, color }) => (
+        <a
           key={spot.id}
           href={`https://www.google.com/maps/dir/?api=1&destination=${spot.latitude},${spot.longitude}`}
           target="_blank"
           rel="noreferrer"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: i * 0.06 }}
-          whileHover={{ scale: 1.02 }}
           className="flex items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 transition hover:border-[#22C55E]/30"
         >
           <div
@@ -69,10 +60,10 @@ export function NearestResources({ spots }: { spots: SafeWaitingSpot[] }) {
             <p className="text-[10px] text-[#A1A1AA]">Score {spot.safe_waiting_score ?? "—"}/100</p>
           </div>
           <div className="shrink-0 text-right">
-            <p className="text-sm font-bold text-[#22C55E]">{formatDistance(spot.distance_m)}</p>
+            <p className="text-sm font-bold text-[#22C55E]">{formatWalkingDistance(spot.distance_m)}</p>
             <MapPin className="ml-auto h-3 w-3 text-[#71717A]" />
           </div>
-        </motion.a>
+        </a>
       ))}
     </div>
   );

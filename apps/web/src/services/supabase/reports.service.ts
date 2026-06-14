@@ -124,6 +124,20 @@ export const reportsService = {
     });
   },
 
+  async countCommentsBatch(reportIds: string[]): Promise<Record<string, number>> {
+    if (!reportIds.length) return {};
+    const { data, error } = await supabase
+      .from("community_comments")
+      .select("report_id")
+      .in("report_id", reportIds);
+    if (error) return {};
+    const counts: Record<string, number> = {};
+    for (const row of data ?? []) {
+      counts[row.report_id] = (counts[row.report_id] ?? 0) + 1;
+    }
+    return counts;
+  },
+
   async countComments(reportId: string): Promise<number> {
     const { count, error } = await supabase
       .from("community_comments")

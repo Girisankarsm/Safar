@@ -10,6 +10,15 @@ export function haversineM(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+/** Human-readable walking distance — metres under 1 km */
+export function formatWalkingDistance(distanceM?: number | null): string {
+  if (distanceM == null) return "—";
+  if (distanceM < 1000) return `${Math.round(distanceM)} m`;
+  return `${(distanceM / 1000).toFixed(1)} km`;
+}
+
+export const MAX_WALKING_DISTANCE_M = 1000;
+
 export function cacheKey(parts: (string | number)[]): string {
   return parts.map(String).join("|").toLowerCase();
 }

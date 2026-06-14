@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
-import { useLanguageStore } from "@/stores/language.store";
+import { useI18n } from "@/i18n/use-i18n";
 
 export function PwaInstallPrompt() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
-  const t = useLanguageStore((s) => s.t);
+  const { t } = useI18n();
 
   useEffect(() => {
     const handler = (e: Event) => {

@@ -1,49 +1,58 @@
-import { useCityStore } from "@/stores/city.store";
-import { reportsService } from "@/services/supabase/reports.service";
+import { debounce } from "@/lib/debounce-callback";
 import { IS_DEMO_MODE } from "@/lib/config";
 import { DEMO_PLATFORM_STATS } from "@/lib/demo-hackathon";
+import { reportsService } from "@/services/supabase/reports.service";
+import { useCityStore } from "@/stores/city.store";
 import { Shield } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export function SafetyIntelligenceWidget() {
   const { city } = useCityStore();
   const [stats, setStats] = useState({ total: 0, verified: 0, safePct: 84 });
 
-  useEffect(() => {
-    async function load() {
-      if (IS_DEMO_MODE) {
-        setStats({
-          total: DEMO_PLATFORM_STATS.totalReports,
-          verified: DEMO_PLATFORM_STATS.verifiedReports,
-          safePct: 84,
-        });
-        return;
-      }
-      const reports = await reportsService.listByCity(city, 100).catch(() => []);
-      const verified = reports.filter((r) => r.is_verified).length;
-      const safePct = reports.length
-        ? Math.round(
-            ((reports.length -
-              reports.filter(
-                (r) => r.report_type === "harassment" || r.report_type === "unsafe_area"
-              ).length) /
-              reports.length) *
-              100
-          )
-        : 84;
-      setStats({ total: reports.length, verified, safePct: Math.min(99, safePct) });
+  const load = useCallback(async () => {
+    if (IS_DEMO_MODE) {
+      setStats({
+        total: DEMO_PLATFORM_STATS.totalReports,
+        verified: DEMO_PLATFORM_STATS.verifiedReports,
+        safePct: 84,
+      });
+      return;
     }
+    const reports = await reportsService.listByCity(city, 50).catch(() => []);
+    const verified = reports.filter((r) => r.is_verified).length;
+    const safePct = reports.length
+      ? Math.round(
+          ((reports.length -
+            reports.filter(
+              (r) => r.report_type === "harassment" || r.report_type === "unsafe_area"
+            ).length) /
+            reports.length) *
+            100
+        )
+      : 84;
+    setStats({ total: reports.length, verified, safePct: Math.min(99, safePct) });
+  }, [city]);
+
+  const debouncedLoadRef = useRef<ReturnType<typeof debounce<() => void>> | null>(null);
+  useEffect(() => {
+    debouncedLoadRef.current = debounce(() => void load(), 1200);
+    return () => debouncedLoadRef.current?.cancel();
+  }, [load]);
+
+  useEffect(() => {
     void load();
 
     if (IS_DEMO_MODE) return;
 
     const ch = reportsService.subscribe(city, () => {
-      void load();
+      debouncedLoadRef.current?.();
     });
     return () => {
+      debouncedLoadRef.current?.cancel();
       void ch.unsubscribe();
     };
-  }, [city]);
+  }, [city, load]);
 
   return (
     <div className="mx-3 mb-4 rounded-2xl border border-[#262626] bg-[#111111] p-4">

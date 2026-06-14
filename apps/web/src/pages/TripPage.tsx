@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useI18n } from "@/i18n/use-i18n";
 import { tripsService } from "@/services/supabase/trips.service";
 import type { PlannedRoute, Trip } from "@/types/database";
 import { CheckCircle2, Copy, MapPin, Navigation, Share2, Siren } from "lucide-react";
@@ -25,6 +26,7 @@ function loadActiveRoute(): PlannedRoute | null {
 }
 
 export function TripPage() {
+  const { t } = useI18n();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [trip, setTrip] = useState<Trip | null>(null);
@@ -77,7 +79,7 @@ export function TripPage() {
     if (!id || trip?.status !== "active") return;
 
     if (!navigator.geolocation) {
-      setError("Enable location to share live updates with your contacts.");
+      setError(t("trip.enableGps"));
       return;
     }
 
@@ -89,12 +91,12 @@ export function TripPage() {
           .then(setTrip)
           .catch(() => null);
       },
-      () => setError("Enable location to share live updates with your contacts."),
+      () => setError(t("trip.enableGps")),
       { enableHighAccuracy: true, maximumAge: 10_000 }
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [id, trip?.status]);
+  }, [id, trip?.status, t]);
 
   async function copyShareLink() {
     if (!shareUrl) return;
@@ -122,9 +124,9 @@ export function TripPage() {
     return (
       <EmptyState
         icon={Navigation}
-        title="No active trip"
-        description="Plan a route from the dashboard, compare AI-scored options, and start tracking to share your live location with family."
-        actionLabel="Go to dashboard"
+        title={t("trip.noTrip")}
+        description={t("trip.noTripDesc")}
+        actionLabel={t("trip.goDashboard")}
         onAction={() => navigate("/home")}
       />
     );
@@ -135,12 +137,12 @@ export function TripPage() {
   return (
     <div className="page-container mx-auto max-w-3xl space-y-6">
       <PageHeader
-        eyebrow="Live tracking"
-        title="Your trip"
+        eyebrow={t("trip.eyebrow")}
+        title={t("trip.title")}
         subtitle={
           routeMeta.search
             ? `${routeMeta.search.source} → ${routeMeta.search.destination}`
-            : "Location updates while you travel"
+            : t("trip.subtitle")
         }
         action={
           <Link
@@ -148,7 +150,7 @@ export function TripPage() {
             className="inline-flex items-center gap-2 rounded-xl border border-[#EF4444]/30 bg-[#EF4444]/10 px-4 py-2.5 text-sm font-semibold text-[#EF4444] transition hover:bg-[#EF4444]/15"
           >
             <Siren className="h-4 w-4" />
-            Emergency
+            {t("trip.emergency")}
           </Link>
         }
       />
@@ -181,13 +183,13 @@ export function TripPage() {
 
       {!hasLiveGps && isActive && (
         <p className="rounded-xl border border-[#3B82F6]/25 bg-[#3B82F6]/10 px-4 py-3 text-xs text-[#93C5FD]">
-          Waiting for your GPS signal… Your live blue dot will appear on the map once location access is granted.
+          {t("trip.waitingGps")}
         </p>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#71717A]">Status</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#71717A]">{t("trip.status")}</p>
           <div className="mt-2 flex items-center gap-2">
             {isActive && (
               <span className="status-live inline-flex h-2.5 w-2.5 rounded-full bg-[#22C55E]" />
@@ -200,7 +202,7 @@ export function TripPage() {
         </Card>
 
         <Card>
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#71717A]">Current location</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#71717A]">{t("trip.currentLocation")}</p>
           {hasLiveGps && trip?.current_lat != null && trip.current_lng != null ? (
             <>
               <p className="mt-2 flex items-center gap-2 text-sm font-medium text-white">
@@ -218,7 +220,7 @@ export function TripPage() {
             </>
           ) : (
             <p className="mt-2 text-sm text-[#A1A1AA]">
-              {isActive ? "Waiting for GPS signal…" : "Trip not active"}
+              {isActive ? t("trip.waitingGpsShort") : t("trip.notActive")}
             </p>
           )}
         </Card>
@@ -231,10 +233,8 @@ export function TripPage() {
               <Share2 className="h-5 w-5 text-[#3B82F6]" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="font-semibold text-white">Share live trip</p>
-              <p className="mt-1 text-xs text-[#A1A1AA]">
-                Send this link to family or friends so they can follow your journey.
-              </p>
+              <p className="font-semibold text-white">{t("trip.shareLive")}</p>
+              <p className="mt-1 text-xs text-[#A1A1AA]">{t("trip.shareDesc")}</p>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <input
                   readOnly
@@ -248,7 +248,7 @@ export function TripPage() {
                   className="shrink-0 gap-2"
                 >
                   {copied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  {copied ? "Copied" : "Copy link"}
+                  {copied ? t("trip.copied") : t("trip.copyLink")}
                 </Button>
               </div>
             </div>
@@ -259,7 +259,7 @@ export function TripPage() {
       {activeRoute && (
         <Card className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#71717A]">Route summary</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#71717A]">{t("trip.routeSummary")}</p>
             <p className="mt-1 text-sm text-white">
               {activeRoute.distance_km} km · {activeRoute.eta_minutes} min · Safety{" "}
               <span className="font-bold text-[#22C55E]">{activeRoute.safety_score}/100</span>
@@ -279,7 +279,7 @@ export function TripPage() {
         disabled={completing || !isActive}
         size="lg"
       >
-        {completing ? "Completing…" : "Complete trip"}
+        {completing ? t("trip.completing") : t("trip.complete")}
       </Button>
     </div>
   );
