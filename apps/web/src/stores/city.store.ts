@@ -1,4 +1,5 @@
 import type { CityId } from "@/types/database";
+import { CITIES } from "@/config/cities";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -28,6 +29,11 @@ export const useCityStore = create<CityState>()(
     {
       name: "safar-city",
       partialize: (state) => ({ city: state.city }),
+      onRehydrateStorage: () => (state) => {
+        if (state && !CITIES[state.city as CityId]) {
+          state.city = "chennai";
+        }
+      },
     }
   )
 );

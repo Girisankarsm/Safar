@@ -4,16 +4,27 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 
 export const reportsService = {
   async listByCity(cityId: CityId, limit = 50): Promise<SafetyReport[]> {
+    const now = new Date().toISOString();
     const { data, error } = await supabase
       .from("safety_reports")
       .select("*")
       .eq("city_id", cityId)
-      .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
+      .or(`expires_at.is.null,expires_at.gt.${now}`)
       .lt("flag_count", 3)
       .order("created_at", { ascending: false })
       .limit(limit);
-    if (error) throw error;
-    return (data ?? []) as SafetyReport[];
+
+    if (!error) return (data ?? []) as SafetyReport[];
+
+    // Fallback when migration 009 not yet applied
+    const { data: fallback, error: fallbackError } = await supabase
+      .from("safety_reports")
+      .select("*")
+      .eq("city_id", cityId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (fallbackError) throw fallbackError;
+    return (fallback ?? []) as SafetyReport[];
   },
 
   async flag(reportId: string) {

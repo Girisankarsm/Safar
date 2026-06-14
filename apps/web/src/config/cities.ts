@@ -48,5 +48,5 @@ export const CITIES: Record<CityId, CityConfig> = {
 export const CITY_LIST = Object.values(CITIES);
 
 export function getCityConfig(cityId: CityId): CityConfig {
-  return CITIES[cityId];
+  return CITIES[cityId] ?? CITIES.chennai;
 }

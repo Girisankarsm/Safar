@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { type Locale, translate } from "@/i18n/translations";
+import { type Locale, TRANSLATIONS, translate } from "@/i18n/translations";
 
 type LanguageState = {
   locale: Locale;
@@ -18,7 +18,9 @@ export const useLanguageStore = create<LanguageState>()(
       },
       t: (key) => translate(get().locale, key),
     }),
-    { name: "safar:locale" }
+    { name: "safar:locale", onRehydrateStorage: () => (state) => {
+      if (state && !TRANSLATIONS[state.locale as Locale]) state.locale = "en";
+    } }
   )
 );
 

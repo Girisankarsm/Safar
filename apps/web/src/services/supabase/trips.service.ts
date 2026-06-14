@@ -15,7 +15,7 @@ export const tripsService = {
 
     const shareExpiresAt = new Date(Date.now() + SHARE_TTL_MS).toISOString();
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("trips")
       .insert({
         user_id: user.id,
@@ -27,6 +27,21 @@ export const tripsService = {
       })
       .select()
       .single();
+
+    if (error?.message?.includes("share_expires_at")) {
+      ({ data, error } = await supabase
+        .from("trips")
+        .insert({
+          user_id: user.id,
+          city_id: cityId,
+          status: "active",
+          current_lat: route.source_lat,
+          current_lng: route.source_lng,
+        })
+        .select()
+        .single());
+    }
+
     if (error) throw error;
 
     const { data: profile } = await supabase.from("users").select("total_trips").eq("id", user.id).single();
