@@ -1,4 +1,4 @@
-import { IS_DEMO_MODE, ORS_API_KEY } from "@/lib/config";
+import { ORS_API_KEY } from "@/lib/config";
 import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import { cacheKey, haversineM, sampleLineString } from "@/lib/geo";
 import { supabase } from "@/lib/supabase/client";
@@ -74,7 +74,7 @@ async function fetchORS(
     if (!res.ok) return null;
     const json = await res.json();
     const f = json.features?.[0];
-    if (!f) return null;
+    if (!f?.geometry?.coordinates?.length) return null;
     return {
       distance_km: Math.round(f.properties.summary.distance * 100) / 100,
       duration_min: Math.round(f.properties.summary.duration / 60),
@@ -83,6 +83,59 @@ async function fetchORS(
   } catch {
     return null;
   }
+}
+
+/** Free OSM road routing fallback when ORS is unavailable */
+async function fetchOSRM(
+  start: [number, number],
+  end: [number, number],
+  profile: string
+): Promise<OrsResult | null> {
+  const osrmProfile = profile === "foot-walking" ? "foot" : "driving";
+  const coords = `${start[0]},${start[1]};${end[0]},${end[1]}`;
+  try {
+    const res = await fetchWithTimeout(
+      `https://router.project-osrm.org/route/v1/${osrmProfile}/${coords}?overview=full&geometries=geojson`,
+      { timeoutMs: 12_000 }
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    const route = json.routes?.[0];
+    if (!route?.geometry?.coordinates?.length) return null;
+    return {
+      distance_km: Math.round((route.distance / 1000) * 100) / 100,
+      duration_min: Math.max(1, Math.round(route.duration / 60)),
+      geometry: route.geometry,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function isStraightLineGeometry(geometry: GeoJSON.LineString): boolean {
+  return (geometry.coordinates?.length ?? 0) <= 2;
+}
+
+async function fetchRoadRoute(
+  src: GeocodedPlace,
+  dst: GeocodedPlace,
+  profile: string,
+  preference: string
+): Promise<{ result: OrsResult; source: string } | null> {
+  const start: [number, number] = [src.lng, src.lat];
+  const end: [number, number] = [dst.lng, dst.lat];
+
+  const ors = await fetchORS(start, end, profile, preference);
+  if (ors && !isStraightLineGeometry(ors.geometry)) {
+    return { result: ors, source: "OpenRouteService" };
+  }
+
+  const osrm = await fetchOSRM(start, end, profile);
+  if (osrm && !isStraightLineGeometry(osrm.geometry)) {
+    return { result: osrm, source: "OpenStreetMap (OSRM)" };
+  }
+
+  return null;
 }
 
 async function resolveOrsRoute(
@@ -102,24 +155,22 @@ async function resolveOrsRoute(
   ]);
 
   const cached = await routeCacheService.get(cKey);
-  if (cached) return cached;
+  if (cached && !isStraightLineGeometry(cached.geometry)) return cached;
 
-  if (!IS_DEMO_MODE) {
-    const fresh = await fetchORS([src.lng, src.lat], [dst.lng, dst.lat], profile, preference);
-    if (fresh) {
-      void routeCacheService.set(cKey, {
-        source_lat: src.lat,
-        source_lng: src.lng,
-        dest_lat: dst.lat,
-        dest_lng: dst.lng,
-        route_type: "balanced",
-        ors_profile: profile,
-        distance_km: fresh.distance_km,
-        duration_min: fresh.duration_min,
-        geometry: fresh.geometry,
-      });
-      return fresh;
-    }
+  const road = await fetchRoadRoute(src, dst, profile, preference);
+  if (road) {
+    void routeCacheService.set(cKey, {
+      source_lat: src.lat,
+      source_lng: src.lng,
+      dest_lat: dst.lat,
+      dest_lng: dst.lng,
+      route_type: "balanced",
+      ors_profile: profile,
+      distance_km: road.result.distance_km,
+      duration_min: road.result.duration_min,
+      geometry: road.result.geometry,
+    });
+    return road.result;
   }
 
   return straightLineRoute(src, dst);
@@ -204,7 +255,12 @@ function buildPlannedRoute(
     crimeIndex
   );
   const baseCost = Math.max(15, Math.round(20 + ors.distance_km * 10 * v.costMul));
-  const routedVia = ORS_API_KEY && !IS_DEMO_MODE ? "OpenRouteService" : "direct corridor estimate";
+  const isEstimate = isStraightLineGeometry(ors.geometry);
+  const routedVia = isEstimate
+    ? "Direct estimate (re-search for road routing)"
+    : ORS_API_KEY
+      ? "OpenRouteService / OSM roads"
+      : "OpenStreetMap road network";
 
   return {
     route_type: v.type,

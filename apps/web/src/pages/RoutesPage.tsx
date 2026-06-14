@@ -16,7 +16,7 @@ import type { PlannedRoute, RouteType } from "@/types/database";
 import { Clock, IndianRupee, MapPin, Route, Shield, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 const LABELS: Record<RouteType, string> = {
   safest: "Safest Route",
@@ -111,6 +111,9 @@ export function RoutesPage() {
   }
 
   const isAiPick = recommendation?.route.route_type === selected?.route_type;
+  const hasStraightLineCache = routes.some(
+    (r) => (r.geometry?.coordinates?.length ?? 0) <= 2
+  );
 
   return (
     <div className="space-y-8">
@@ -123,6 +126,16 @@ export function RoutesPage() {
             : "Safety scored with live OSM + community data"
         }
       />
+
+      {hasStraightLineCache && (
+        <p className="rounded-xl border border-[#F59E0B]/30 bg-[#F59E0B]/10 px-4 py-3 text-xs text-[#FCD34D]">
+          Showing an estimated direct path. Go to{" "}
+          <Link to="/home" className="font-semibold text-[#F59E0B] underline">
+            Dashboard
+          </Link>{" "}
+          and search your route again to load real road paths via OpenRouteService.
+        </p>
+      )}
 
       {recommendation && (
         <AIRouteRecommendation
@@ -193,7 +206,7 @@ export function RoutesPage() {
                   {isRecommended && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-[#3B82F6]/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#3B82F6]">
                       <Sparkles className="h-3 w-3" />
-                      AI Pick
+                      Safar Pick
                     </span>
                   )}
                 </div>

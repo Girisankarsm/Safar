@@ -2,6 +2,10 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useEffect, useRef } from "react";
 
+function isStraightLine(geometry?: GeoJSON.LineString): boolean {
+  return !geometry?.coordinates?.length || geometry.coordinates.length <= 2;
+}
+
 export function RouteMap({
   geometry,
   source,
@@ -15,6 +19,7 @@ export function RouteMap({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const estimate = isStraightLine(geometry);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -49,7 +54,14 @@ export function RouteMap({
 
     if (geometry?.coordinates?.length) {
       const latlngs = geometry.coordinates.map(([lng, lat]) => [lat, lng] as [number, number]);
-      L.polyline(latlngs, { color: "#3b82f6", weight: 5, opacity: 0.85 }).addTo(map);
+      L.polyline(latlngs, {
+        color: estimate ? "#F59E0B" : "#3b82f6",
+        weight: 5,
+        opacity: 0.9,
+        dashArray: estimate ? "10 8" : undefined,
+      })
+        .bindPopup(estimate ? "Estimated direct path — search again for road routing" : "Road route")
+        .addTo(map);
       map.fitBounds(L.latLngBounds(latlngs), { padding: [24, 24] });
     } else {
       map.fitBounds(
@@ -60,7 +72,18 @@ export function RouteMap({
         { padding: [40, 40] }
       );
     }
-  }, [geometry, source, destination]);
+  }, [geometry, source, destination, estimate]);
 
-  return <div ref={containerRef} style={{ height, width: "100%" }} className="rounded-2xl overflow-hidden border border-[#262626]" />;
+  return (
+    <div className="relative">
+      <div ref={containerRef} style={{ height, width: "100%" }} className="overflow-hidden rounded-2xl border border-[#262626]" />
+      <div className="absolute bottom-3 left-3 z-[500] flex flex-wrap gap-2 text-[10px] font-semibold">
+        <span className="rounded-md bg-black/70 px-2 py-1 text-[#22C55E]">● Start</span>
+        <span className="rounded-md bg-black/70 px-2 py-1 text-[#EF4444]">● End</span>
+        <span className={`rounded-md bg-black/70 px-2 py-1 ${estimate ? "text-[#F59E0B]" : "text-[#3B82F6]"}`}>
+          {estimate ? "— Estimated path" : "— Road route"}
+        </span>
+      </div>
+    </div>
+  );
 }
