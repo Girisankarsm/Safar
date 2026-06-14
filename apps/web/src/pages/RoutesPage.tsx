@@ -1,3 +1,4 @@
+import { RoutesSubNav } from "@/components/layout/RoutesSubNav";
 import { PageHeader } from "@/components/layout/page-header";
 import { RouteMap } from "@/components/map/RouteMap";
 import { AIRouteRecommendation } from "@/components/safety/ai-route-recommendation";
@@ -33,7 +34,7 @@ export function RoutesPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [routes, setRoutes] = useState<PlannedRoute[]>([]);
-  const [search, setSearch] = useState<{ source: string; destination: string } | null>(null);
+  const [search, setSearch] = useState<{ source: string; destination: string; departureHour?: number } | null>(null);
   const [selected, setSelected] = useState<PlannedRoute | null>(null);
   const [starting, setStarting] = useState(false);
   const [mapHighlight, setMapHighlight] = useState(false);
@@ -114,6 +115,7 @@ export function RoutesPage() {
 
   return (
     <div className="space-y-8">
+      <RoutesSubNav />
       <PageHeader
         eyebrow={t("routes.eyebrow")}
         title={t("routes.title")}

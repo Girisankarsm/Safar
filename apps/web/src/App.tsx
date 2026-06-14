@@ -10,6 +10,7 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 const HomePage = lazy(() => import("@/pages/HomePage").then((m) => ({ default: m.HomePage })));
+const ComparePage = lazy(() => import("@/pages/ComparePage").then((m) => ({ default: m.ComparePage })));
 const RoutesPage = lazy(() => import("@/pages/RoutesPage").then((m) => ({ default: m.RoutesPage })));
 const SafetyPage = lazy(() => import("@/pages/SafetyPage").then((m) => ({ default: m.SafetyPage })));
 const EmergencyPage = lazy(() => import("@/pages/EmergencyPage").then((m) => ({ default: m.EmergencyPage })));
@@ -50,6 +51,14 @@ export default function App() {
               element={
                 <Suspense fallback={<PageLoader />}>
                   <HomePage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/routes/compare"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <ComparePage />
                 </Suspense>
               }
             />

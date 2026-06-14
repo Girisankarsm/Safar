@@ -7,9 +7,24 @@ import { UserMenu } from "@/features/auth";
 import { useI18n } from "@/i18n/use-i18n";
 import { useCityStore } from "@/stores/city.store";
 import { cn } from "@/lib/utils";
-import { Home, Map, Route, Shield, Siren } from "lucide-react";
+import { ArrowDownUp, Home, Map, Route, Shield, Siren } from "lucide-react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
+type NavChild = { to: string; key: string; icon: typeof Route };
+type NavItem = { to: string; key: string; icon: typeof Home; children?: NavChild[] };
+
+const NAV_ITEMS: NavItem[] = [
+  { to: "/home", key: "nav.dashboard", icon: Home },
+  {
+    to: "/routes",
+    key: "nav.routes",
+    icon: Route,
+    children: [{ to: "/routes/compare", key: "nav.compare", icon: ArrowDownUp }],
+  },
+  { to: "/trip", key: "nav.trip", icon: Map },
+  { to: "/safety", key: "nav.safety", icon: Shield },
+  { to: "/emergency", key: "nav.sos", icon: Siren },
+];
 export function AppShell() {
   const path = useLocation().pathname;
   const isSafety = path.startsWith("/safety");
@@ -17,13 +32,11 @@ export function AppShell() {
   const cityConfig = getCityConfig(city);
   const t = useI18n().t;
 
-  const NAV_I18N = [
-    { to: "/home", key: "nav.dashboard", icon: Home },
-    { to: "/routes", key: "nav.routes", icon: Route },
-    { to: "/trip", key: "nav.trip", icon: Map },
-    { to: "/safety", key: "nav.safety", icon: Shield },
-    { to: "/emergency", key: "nav.sos", icon: Siren },
-  ] as const;
+  function isNavActive(to: string, exact?: boolean) {
+    if (exact) return path === to;
+    if (to === "/routes") return path === "/routes";
+    return path.startsWith(to);
+  }
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
@@ -38,23 +51,42 @@ export function AppShell() {
           </div>
         </div>
         <nav className="flex-1 space-y-1 p-3">
-          {NAV_I18N.map(({ to, key, icon: Icon }) => {
-            const active = path.startsWith(to);
+          {NAV_ITEMS.map(({ to, key, icon: Icon, children }) => {
+            const active = isNavActive(to, to === "/routes");
             const label = t(key);
             return (
-              <Link
-                key={to}
-                to={to}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition",
-                  active
-                    ? "bg-[#3B82F6]/15 text-white shadow-sm"
-                    : "text-[#A1A1AA] hover:bg-[#18181d] hover:text-white"
-                )}
-              >
-                <Icon className={cn("h-4 w-4", active && "text-[#3B82F6]")} />
-                {label}
-              </Link>
+              <div key={to}>
+                <Link
+                  to={to}
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition",
+                    active
+                      ? "bg-[#3B82F6]/15 text-white shadow-sm"
+                      : "text-[#A1A1AA] hover:bg-[#18181d] hover:text-white"
+                  )}
+                >
+                  <Icon className={cn("h-4 w-4", active && "text-[#3B82F6]")} />
+                  {label}
+                </Link>
+                {children?.map(({ to: childTo, key: childKey, icon: ChildIcon }) => {
+                  const childActive = path.startsWith(childTo);
+                  return (
+                    <Link
+                      key={childTo}
+                      to={childTo}
+                      className={cn(
+                        "ml-7 mt-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold transition",
+                        childActive
+                          ? "bg-[#3B82F6]/10 text-[#93C5FD]"
+                          : "text-[#71717A] hover:bg-[#18181d] hover:text-white"
+                      )}
+                    >
+                      <ChildIcon className={cn("h-3.5 w-3.5", childActive && "text-[#3B82F6]")} />
+                      {t(childKey)}
+                    </Link>
+                  );
+                })}
+              </div>
             );
           })}
         </nav>
@@ -89,8 +121,9 @@ export function AppShell() {
       </div>
 
       <nav className="fixed bottom-0 inset-x-0 z-50 flex border-t border-[var(--border-subtle)] bg-[var(--bg-elevated)]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
-        {NAV_I18N.map(({ to, key, icon: Icon }) => {
-          const active = path.startsWith(to);
+        {NAV_ITEMS.map(({ to, key, icon: Icon }) => {
+          const active =
+            to === "/routes" ? path.startsWith("/routes") : path.startsWith(to);
           return (
             <Link
               key={to}
