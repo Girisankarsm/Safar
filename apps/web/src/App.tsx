@@ -7,6 +7,8 @@ import { LoginPage } from "@/pages/LoginPage";
 import { ProfilePage } from "@/pages/ProfilePage";
 import { RoutesPage } from "@/pages/RoutesPage";
 import { SafetyPage } from "@/pages/SafetyPage";
+import { CrimeDataAdminPage } from "@/pages/admin/CrimeDataAdminPage";
+import { ShareTripPage } from "@/pages/ShareTripPage";
 import { TripPage } from "@/pages/TripPage";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
@@ -17,6 +19,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/share/:token" element={<ShareTripPage />} />
           <Route
             element={
               <ProtectedRoute>
@@ -31,6 +34,7 @@ export default function App() {
             <Route path="/trip" element={<TripPage />} />
             <Route path="/trip/:id" element={<TripPage />} />
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/admin/crime-data" element={<CrimeDataAdminPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

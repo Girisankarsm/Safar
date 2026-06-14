@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase/client";
-import type { CityId, PlannedRoute, Trip } from "@/types/database";
+import type { CityId, EmergencyContact, PlannedRoute, Trip } from "@/types/database";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 export const tripsService = {
@@ -69,12 +69,15 @@ export const tripsService = {
       type: "sos",
     });
 
-    const contacts = await supabase
+    const { data: contactList } = await supabase
       .from("emergency_contacts")
       .select("*")
       .eq("user_id", user.id);
 
-    return { notified: contacts.data?.length ?? 0 };
+    return {
+      notified: contactList?.length ?? 0,
+      contacts: (contactList ?? []) as EmergencyContact[],
+    };
   },
 
   async getByShareToken(token: string): Promise<Trip | null> {

@@ -1,11 +1,22 @@
+import { CommunityActivityFeed } from "@/components/dashboard/community-activity-feed";
+import { SafetyStatisticsPanel } from "@/components/dashboard/safety-statistics-panel";
 import { LocationAutocomplete, type SelectedPlace } from "@/components/location/LocationAutocomplete";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { buildActivityFromReports, computePlatformStats } from "@/lib/community-activity";
+import {
+  DEMO_PLATFORM_STATS,
+  demoActivityFeed,
+} from "@/lib/demo-hackathon";
+import { IS_DEMO_MODE } from "@/lib/config";
 import { getCityConfig } from "@/config/cities";
+import { CITY_LIST } from "@/config/cities";
+import { reportsService } from "@/services/supabase/reports.service";
 import { routesService } from "@/services/supabase/routes.service";
 import { useCityStore } from "@/stores/city.store";
 import { Map, Shield, Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 export function HomePage() {
@@ -17,6 +28,31 @@ export function HomePage() {
   const [destinationPlace, setDestinationPlace] = useState<SelectedPlace | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [activity, setActivity] = useState<ReturnType<typeof buildActivityFromReports>>([]);
+  const [stats, setStats] = useState(computePlatformStats([], CITY_LIST.length));
+  const [feedLoading, setFeedLoading] = useState(true);
+
+  const loadCommunityData = useCallback(async () => {
+    setFeedLoading(true);
+    try {
+      if (IS_DEMO_MODE) {
+        setActivity(demoActivityFeed(city));
+        setStats(DEMO_PLATFORM_STATS);
+        return;
+      }
+      const reports = await reportsService.listByCity(city, 50);
+      setActivity(buildActivityFromReports(reports));
+      const allReports = reports.length ? reports : [];
+      setStats(computePlatformStats(allReports, CITY_LIST.length));
+    } catch {
+      if (IS_DEMO_MODE) {
+        setActivity(demoActivityFeed(city));
+        setStats(DEMO_PLATFORM_STATS);
+      }
+    } finally {
+      setFeedLoading(false);
+    }
+  }, [city]);
 
   useEffect(() => {
     setSource("");
@@ -24,7 +60,12 @@ export function HomePage() {
     setSourcePlace(null);
     setDestinationPlace(null);
     setError("");
-  }, [city]);
+    loadCommunityData();
+    const channel = reportsService.subscribe(city, loadCommunityData);
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [city, loadCommunityData]);
 
   async function search() {
     if (!source.trim() || !destination.trim()) {
@@ -77,7 +118,13 @@ export function HomePage() {
         }
       />
 
-      <div className="surface-card space-y-5 rounded-2xl p-6 md:p-8">
+      <SafetyStatisticsPanel stats={stats} />
+
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="surface-card space-y-5 rounded-2xl p-6 md:p-8"
+      >
         <div className="flex items-center gap-2 text-xs font-medium text-[#71717A]">
           <Sparkles className="h-3.5 w-3.5 text-[#3B82F6]" />
           Pick places from suggestions for the most accurate routes
@@ -112,33 +159,37 @@ export function HomePage() {
         <Button onClick={search} disabled={loading} className="w-full" size="lg">
           {loading ? "Finding routes…" : "Compare routes"}
         </Button>
-      </div>
+      </motion.div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Link
-          to="/safety"
-          className="group surface-card flex gap-4 rounded-2xl p-5 transition hover:border-[#3B82F6]/30"
-        >
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#3B82F6]/15 transition group-hover:bg-[#3B82F6]/25">
-            <Map className="h-5 w-5 text-[#3B82F6]" />
-          </div>
-          <div>
-            <p className="font-bold text-white">Safety Heatmap</p>
-            <p className="mt-1 text-sm text-[#A1A1AA]">Live community reports & zones</p>
-          </div>
-        </Link>
-        <Link
-          to="/emergency"
-          className="group surface-card flex gap-4 rounded-2xl p-5 transition hover:border-[#EF4444]/30"
-        >
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EF4444]/15 transition group-hover:bg-[#EF4444]/25">
-            <Shield className="h-5 w-5 text-[#EF4444]" />
-          </div>
-          <div>
-            <p className="font-bold text-white">Safe Waiting Spots</p>
-            <p className="mt-1 text-sm text-[#A1A1AA]">Hospitals, police & 24/7 places nearby</p>
-          </div>
-        </Link>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <CommunityActivityFeed items={activity} loading={feedLoading} />
+
+        <div className="grid gap-4 sm:grid-cols-1">
+          <Link
+            to="/safety"
+            className="group surface-card flex gap-4 rounded-2xl p-5 transition hover:border-[#3B82F6]/30"
+          >
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#3B82F6]/15 transition group-hover:bg-[#3B82F6]/25">
+              <Map className="h-5 w-5 text-[#3B82F6]" />
+            </div>
+            <div>
+              <p className="font-bold text-white">Safety Heatmap</p>
+              <p className="mt-1 text-sm text-[#A1A1AA]">Live community reports & zones</p>
+            </div>
+          </Link>
+          <Link
+            to="/emergency"
+            className="group surface-card flex gap-4 rounded-2xl p-5 transition hover:border-[#EF4444]/30"
+          >
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EF4444]/15 transition group-hover:bg-[#EF4444]/25">
+              <Shield className="h-5 w-5 text-[#EF4444]" />
+            </div>
+            <div>
+              <p className="font-bold text-white">Safe Waiting Spots</p>
+              <p className="mt-1 text-sm text-[#A1A1AA]">Hospitals, police & 24/7 places nearby</p>
+            </div>
+          </Link>
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import { LiveTripMap } from "@/components/map/LiveTripMap";
 import { PageHeader } from "@/components/layout/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getCityConfig } from "@/config/cities";
@@ -105,16 +106,13 @@ export function TripPage() {
 
   if (!id) {
     return (
-      <div className="page-container max-w-lg">
-        <Card className="py-16 text-center">
-          <Navigation className="mx-auto h-10 w-10 text-[#3B82F6]" />
-          <p className="mt-4 text-lg font-semibold text-white">No active trip</p>
-          <p className="mt-2 text-sm text-[#A1A1AA]">Plan a route from the dashboard to start tracking.</p>
-          <Button className="mt-6" onClick={() => navigate("/home")}>
-            Go to dashboard
-          </Button>
-        </Card>
-      </div>
+      <EmptyState
+        icon={Navigation}
+        title="No active trip"
+        description="Plan a route from the dashboard, compare AI-scored options, and start tracking to share your live location with family."
+        actionLabel="Go to dashboard"
+        onAction={() => navigate("/home")}
+      />
     );
   }
 

@@ -1,13 +1,16 @@
+import { NearestResources } from "@/components/emergency/nearest-resources";
 import { PageHeader } from "@/components/layout/page-header";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { getCityConfig } from "@/config/cities";
 import { IS_DEMO_MODE } from "@/lib/config";
 import { contactsService } from "@/services/supabase/contacts.service";
 import { placesService } from "@/services/supabase/places.service";
 import { tripsService } from "@/services/supabase/trips.service";
 import { useCityStore } from "@/stores/city.store";
-import type { SafeWaitingSpot } from "@/types/database";
-import { Heart, MapPin, Phone, Siren } from "lucide-react";
+import type { EmergencyContact, SafeWaitingSpot } from "@/types/database";
+import { Heart, MapPin, MessageCircle, Phone, Plus, Siren, Trash2, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 function getCityCenter(city: Parameters<typeof getCityConfig>[0]) {
@@ -38,14 +41,38 @@ function requestLocation(timeoutMs = 5000): Promise<{ lat: number; lng: number }
   });
 }
 
+function buildWhatsAppLink(phone: string, lat: number, lng: number, name: string) {
+  const digits = phone.replace(/\D/g, "");
+  const withCountry = digits.length === 10 ? `91${digits}` : digits;
+  const msg = encodeURIComponent(
+    `SOS from Safar! ${name} needs help. Live location: https://maps.google.com/?q=${lat},${lng}`
+  );
+  return `https://wa.me/${withCountry}?text=${msg}`;
+}
+
 export function EmergencyPage() {
   const { city } = useCityStore();
   const [spots, setSpots] = useState<SafeWaitingSpot[]>([]);
-  const [contacts, setContacts] = useState(0);
+  const [contactList, setContactList] = useState<EmergencyContact[]>([]);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [spotNote, setSpotNote] = useState("");
+  const [sosLinks, setSosLinks] = useState<{ name: string; url: string }[]>([]);
+  const [showAddContact, setShowAddContact] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [newRelation, setNewRelation] = useState("");
+  const [savingContact, setSavingContact] = useState(false);
   const tripId = sessionStorage.getItem("safar-active-trip");
+
+  const loadContacts = useCallback(async () => {
+    try {
+      const list = await contactsService.list();
+      setContactList(list);
+    } catch {
+      setContactList([]);
+    }
+  }, []);
 
   const loadSpots = useCallback(async () => {
     setLoading(true);
@@ -70,28 +97,89 @@ export function EmergencyPage() {
 
   useEffect(() => {
     loadSpots();
-    contactsService.list().then((c) => setContacts(c.length)).catch(() => setContacts(0));
-  }, [loadSpots]);
+    loadContacts();
+  }, [loadSpots, loadContacts]);
+
+  async function addContact() {
+    if (!newName.trim() || !newPhone.trim()) return;
+    setSavingContact(true);
+    try {
+      await contactsService.add({
+        name: newName.trim(),
+        phone: newPhone.trim(),
+        relationship: newRelation.trim() || undefined,
+      });
+      setNewName("");
+      setNewPhone("");
+      setNewRelation("");
+      setShowAddContact(false);
+      await loadContacts();
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "Could not add contact");
+    } finally {
+      setSavingContact(false);
+    }
+  }
+
+  async function removeContact(id: string) {
+    try {
+      await contactsService.remove(id);
+      await loadContacts();
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "Could not remove contact");
+    }
+  }
 
   async function sos() {
-    if (!tripId) {
-      setStatus("Start a trip to enable live SOS with location sharing.");
+    setSosLinks([]);
+    setStatus("");
+
+    if (!contactList.length) {
+      setStatus("Add at least one emergency contact before using SOS.");
       return;
     }
+
     if (!navigator.geolocation) {
       setStatus("Geolocation is not available on this device.");
       return;
     }
+
     navigator.geolocation.getCurrentPosition(
       async (p) => {
-        try {
-          const r = await tripsService.triggerSOS(tripId, p.coords.latitude, p.coords.longitude);
-          setStatus(`SOS sent. ${r.notified} contacts notified.`);
-        } catch (err) {
-          setStatus(err instanceof Error ? err.message : "SOS failed. Please try again.");
+        const lat = p.coords.latitude;
+        const lng = p.coords.longitude;
+
+        if (tripId) {
+          try {
+            const r = await tripsService.triggerSOS(tripId, lat, lng);
+            setStatus(`SOS logged on your active trip. Notify ${r.notified} contact(s) via WhatsApp below.`);
+            const contacts = r.contacts.length ? r.contacts : contactList;
+            setSosLinks(
+              contacts.map((c) => ({
+                name: c.name,
+                url: buildWhatsAppLink(c.phone, lat, lng, c.name),
+              }))
+            );
+          } catch (err) {
+            setStatus(err instanceof Error ? err.message : "SOS failed. Use WhatsApp links below.");
+            setSosLinks(
+              contactList.map((c) => ({
+                name: c.name,
+                url: buildWhatsAppLink(c.phone, lat, lng, c.name),
+              }))
+            );
+          }
+        } else {
+          setStatus("No active trip — open WhatsApp to alert your contacts with your live location.");
+          setSosLinks(
+            contactList.map((c) => ({
+              name: c.name,
+              url: buildWhatsAppLink(c.phone, lat, lng, c.name),
+            }))
+          );
         }
       },
-      () => setStatus("Location permission denied. Enable GPS to send SOS with your position.")
+      () => setStatus("Location permission denied. Enable GPS to share your position.")
     );
   }
 
@@ -107,13 +195,95 @@ export function EmergencyPage() {
         <button
           type="button"
           onClick={sos}
-          className="mx-auto flex h-28 w-28 items-center justify-center rounded-full bg-[#EF4444] shadow-xl"
+          className="mx-auto flex h-28 w-28 items-center justify-center rounded-full bg-[#EF4444] shadow-xl transition hover:scale-105 active:scale-95"
         >
           <Siren className="h-12 w-12 text-white" />
         </button>
         <p className="mt-4 font-bold text-white">Tap for SOS</p>
-        <p className="text-sm text-[#A1A1AA]">{contacts} trusted contacts</p>
+        <p className="text-sm text-[#A1A1AA]">{contactList.length} trusted contact(s)</p>
         {status && <p className="mt-2 text-sm text-[#22C55E]">{status}</p>}
+        {sosLinks.length > 0 && (
+          <div className="mt-4 space-y-2 text-left">
+            {sosLinks.map((link) => (
+              <a
+                key={link.url}
+                href={link.url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-3 rounded-xl border border-[#22C55E]/30 bg-[#22C55E]/10 px-4 py-3 text-sm font-semibold text-[#22C55E] hover:bg-[#22C55E]/20"
+              >
+                <MessageCircle className="h-4 w-4 shrink-0" />
+                Alert {link.name} on WhatsApp
+              </a>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {!loading && spots.length > 0 && (
+        <Card className="!border-[#22C55E]/20">
+          <p className="mb-4 text-[10px] font-bold uppercase tracking-widest text-[#22C55E]">
+            Nearest Emergency Resources
+          </p>
+          <NearestResources spots={spots} />
+        </Card>
+      )}
+
+      <Card>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <UserPlus className="text-[#3B82F6]" />
+            <h3 className="font-bold text-white">Emergency Contacts</h3>
+          </div>
+          <Button variant="ghost" className="!px-3 !py-1.5 text-xs" onClick={() => setShowAddContact((v) => !v)}>
+            <Plus className="mr-1 h-3.5 w-3.5" />
+            Add
+          </Button>
+        </div>
+
+        {showAddContact && (
+          <div className="mb-4 space-y-2 rounded-xl border border-[#262626] p-4">
+            <Input placeholder="Name" value={newName} onChange={(e) => setNewName(e.target.value)} />
+            <Input placeholder="Phone (+91…)" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} />
+            <Input
+              placeholder="Relationship (optional)"
+              value={newRelation}
+              onChange={(e) => setNewRelation(e.target.value)}
+            />
+            <Button onClick={addContact} disabled={savingContact} className="w-full">
+              {savingContact ? "Saving…" : "Save contact"}
+            </Button>
+          </div>
+        )}
+
+        {contactList.length === 0 ? (
+          <p className="text-sm text-[#71717A]">No contacts yet. Add family or friends to enable SOS alerts.</p>
+        ) : (
+          <div className="space-y-2">
+            {contactList.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center justify-between rounded-xl border border-[#262626] px-4 py-3"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-white">{c.name}</p>
+                  <p className="text-xs text-[#A1A1AA]">
+                    {c.phone}
+                    {c.relationship ? ` · ${c.relationship}` : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeContact(c.id)}
+                  className="rounded-lg p-2 text-[#71717A] hover:bg-[#262626] hover:text-[#EF4444]"
+                  aria-label={`Remove ${c.name}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
 
       <Card>
@@ -150,13 +320,9 @@ export function EmergencyPage() {
           </button>
         </div>
 
-        {loading && (
-          <p className="text-sm text-[#A1A1AA]">Fetching nearby places from OpenStreetMap…</p>
-        )}
+        {loading && <p className="text-sm text-[#A1A1AA]">Fetching nearby places from OpenStreetMap…</p>}
 
-        {spotNote && !loading && (
-          <p className="mb-3 text-xs text-[#F59E0B]">{spotNote}</p>
-        )}
+        {spotNote && !loading && <p className="mb-3 text-xs text-[#F59E0B]">{spotNote}</p>}
 
         <div className="space-y-2">
           {!loading &&

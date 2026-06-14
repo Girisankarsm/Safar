@@ -1,5 +1,6 @@
 import { IS_DEMO_MODE } from "@/lib/config";
-import { demoZones } from "@/lib/demo-data";
+import { demoReports } from "@/lib/demo-hackathon";
+import { getBaselineSafetyZones } from "@/lib/safety-baseline-zones";
 import { reportsService } from "@/services/supabase/reports.service";
 import type { CityId, SafetyReport } from "@/types/database";
 
@@ -9,6 +10,7 @@ export type HeatmapPoint = {
   weight: number;
   label: string;
   zone_type: "safe" | "moderate" | "high_risk";
+  source?: "ncrb" | "community";
 };
 
 const RISK_TYPES = new Set([
@@ -59,27 +61,27 @@ function clusterReports(reports: SafetyReport[], cellSize = 0.008): HeatmapPoint
     return {
       lat: c.lat,
       lng: c.lng,
-      weight: density,
+      weight: Math.max(0.35, density),
       zone_type,
       label: `${c.count} report${c.count > 1 ? "s" : ""}${c.verified ? " · verified" : ""}`,
+      source: "community" as const,
     };
   });
 }
 
 export const heatmapService = {
   async getHeatmapPoints(cityId: CityId): Promise<HeatmapPoint[]> {
+    const baseline = getBaselineSafetyZones(cityId);
+
+    let community: HeatmapPoint[] = [];
     if (IS_DEMO_MODE) {
-      return demoZones(cityId).map((z) => ({
-        lat: z.latitude,
-        lng: z.longitude,
-        weight: z.risk_weight,
-        label: z.label,
-        zone_type: z.zone_type,
-      }));
+      const reports = demoReports(cityId);
+      if (reports.length) community = clusterReports(reports);
+    } else {
+      const reports = await reportsService.listByCity(cityId, 200).catch(() => []);
+      if (reports.length) community = clusterReports(reports);
     }
 
-    const reports = await reportsService.listByCity(cityId, 200);
-    if (!reports.length) return [];
-    return clusterReports(reports);
+    return [...baseline, ...community];
   },
 };

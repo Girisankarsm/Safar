@@ -10,6 +10,10 @@
     "dev": "npm run dev -w @safar/web",
     "build": "npm run build -w @safar/web",
     "preview": "npm run preview -w @safar/web",
-    "lint": "npm run lint -w @safar/web"
+    "lint": "npm run lint -w @safar/web",
+    "crime:status": "node scripts/crime-pipeline/status.mjs",
+    "crime:refresh": "node scripts/crime-pipeline/refresh-datasets.mjs",
+    "crime:import": "node scripts/crime-pipeline/run-pipeline.mjs",
+    "crime:import:dry": "node scripts/crime-pipeline/run-pipeline.mjs --dry-run"
   }
 }

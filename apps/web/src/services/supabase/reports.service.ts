@@ -77,6 +77,41 @@ export const reportsService = {
     return data;
   },
 
+  async remove(reportId: string): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const { data: report, error: fetchError } = await supabase
+      .from("safety_reports")
+      .select("id, user_id, image_url")
+      .eq("id", reportId)
+      .single();
+    if (fetchError) throw fetchError;
+    if (report.user_id !== user.id) throw new Error("You can only delete your own reports");
+
+    const { error } = await supabase.from("safety_reports").delete().eq("id", reportId);
+    if (error) throw error;
+
+    if (report.image_url) {
+      const match = report.image_url.match(/report-images\/(.+)$/);
+      if (match?.[1]) {
+        await supabase.storage.from("report-images").remove([match[1]]);
+      }
+    }
+
+    const { data: profile } = await supabase
+      .from("users")
+      .select("reports_submitted")
+      .eq("id", user.id)
+      .single();
+    if (profile && (profile.reports_submitted ?? 0) > 0) {
+      await supabase
+        .from("users")
+        .update({ reports_submitted: profile.reports_submitted - 1 })
+        .eq("id", user.id);
+    }
+  },
+
   subscribe(cityId: CityId, onUpdate: () => void): RealtimeChannel {
     return supabase
       .channel(`reports-${cityId}`)

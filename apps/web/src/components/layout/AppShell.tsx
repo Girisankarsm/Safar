@@ -1,4 +1,5 @@
 import { CitySwitcher } from "@/components/layout/CitySwitcher";
+import { SafetyIntelligenceWidget } from "@/components/safety/safety-intelligence-widget";
 import { getCityConfig } from "@/config/cities";
 import { UserMenu } from "@/features/auth";
 import { useCityStore } from "@/stores/city.store";
@@ -16,6 +17,7 @@ const NAV = [
 
 export function AppShell() {
   const path = useLocation().pathname;
+  const isSafety = path.startsWith("/safety");
   const { city, revision } = useCityStore();
   const cityConfig = getCityConfig(city);
 
@@ -51,6 +53,7 @@ export function AppShell() {
             );
           })}
         </nav>
+        {isSafety && <SafetyIntelligenceWidget />}
       </aside>
 
       <div className="lg:pl-64 pb-20 lg:pb-8">
@@ -71,8 +74,8 @@ export function AppShell() {
           </span>
         </div>
 
-        <main className="px-5 py-8 md:px-8">
-          <div className="mx-auto max-w-6xl">
+        <main className={cn("px-5 py-6 md:px-8", isSafety && "py-5")}>
+          <div className={cn("mx-auto", isSafety ? "max-w-[1600px]" : "max-w-6xl")}>
             <Outlet key={revision} />
           </div>
         </main>

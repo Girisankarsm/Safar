@@ -1,0 +1,16 @@
+source,report_year,state_name,district_name,city_name,city_id,crime_category,crime_count,mapping_confidence
+NCRB Crime in India 2022,2022,Tamil Nadu,Chennai,Chennai,chennai,violent_crime,2847,city
+NCRB Crime in India 2022,2022,Tamil Nadu,Chennai,Chennai,chennai,crimes_against_women,1623,city
+NCRB Crime in India 2022,2022,Tamil Nadu,Chennai,Chennai,chennai,assault,891,city
+NCRB Crime in India 2022,2022,Tamil Nadu,Chennai,Chennai,chennai,robbery,412,city
+NCRB Crime in India 2022,2022,Tamil Nadu,Chennai,Chennai,chennai,theft,12456,city
+NCRB Crime in India 2022,2022,Karnataka,Bengaluru Urban,Bengaluru,bangalore,violent_crime,3214,city
+NCRB Crime in India 2022,2022,Karnataka,Bengaluru Urban,Bengaluru,bangalore,crimes_against_women,1987,city
+NCRB Crime in India 2022,2022,Karnataka,Bengaluru Urban,Bengaluru,bangalore,assault,1045,city
+NCRB Crime in India 2022,2022,Karnataka,Bengaluru Urban,Bengaluru,bangalore,robbery,534,city
+NCRB Crime in India 2022,2022,Karnataka,Bengaluru Urban,Bengaluru,bangalore,theft,18732,city
+NCRB Crime in India 2022,2022,Kerala,Thiruvananthapuram,Thiruvananthapuram,trivandrum,violent_crime,892,district
+NCRB Crime in India 2022,2022,Kerala,Thiruvananthapuram,Thiruvananthapuram,trivandrum,crimes_against_women,534,district
+NCRB Crime in India 2022,2022,Kerala,Thiruvananthapuram,Thiruvananthapuram,trivandrum,assault,312,district
+NCRB Crime in India 2022,2022,Kerala,Thiruvananthapuram,Thiruvananthapuram,trivandrum,robbery,98,district
+NCRB Crime in India 2022,2022,Kerala,Thiruvananthapuram,Thiruvananthapuram,trivandrum,theft,3456,district
