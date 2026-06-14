@@ -89,13 +89,23 @@ export function demoReports(cityId: CityId): SafetyReport[] {
       }),
       report("dr-b5", "bangalore", "stray_animal", base.lat + 0.004, base.lng - 0.014, { upvotes: 1 }),
     ],
+    hyderabad: [
+      report("dr-h1", "hyderabad", "poor_lighting", base.lat + 0.01, base.lng - 0.007, {
+        description: "Poor lighting near HITEC City metro exit",
+        upvotes: 5,
+        verifications: 2,
+        is_verified: true,
+      }),
+      report("dr-h2", "hyderabad", "harassment", base.lat - 0.008, base.lng + 0.011, { upvotes: 4 }),
+      report("dr-h3", "hyderabad", "unsafe_bus_stop", base.lat + 0.012, base.lng + 0.006, { upvotes: 3 }),
+    ],
   };
 
   return sets[cityId] ?? [];
 }
 
 export function demoAllReports(): SafetyReport[] {
-  return (["chennai", "trivandrum", "bangalore"] as CityId[]).flatMap(demoReports);
+  return (["chennai", "trivandrum", "bangalore", "hyderabad"] as CityId[]).flatMap(demoReports);
 }
 
 const DEMO_COMMENT_SEEDS: Record<string, { body: string; author_name: string; hoursAgo: number }[]> = {

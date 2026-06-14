@@ -9,11 +9,15 @@ import {
   demoActivityFeed,
 } from "@/lib/demo-hackathon";
 import { IS_DEMO_MODE } from "@/lib/config";
+import { offlineCache } from "@/lib/offline-cache";
+import { formatDepartureLabel } from "@/lib/time-safety";
 import { getCityConfig } from "@/config/cities";
 import { CITY_LIST } from "@/config/cities";
 import { reportsService } from "@/services/supabase/reports.service";
 import { routesService } from "@/services/supabase/routes.service";
 import { useCityStore } from "@/stores/city.store";
+import { useSettingsStore } from "@/stores/settings.store";
+import { useLanguageStore } from "@/stores/language.store";
 import { Map, Shield, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
@@ -21,6 +25,8 @@ import { Link, useNavigate } from "react-router-dom";
 
 export function HomePage() {
   const { city } = useCityStore();
+  const { departureHour, setDepartureHour, lowDataMode } = useSettingsStore();
+  const t = useLanguageStore((s) => s.t);
   const navigate = useNavigate();
   const [source, setSource] = useState("");
   const [destination, setDestination] = useState("");
@@ -79,22 +85,33 @@ export function HomePage() {
         routesService.searchRoutes(source, destination, city, {
           source: sourcePlace ?? undefined,
           destination: destinationPlace ?? undefined,
-        }),
+        }, { departureHour }),
         new Promise<never>((_, reject) =>
           window.setTimeout(() => reject(new Error("Route search timed out. Please try again.")), 25_000)
         ),
       ]);
       sessionStorage.setItem("safar-routes", JSON.stringify(routes));
       sessionStorage.setItem("safar-routes-city", city);
+      offlineCache.saveRoutes(city, routes);
       sessionStorage.setItem(
         "safar-search",
         JSON.stringify({
           source: sourcePlace?.label ?? source,
           destination: destinationPlace?.label ?? destination,
+          departureHour,
         })
       );
       navigate("/routes");
     } catch (e) {
+      if (!navigator.onLine) {
+        const cached = offlineCache.getRoutes(city);
+        if (cached?.length) {
+          sessionStorage.setItem("safar-routes", JSON.stringify(cached));
+          sessionStorage.setItem("safar-routes-city", city);
+          navigate("/routes");
+          return;
+        }
+      }
       setError(e instanceof Error ? e.message : "Route search failed");
     } finally {
       setLoading(false);
@@ -151,13 +168,34 @@ export function HomePage() {
           onPlaceSelect={setDestinationPlace}
           disabled={loading}
         />
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="block text-xs font-semibold text-[#A1A1AA]">
+            {t("home.departure")}
+            <input
+              type="range"
+              min={0}
+              max={23}
+              value={departureHour}
+              onChange={(e) => setDepartureHour(Number(e.target.value))}
+              className="mt-2 w-full accent-[#3B82F6]"
+            />
+            <span className="mt-1 block text-sm font-bold text-white">
+              {formatDepartureLabel(departureHour)} — {t("home.timeSafety")}
+            </span>
+          </label>
+          {lowDataMode && (
+            <p className="rounded-xl border border-[#3B82F6]/25 bg-[#3B82F6]/10 px-3 py-2 text-xs text-[#93C5FD]">
+              {t("settings.lowDataHint")}
+            </p>
+          )}
+        </div>
         {error && (
           <p className="rounded-xl border border-[#EF4444]/30 bg-[#EF4444]/10 px-4 py-3 text-sm text-[#FCA5A5]">
             {error}
           </p>
         )}
         <Button onClick={search} disabled={loading} className="w-full" size="lg">
-          {loading ? "Finding routes…" : "Compare routes"}
+          {loading ? t("home.searching") : t("home.search")}
         </Button>
       </motion.div>
 

@@ -1,5 +1,6 @@
 import { AuthProvider, ProtectedRoute } from "@/features/auth";
 import { CrimeDataBootstrap } from "@/components/CrimeDataBootstrap";
+import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
 import { AppShell } from "@/components/layout/AppShell";
 import { EmergencyPage } from "@/pages/EmergencyPage";
 import { HomePage } from "@/pages/HomePage";
@@ -18,6 +19,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <CrimeDataBootstrap />
+        <PwaInstallPrompt />
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />

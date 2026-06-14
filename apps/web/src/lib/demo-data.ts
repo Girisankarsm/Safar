@@ -8,6 +8,7 @@ export const DEMO_CITY_CENTERS: Record<CityId, { lat: number; lng: number; name:
   chennai: { lat: 13.0827, lng: 80.2707, name: "Chennai" },
   trivandrum: { lat: 8.5241, lng: 76.9366, name: "Trivandrum" },
   bangalore: { lat: 12.9716, lng: 77.5946, name: "Bengaluru" },
+  hyderabad: { lat: 17.385, lng: 78.4867, name: "Hyderabad" },
 };
 
 /** Demo-only geocode when Nominatim unavailable */
@@ -23,6 +24,10 @@ export const DEMO_GEOCODE: Record<CityId, Record<string, { lat: number; lng: num
   bangalore: {
     "mg road": { lat: 12.9756, lng: 77.6063, name: "MG Road" },
     indiranagar: { lat: 12.9784, lng: 77.6408, name: "Indiranagar" },
+  },
+  hyderabad: {
+    hitech: { lat: 17.4435, lng: 78.3772, name: "HITEC City" },
+    secunderabad: { lat: 17.4399, lng: 78.4983, name: "Secunderabad" },
   },
 };
 
@@ -65,6 +70,13 @@ export const LOCAL_PLACE_SUGGESTIONS: Record<CityId, LocalPlaceSuggestion[]> = {
     { id: "koramangala", name: "Koramangala", address: "Koramangala, Bengaluru, Karnataka", lat: 12.9352, lng: 77.6245 },
     { id: "whitefield", name: "Whitefield", address: "Whitefield, Bengaluru, Karnataka", lat: 12.9698, lng: 77.7499 },
     { id: "airport-blr", name: "Kempegowda International Airport", address: "Devanahalli, Bengaluru, Karnataka", lat: 13.1986, lng: 77.7066 },
+  ],
+  hyderabad: [
+    { id: "hyd-sec", name: "Secunderabad Railway Station", address: "Secunderabad, Hyderabad, Telangana", lat: 17.4399, lng: 78.4983 },
+    { id: "hyd-hitech", name: "HITEC City", address: "Madhapur, Hyderabad, Telangana", lat: 17.4435, lng: 78.3772 },
+    { id: "hyd-charminar", name: "Charminar", address: "Old City, Hyderabad, Telangana", lat: 17.3616, lng: 78.4747 },
+    { id: "hyd-gachibowli", name: "Gachibowli", address: "Gachibowli, Hyderabad, Telangana", lat: 17.4401, lng: 78.3489 },
+    { id: "hyd-airport", name: "Rajiv Gandhi International Airport", address: "Shamshabad, Hyderabad, Telangana", lat: 17.2403, lng: 78.4294 },
   ],
 };
 
@@ -132,6 +144,12 @@ export function emergencyFallbackSpots(cityId: CityId): SafeWaitingSpot[] {
       { id: "fb-mg-metro", city_id: "bangalore", spot_type: "metro", name: "MG Road Metro Station", latitude: 12.9756, longitude: 77.6063, is_24x7: true, safe_waiting_score: 84 },
       { id: "fb-indira", city_id: "bangalore", spot_type: "hospital", name: "Indiranagar 100 Feet Road Clinic", latitude: 12.9784, longitude: 77.6408, is_24x7: false, safe_waiting_score: 80 },
       { id: "fb-whitefield", city_id: "bangalore", spot_type: "petrol_pump", name: "Whitefield 24/7 Fuel Station", latitude: 12.9698, longitude: 77.7499, is_24x7: true, safe_waiting_score: 76 },
+    ],
+    hyderabad: [
+      { id: "fb-hyd-hosp", city_id: "hyderabad", spot_type: "hospital", name: "Apollo Hospitals Jubilee Hills", latitude: 17.4194, longitude: 78.4102, is_24x7: true, safe_waiting_score: 91 },
+      { id: "fb-hyd-police", city_id: "hyderabad", spot_type: "police", name: "Banjara Hills Police Station", latitude: 17.4156, longitude: 78.4347, is_24x7: true, safe_waiting_score: 87 },
+      { id: "fb-hyd-metro", city_id: "hyderabad", spot_type: "metro", name: "Ameerpet Metro Station", latitude: 17.4355, longitude: 78.4446, is_24x7: true, safe_waiting_score: 83 },
+      { id: "fb-hyd-sec", city_id: "hyderabad", spot_type: "railway", name: "Secunderabad Railway Station", latitude: 17.4399, longitude: 78.4983, is_24x7: true, safe_waiting_score: 85 },
     ],
   };
   return spots[cityId] ?? [];

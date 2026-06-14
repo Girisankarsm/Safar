@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { getCityConfig } from "@/config/cities";
 import { useAuth } from "@/features/auth";
 import { IS_DEMO_MODE } from "@/lib/config";
+import { offlineCache } from "@/lib/offline-cache";
 import { demoCommentCount, demoComments, demoReports } from "@/lib/demo-hackathon";
 import { heatmapService, type HeatmapPoint } from "@/services/supabase/heatmap.service";
 import { placesService } from "@/services/supabase/places.service";
@@ -68,6 +69,8 @@ export function SafetyPage() {
     heatmap: true,
     reports: true,
     safeZones: true,
+    wellLit: false,
+    womenSafe: false,
   });
   const [categoryFilter, setCategoryFilter] = useState<ReportType | "all">("all");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
@@ -99,6 +102,9 @@ export function SafetyPage() {
       ]);
       setHeatPoints(heat);
       setReports(r);
+      if (!IS_DEMO_MODE && r.length) {
+        offlineCache.saveSafetySnapshot(city, r);
+      }
       if (!IS_DEMO_MODE) {
         const counts = await Promise.all(
           r.map(async (report) => [report.id, await reportsService.countComments(report.id)] as const)
@@ -108,7 +114,13 @@ export function SafetyPage() {
       const c = cities.find((x) => x.id === city);
       if (c) setCenter({ lat: c.center_lat, lng: c.center_lng, name: c.name });
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : "Could not load safety data");
+      const cached = offlineCache.getSafetySnapshot(city);
+      if (cached?.length) {
+        setReports(cached);
+        setLoadError("Offline — showing cached safety reports");
+      } else {
+        setLoadError(err instanceof Error ? err.message : "Could not load safety data");
+      }
     }
   }, [city]);
 
@@ -141,8 +153,16 @@ export function SafetyPage() {
     if (categoryFilter !== "all") {
       list = list.filter((r) => r.report_type === categoryFilter);
     }
+    if (layers.wellLit) {
+      list = list.filter((r) => r.report_type === "poor_lighting" || r.report_type === "broken_light");
+    }
+    if (layers.womenSafe) {
+      list = list.filter((r) =>
+        ["harassment", "unsafe_area", "unsafe_bus_stop", "suspicious_activity"].includes(r.report_type)
+      );
+    }
     return list;
-  }, [reports, timeFilter, categoryFilter]);
+  }, [reports, timeFilter, categoryFilter, layers.wellLit, layers.womenSafe]);
 
   const visibleReports = showAllReports ? filteredReports : filteredReports.slice(0, 12);
 

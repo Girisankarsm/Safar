@@ -32,6 +32,13 @@ export const FALLBACK_CRIME_SCORES: Record<
     mapping_confidence: "district",
     data_source: "NCRB Crime in India 2022",
   },
+  hyderabad: {
+    crime_index: 55,
+    risk_label: "moderate_risk",
+    report_year: 2022,
+    mapping_confidence: "city",
+    data_source: "NCRB Crime in India 2022",
+  },
 };
 
 export function crimeRiskLabelHuman(label: string): string {

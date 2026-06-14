@@ -33,6 +33,12 @@ const CITY_ZONE_SEEDS: Record<CityId, ZoneSeed[]> = {
     { latOffset: 0.014, lngOffset: 0.004, zone_type: "moderate", label: "Kazhakkoottam · moderate", weight: 0.42 },
     { latOffset: -0.01, lngOffset: -0.008, zone_type: "safe", label: "Medical College · safer", weight: 0.18 },
   ],
+  hyderabad: [
+    { latOffset: 0, lngOffset: 0, zone_type: "moderate", label: "HITEC City · NCRB moderate", weight: 0.5 },
+    { latOffset: 0.01, lngOffset: -0.007, zone_type: "high_risk", label: "Madhapur corridor · lighting flags", weight: 0.65 },
+    { latOffset: -0.008, lngOffset: 0.011, zone_type: "moderate", label: "Secunderabad · moderate", weight: 0.48 },
+    { latOffset: 0.012, lngOffset: 0.005, zone_type: "safe", label: "Banjara Hills · safer", weight: 0.28 },
+  ],
 };
 
 /** Always-visible NCRB-informed baseline zones (shown even with zero community reports) */

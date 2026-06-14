@@ -63,7 +63,7 @@ export function ShareTripPage() {
       <div className="flex min-h-screen flex-col items-center justify-center bg-[#0A0A0A] px-6 text-center">
         <Shield className="h-12 w-12 text-[#3B82F6]/50" />
         <h1 className="mt-4 text-xl font-bold text-white">Trip not found</h1>
-        <p className="mt-2 text-sm text-[#A1A1AA]">This share link may have expired or is invalid.</p>
+        <p className="mt-2 text-sm text-[#A1A1AA]">This share link may have expired (24h limit) or is invalid.</p>
         <Link to="/" className="mt-6 text-sm font-semibold text-[#3B82F6]">
           Go to Safar →
         </Link>

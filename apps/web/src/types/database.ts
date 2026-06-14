@@ -1,4 +1,4 @@
-export type CityId = "chennai" | "trivandrum" | "bangalore";
+export type CityId = "chennai" | "trivandrum" | "bangalore" | "hyderabad";
 
 export type ReportType =
   | "harassment"
@@ -51,6 +51,8 @@ export interface SafetyReport {
   upvotes: number;
   verifications: number;
   is_verified: boolean;
+  flag_count?: number;
+  expires_at?: string | null;
   created_at: string;
 }
 
@@ -122,6 +124,7 @@ export interface Trip {
   current_lat: number | null;
   current_lng: number | null;
   share_token: string | null;
+  share_expires_at: string | null;
   sos_triggered: boolean;
   started_at: string;
   completed_at: string | null;

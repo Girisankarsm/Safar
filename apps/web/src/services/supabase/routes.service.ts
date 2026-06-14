@@ -1,6 +1,9 @@
 import { ORS_API_KEY } from "@/lib/config";
+import { estimateRouteFare } from "@/lib/fare-estimates";
 import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import { cacheKey, haversineM, sampleLineString } from "@/lib/geo";
+import { buildMultimodalLegs } from "@/lib/multimodal-legs";
+import { timeSafetyLabel, timeSafetyModifier } from "@/lib/time-safety";
 import { supabase } from "@/lib/supabase/client";
 import { nominatimService, type GeocodedPlace } from "@/services/osm/nominatim.service";
 import { crimeService } from "@/services/supabase/crime.service";
@@ -207,14 +210,15 @@ function scoreRoute(
   reportsNear: number,
   policeNear: number,
   hospitalsNear: number,
-  crimeIndex: number
+  crimeIndex: number,
+  departureHour: number
 ): { score: number; breakdown: SafetyBreakdownItem[] } {
   const community = Math.max(15, 100 - reportsNear * 12);
   const crime = crimeIndex;
   const police = Math.min(98, 40 + policeNear * 8);
   const hospital = Math.min(90, 45 + hospitalsNear * 4);
-  const hour = new Date().getHours();
-  const routeChars = Math.min(95, 55 + distanceKm * 1.2 + (hour >= 22 || hour < 5 ? -15 : 20));
+  const timeMod = timeSafetyModifier(departureHour);
+  const routeChars = Math.min(95, Math.max(20, 55 + distanceKm * 1.2 + timeMod));
 
   let weighted =
     community * 0.4 + crime * 0.25 + police * 0.15 + hospital * 0.1 + routeChars * 0.1;
@@ -230,7 +234,7 @@ function scoreRoute(
       { factor: "Historical Crime Index (NCRB)", weight_pct: 25, score: crime, contribution: Math.round(crime * 0.25) },
       { factor: "Police Station Proximity", weight_pct: 15, score: police, contribution: Math.round(police * 0.15) },
       { factor: "Hospital Proximity", weight_pct: 10, score: hospital, contribution: Math.round(hospital * 0.1) },
-      { factor: "Route Characteristics", weight_pct: 10, score: Math.round(routeChars), contribution: Math.round(routeChars * 0.1) },
+      { factor: `Time Safety (${departureHour}:00)`, weight_pct: 10, score: Math.round(routeChars), contribution: Math.round(routeChars * 0.1) },
     ],
   };
 }
@@ -244,17 +248,20 @@ function buildPlannedRoute(
   policeNear: number,
   hospitalsNear: number,
   crimeIndex: number,
+  departureHour: number,
   crimeMeta?: { risk_label: string; report_year: number; data_source: string }
 ): PlannedRoute {
+  const legs = buildMultimodalLegs(v.type, src, dst, ors);
   const { score, breakdown } = scoreRoute(
     ors.distance_km,
     v.type,
     reportsNear,
     policeNear,
     hospitalsNear,
-    crimeIndex
+    crimeIndex,
+    departureHour
   );
-  const baseCost = Math.max(15, Math.round(20 + ors.distance_km * 10 * v.costMul));
+  const baseCost = estimateRouteFare(legs, v.type);
   const isEstimate = isStraightLineGeometry(ors.geometry);
   const routedVia = isEstimate
     ? "Direct estimate (re-search for road routing)"
@@ -270,33 +277,27 @@ function buildPlannedRoute(
     source_lng: src.lng,
     dest_lat: dst.lat,
     dest_lng: dst.lng,
-    legs: [
-      {
-        mode: v.profile === "foot-walking" ? "walk" : v.type === "cheapest" ? "bus" : "metro",
-        from: src.display_name ?? src.name,
-        to: dst.display_name ?? dst.name,
-        duration_min: ors.duration_min,
-        distance_km: ors.distance_km,
-      },
-    ],
+    legs,
     safety_score: score,
     safety_breakdown: breakdown,
     distance_km: ors.distance_km,
-    eta_minutes: ors.duration_min,
+    eta_minutes: legs.reduce((s, l) => s + l.duration_min, 0),
     estimated_cost_inr: baseCost,
     reliability_score: Math.min(98, 68 + policeNear * 3),
     crowd_level: ors.duration_min < 25 ? "High" : "Moderate",
-    walking_distance_km:
-      v.profile === "foot-walking" ? ors.distance_km : Math.round(ors.distance_km * 0.1 * 100) / 100,
-    transfer_count: v.type === "cheapest" ? 1 : 0,
+    walking_distance_km: Math.round(
+      legs.filter((l) => l.mode === "walk").reduce((s, l) => s + l.distance_km, 0) * 100
+    ) / 100,
+    transfer_count: Math.max(0, legs.length - 1),
     geometry: ors.geometry,
     recommendations: [
+      timeSafetyLabel(departureHour),
       reportsNear > 0 ? `${reportsNear} community report(s) near corridor` : "No recent community reports on this corridor",
       crimeMeta
         ? `NCRB ${crimeMeta.report_year} crime index: ${crimeIndex}/100 (${crimeMeta.risk_label.replace(/_/g, " ")})`
         : `Historical crime index: ${crimeIndex}/100`,
       policeNear > 0 ? `~${policeNear} police POIs estimated along route` : "Limited police proximity data",
-      `Routed via ${routedVia}`,
+      `Multi-modal: ${legs.map((l) => l.mode).join(" → ")} via ${routedVia}`,
     ],
   };
 }
@@ -337,8 +338,10 @@ export const routesService = {
     source: string,
     destination: string,
     cityId: CityId,
-    resolved?: { source?: GeocodedPlace; destination?: GeocodedPlace }
+    resolved?: { source?: GeocodedPlace; destination?: GeocodedPlace },
+    options?: { departureHour?: number }
   ): Promise<PlannedRoute[]> {
+    const departureHour = options?.departureHour ?? new Date().getHours();
     const [src, dst, allReports, crimeScore] = await Promise.all([
       resolved?.source ?? nominatimService.geocode(source, cityId),
       resolved?.destination ?? nominatimService.geocode(destination, cityId),
@@ -369,6 +372,7 @@ export const routesService = {
         police,
         hospitals,
         crimeScore.crime_index,
+        departureHour,
         {
           risk_label: crimeScore.risk_label,
           report_year: crimeScore.report_year,

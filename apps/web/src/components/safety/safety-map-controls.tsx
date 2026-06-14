@@ -5,6 +5,8 @@ export type MapLayers = {
   heatmap: boolean;
   reports: boolean;
   safeZones: boolean;
+  wellLit: boolean;
+  womenSafe: boolean;
 };
 
 export type TimeFilter = "all" | "24h" | "7d" | "30d";
@@ -43,6 +45,8 @@ export function SafetyMapControls({
             ["heatmap", "Heatmap"],
             ["reports", "Reports"],
             ["safeZones", "Safe Zones"],
+            ["wellLit", "Well-lit zones"],
+            ["womenSafe", "Women-safe layer"],
           ] as const
         ).map(([key, label]) => (
           <label key={key} className="flex cursor-pointer items-center justify-between py-1.5 text-xs text-white">

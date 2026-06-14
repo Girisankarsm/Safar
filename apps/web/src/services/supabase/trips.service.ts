@@ -2,10 +2,18 @@ import { supabase } from "@/lib/supabase/client";
 import type { CityId, EmergencyContact, PlannedRoute, Trip } from "@/types/database";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
+const SHARE_TTL_MS = 24 * 60 * 60 * 1000;
+
 export const tripsService = {
+  async getById(id: string) {
+    return supabase.from("trips").select("*").eq("id", id).maybeSingle();
+  },
+
   async start(cityId: CityId, route: PlannedRoute): Promise<Trip> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
+
+    const shareExpiresAt = new Date(Date.now() + SHARE_TTL_MS).toISOString();
 
     const { data, error } = await supabase
       .from("trips")
@@ -15,6 +23,7 @@ export const tripsService = {
         status: "active",
         current_lat: route.source_lat,
         current_lng: route.source_lng,
+        share_expires_at: shareExpiresAt,
       })
       .select()
       .single();
@@ -87,7 +96,11 @@ export const tripsService = {
       .eq("share_token", token)
       .single();
     if (error) return null;
-    return data as Trip;
+    const trip = data as Trip;
+    if (trip.share_expires_at && new Date(trip.share_expires_at) < new Date()) {
+      return null;
+    }
+    return trip;
   },
 
   subscribeToTrip(tripId: string, onUpdate: (trip: Trip) => void): RealtimeChannel {

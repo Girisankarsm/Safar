@@ -8,10 +8,24 @@ export const reportsService = {
       .from("safety_reports")
       .select("*")
       .eq("city_id", cityId)
+      .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
+      .lt("flag_count", 3)
       .order("created_at", { ascending: false })
       .limit(limit);
     if (error) throw error;
     return (data ?? []) as SafetyReport[];
+  },
+
+  async flag(reportId: string) {
+    const { data, error } = await supabase.rpc("flag_safety_report", { p_report_id: reportId });
+    if (error) throw error;
+    return data as { ok: boolean; flag_count?: number };
+  },
+
+  async expireOld() {
+    const { data, error } = await supabase.rpc("expire_old_safety_reports");
+    if (error) return null;
+    return data as { ok: boolean; expired?: number };
   },
 
   async create(input: {

@@ -35,6 +35,14 @@ export const CITIES: Record<CityId, CityConfig> = {
     center_lng: 77.5946,
     viewbox: { west: 77.35, north: 13.15, east: 77.85, south: 12.75 },
   },
+  hyderabad: {
+    id: "hyderabad",
+    name: "Hyderabad",
+    state: "Telangana",
+    center_lat: 17.385,
+    center_lng: 78.4867,
+    viewbox: { west: 78.25, north: 17.55, east: 78.75, south: 17.2 },
+  },
 };
 
 export const CITY_LIST = Object.values(CITIES);

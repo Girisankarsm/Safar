@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { NATIONAL_HELPLINES } from "@/lib/helplines";
 import { getCityConfig } from "@/config/cities";
 import { IS_DEMO_MODE } from "@/lib/config";
 import { contactsService } from "@/services/supabase/contacts.service";
@@ -284,6 +285,28 @@ export function EmergencyPage() {
             ))}
           </div>
         )}
+      </Card>
+
+      <Card>
+        <div className="mb-4 flex items-center gap-2">
+          <Phone className="text-[#3B82F6]" />
+          <h3 className="font-bold text-white">National helplines</h3>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {NATIONAL_HELPLINES.map((h) => (
+            <a
+              key={h.number}
+              href={h.tel}
+              className="flex items-center gap-3 rounded-xl border border-[#262626] p-3 hover:border-[#3B82F6]/30"
+            >
+              <Phone className="h-4 w-4 shrink-0 text-[#3B82F6]" />
+              <div>
+                <p className="text-sm font-semibold text-white">{h.name}</p>
+                <p className="text-xs text-[#A1A1AA]">{h.number} — {h.description}</p>
+              </div>
+            </a>
+          ))}
+        </div>
       </Card>
 
       <Card>

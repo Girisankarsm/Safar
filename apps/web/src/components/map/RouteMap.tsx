@@ -1,6 +1,7 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { addLabeledMarker } from "@/components/map/map-markers";
+import { useSettingsStore } from "@/stores/settings.store";
 import { useEffect, useRef } from "react";
 
 function isStraightLine(geometry?: GeoJSON.LineString): boolean {
@@ -25,6 +26,8 @@ export function RouteMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const estimate = isStraightLine(geometry);
+  const lowDataMode = useSettingsStore((s) => s.lowDataMode);
+  const maxZoom = lowDataMode ? 14 : 19;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -32,7 +35,7 @@ export function RouteMap({
     const map = L.map(containerRef.current).setView([source.lat, source.lng], 13);
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
       attribution: '&copy; OSM &copy; CARTO',
-      maxZoom: 19,
+      maxZoom,
     }).addTo(map);
     mapRef.current = map;
 
@@ -40,7 +43,7 @@ export function RouteMap({
       map.remove();
       mapRef.current = null;
     };
-  }, [source.lat, source.lng]);
+  }, [source.lat, source.lng, maxZoom]);
 
   useEffect(() => {
     const map = mapRef.current;

@@ -1,25 +1,29 @@
 import { CitySwitcher } from "@/components/layout/CitySwitcher";
+import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
+import { LowDataToggle } from "@/components/layout/LowDataToggle";
 import { SafetyIntelligenceWidget } from "@/components/safety/safety-intelligence-widget";
 import { getCityConfig } from "@/config/cities";
 import { UserMenu } from "@/features/auth";
+import { useLanguageStore } from "@/stores/language.store";
 import { useCityStore } from "@/stores/city.store";
 import { cn } from "@/lib/utils";
 import { Home, Map, Route, Shield, Siren } from "lucide-react";
 import { Link, Outlet, useLocation } from "react-router-dom";
-
-const NAV = [
-  { to: "/home", label: "Dashboard", icon: Home },
-  { to: "/routes", label: "Routes", icon: Route },
-  { to: "/trip", label: "Trip", icon: Map },
-  { to: "/safety", label: "Safety", icon: Shield },
-  { to: "/emergency", label: "SOS", icon: Siren },
-];
 
 export function AppShell() {
   const path = useLocation().pathname;
   const isSafety = path.startsWith("/safety");
   const { city, revision } = useCityStore();
   const cityConfig = getCityConfig(city);
+  const t = useLanguageStore((s) => s.t);
+
+  const NAV_I18N = [
+    { to: "/home", key: "nav.dashboard", icon: Home },
+    { to: "/routes", key: "nav.routes", icon: Route },
+    { to: "/trip", key: "nav.trip", icon: Map },
+    { to: "/safety", key: "nav.safety", icon: Shield },
+    { to: "/emergency", key: "nav.sos", icon: Siren },
+  ] as const;
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
@@ -30,12 +34,13 @@ export function AppShell() {
           </div>
           <div>
             <p className="font-bold text-white">Safar</p>
-            <p className="text-[10px] text-[#71717A]">Travel Smarter. Travel Safer.</p>
+            <p className="text-[10px] text-[#71717A]">{t("app.tagline")}</p>
           </div>
         </div>
         <nav className="flex-1 space-y-1 p-3">
-          {NAV.map(({ to, label, icon: Icon }) => {
+          {NAV_I18N.map(({ to, key, icon: Icon }) => {
             const active = path.startsWith(to);
+            const label = t(key);
             return (
               <Link
                 key={to}
@@ -63,12 +68,14 @@ export function AppShell() {
               Safar
             </Link>
             <CitySwitcher />
+            <LanguageSwitcher />
+            <LowDataToggle />
             <UserMenu className="ml-1" />
           </div>
         </header>
 
         <div className="border-b border-[var(--border-subtle)] bg-[#3B82F6]/5 px-5 py-2 text-center text-xs text-[#A1A1AA] md:px-8">
-          Showing places, maps & safety data for{" "}
+          {t("city.showing")}{" "}
           <span className="font-semibold text-white">
             {cityConfig.name}, {cityConfig.state}
           </span>
@@ -82,7 +89,7 @@ export function AppShell() {
       </div>
 
       <nav className="fixed bottom-0 inset-x-0 z-50 flex border-t border-[var(--border-subtle)] bg-[var(--bg-elevated)]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
-        {NAV.map(({ to, label, icon: Icon }) => {
+        {NAV_I18N.map(({ to, key, icon: Icon }) => {
           const active = path.startsWith(to);
           return (
             <Link
@@ -94,7 +101,7 @@ export function AppShell() {
               )}
             >
               <Icon className="h-5 w-5" />
-              {label}
+              {t(key)}
             </Link>
           );
         })}
