@@ -3,9 +3,6 @@ import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { getCityConfig } from "@/config/cities";
-import { supabase } from "@/lib/supabase/client";
-import { useCityStore } from "@/stores/city.store";
 import { tripsService } from "@/services/supabase/trips.service";
 import type { PlannedRoute, Trip } from "@/types/database";
 import { CheckCircle2, Copy, MapPin, Navigation, Share2, Siren } from "lucide-react";
@@ -16,26 +13,36 @@ function formatCoords(lat: number, lng: number) {
   return `${lat.toFixed(5)}°, ${lng.toFixed(5)}°`;
 }
 
+function loadActiveRoute(): PlannedRoute | null {
+  try {
+    const active = sessionStorage.getItem("safar-active-route");
+    if (active) return JSON.parse(active) as PlannedRoute;
+    const routes = sessionStorage.getItem("safar-routes");
+    return routes ? (JSON.parse(routes) as PlannedRoute[])[0] : null;
+  } catch {
+    return null;
+  }
+}
+
 export function TripPage() {
   const { id } = useParams<{ id: string }>();
-  const { city } = useCityStore();
   const navigate = useNavigate();
-  const cityCenter = getCityConfig(city);
   const [trip, setTrip] = useState<Trip | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [hasLiveGps, setHasLiveGps] = useState(false);
+
+  const activeRoute = useMemo(() => loadActiveRoute(), [id]);
 
   const routeMeta = useMemo(() => {
     try {
       const search = sessionStorage.getItem("safar-search");
-      const routes = sessionStorage.getItem("safar-routes");
       return {
         search: search ? (JSON.parse(search) as { source: string; destination: string }) : null,
-        route: routes ? (JSON.parse(routes) as PlannedRoute[])[0] : null,
       };
     } catch {
-      return { search: null, route: null };
+      return { search: null };
     }
   }, []);
 
@@ -49,11 +56,7 @@ export function TripPage() {
     let watchId: number | null = null;
 
     async function loadTrip() {
-      const { data, error: fetchError } = await supabase
-        .from("trips")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
+      const { data, error: fetchError } = await tripsService.getById(id);
       if (fetchError) {
         setError(fetchError.message);
         return;
@@ -64,24 +67,34 @@ export function TripPage() {
     loadTrip();
     const channel = tripsService.subscribeToTrip(id, setTrip);
 
-    if (navigator.geolocation) {
-      watchId = navigator.geolocation.watchPosition(
-        (p) => {
-          tripsService
-            .updateLocation(id, p.coords.latitude, p.coords.longitude)
-            .then(setTrip)
-            .catch(() => null);
-        },
-        () => setError("Enable location to share live updates with your contacts."),
-        { enableHighAccuracy: true, maximumAge: 10_000 }
-      );
-    }
-
     return () => {
       channel.unsubscribe();
       if (watchId != null) navigator.geolocation.clearWatch(watchId);
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!id || trip?.status !== "active") return;
+
+    if (!navigator.geolocation) {
+      setError("Enable location to share live updates with your contacts.");
+      return;
+    }
+
+    const watchId = navigator.geolocation.watchPosition(
+      (p) => {
+        setHasLiveGps(true);
+        tripsService
+          .updateLocation(id, p.coords.latitude, p.coords.longitude)
+          .then(setTrip)
+          .catch(() => null);
+      },
+      () => setError("Enable location to share live updates with your contacts."),
+      { enableHighAccuracy: true, maximumAge: 10_000 }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [id, trip?.status]);
 
   async function copyShareLink() {
     if (!shareUrl) return;
@@ -96,6 +109,7 @@ export function TripPage() {
     try {
       await tripsService.complete(id);
       sessionStorage.removeItem("safar-active-trip");
+      sessionStorage.removeItem("safar-active-route");
       navigate("/home");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not complete trip");
@@ -146,11 +160,30 @@ export function TripPage() {
       )}
 
       <LiveTripMap
-        lat={trip?.current_lat ?? cityCenter.center_lat}
-        lng={trip?.current_lng ?? cityCenter.center_lng}
-        geometry={routeMeta.route?.geometry}
-        height={300}
+        geometry={activeRoute?.geometry}
+        source={
+          activeRoute
+            ? { lat: activeRoute.source_lat, lng: activeRoute.source_lng }
+            : undefined
+        }
+        destination={
+          activeRoute
+            ? { lat: activeRoute.dest_lat, lng: activeRoute.dest_lng }
+            : undefined
+        }
+        sourceName={activeRoute?.source_name}
+        destinationName={activeRoute?.destination_name}
+        showUser={isActive && hasLiveGps}
+        userLat={hasLiveGps ? trip?.current_lat : null}
+        userLng={hasLiveGps ? trip?.current_lng : null}
+        height={320}
       />
+
+      {!hasLiveGps && isActive && (
+        <p className="rounded-xl border border-[#3B82F6]/25 bg-[#3B82F6]/10 px-4 py-3 text-xs text-[#93C5FD]">
+          Waiting for your GPS signal… Your live blue dot will appear on the map once location access is granted.
+        </p>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
@@ -168,7 +201,7 @@ export function TripPage() {
 
         <Card>
           <p className="text-xs font-semibold uppercase tracking-wider text-[#71717A]">Current location</p>
-          {trip?.current_lat != null && trip.current_lng != null ? (
+          {hasLiveGps && trip?.current_lat != null && trip.current_lng != null ? (
             <>
               <p className="mt-2 flex items-center gap-2 text-sm font-medium text-white">
                 <MapPin className="h-4 w-4 text-[#3B82F6]" />
@@ -184,7 +217,9 @@ export function TripPage() {
               </a>
             </>
           ) : (
-            <p className="mt-2 text-sm text-[#A1A1AA]">Waiting for GPS signal…</p>
+            <p className="mt-2 text-sm text-[#A1A1AA]">
+              {isActive ? "Waiting for GPS signal…" : "Trip not active"}
+            </p>
           )}
         </Card>
       </div>
@@ -221,16 +256,19 @@ export function TripPage() {
         </Card>
       )}
 
-      {routeMeta.route && (
+      {activeRoute && (
         <Card className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-[#71717A]">Route summary</p>
             <p className="mt-1 text-sm text-white">
-              {routeMeta.route.distance_km} km · {routeMeta.route.eta_minutes} min · Safety{" "}
-              <span className="font-bold text-[#22C55E]">{routeMeta.route.safety_score}/100</span>
+              {activeRoute.distance_km} km · {activeRoute.eta_minutes} min · Safety{" "}
+              <span className="font-bold text-[#22C55E]">{activeRoute.safety_score}/100</span>
+            </p>
+            <p className="mt-1 text-xs text-[#71717A]">
+              {activeRoute.source_name} → {activeRoute.destination_name}
             </p>
           </div>
-          <p className="text-xs text-[#71717A]">₹{routeMeta.route.estimated_cost_inr} est.</p>
+          <p className="text-xs text-[#71717A]">₹{activeRoute.estimated_cost_inr} est.</p>
         </Card>
       )}
 

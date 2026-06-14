@@ -104,9 +104,22 @@ export function ShareTripPage() {
 
         <div className="overflow-hidden rounded-2xl border border-[#262626]">
           <LiveTripMap
-            lat={lat}
-            lng={lng}
             geometry={routeMeta.route?.geometry}
+            source={
+              routeMeta.route
+                ? { lat: routeMeta.route.source_lat, lng: routeMeta.route.source_lng }
+                : undefined
+            }
+            destination={
+              routeMeta.route
+                ? { lat: routeMeta.route.dest_lat, lng: routeMeta.route.dest_lng }
+                : undefined
+            }
+            sourceName={routeMeta.route?.source_name}
+            destinationName={routeMeta.route?.destination_name}
+            showUser={trip.status === "active" && lat != null && lng != null}
+            userLat={lat}
+            userLng={lng}
             height={360}
           />
         </div>

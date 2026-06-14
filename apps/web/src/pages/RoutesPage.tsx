@@ -90,6 +90,7 @@ export function RoutesPage() {
     try {
       const trip = await tripsService.start(city, route);
       sessionStorage.setItem("safar-active-trip", trip.id);
+      sessionStorage.setItem("safar-active-route", JSON.stringify(route));
       navigate(`/trip/${trip.id}`);
     } catch (e) {
       alert(e instanceof Error ? e.message : "Could not start trip");
@@ -169,6 +170,8 @@ export function RoutesPage() {
                 geometry={selected.geometry}
                 source={{ lat: selected.source_lat, lng: selected.source_lng }}
                 destination={{ lat: selected.dest_lat, lng: selected.dest_lng }}
+                sourceName={selected.source_name}
+                destinationName={selected.destination_name}
                 height={340}
               />
             </motion.div>

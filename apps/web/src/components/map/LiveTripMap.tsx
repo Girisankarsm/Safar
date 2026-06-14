@@ -1,31 +1,42 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { addLabeledMarker } from "@/components/map/map-markers";
 import { useEffect, useRef } from "react";
 
 export function LiveTripMap({
-  lat,
-  lng,
   geometry,
+  source,
+  destination,
+  sourceName,
+  destinationName,
+  userLat,
+  userLng,
+  showUser = false,
   height = 280,
 }: {
-  lat?: number | null;
-  lng?: number | null;
   geometry?: GeoJSON.LineString;
+  source?: { lat: number; lng: number };
+  destination?: { lat: number; lng: number };
+  sourceName?: string;
+  destinationName?: string;
+  userLat?: number | null;
+  userLng?: number | null;
+  showUser?: boolean;
   height?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const markerRef = useRef<L.CircleMarker | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    const centerLat = lat ?? 13.08;
-    const centerLng = lng ?? 80.27;
-    const map = L.map(containerRef.current, { zoomControl: true }).setView([centerLat, centerLng], 14);
+    const map = L.map(containerRef.current, { zoomControl: true }).setView(
+      [source?.lat ?? 13.08, source?.lng ?? 80.27],
+      14
+    );
 
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-      attribution: '&copy; <a href="https://openstreetmap.org">OSM</a> &copy; CARTO',
+      attribution: '&copy; OSM &copy; CARTO',
       maxZoom: 19,
     }).addTo(map);
 
@@ -33,44 +44,94 @@ export function LiveTripMap({
     return () => {
       map.remove();
       mapRef.current = null;
-      markerRef.current = null;
     };
-  }, []);
+  }, [source?.lat, source?.lng]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
     map.eachLayer((layer) => {
-      if (layer instanceof L.Polyline || layer instanceof L.CircleMarker) map.removeLayer(layer);
+      if (
+        layer instanceof L.Polyline ||
+        layer instanceof L.CircleMarker ||
+        layer instanceof L.Marker
+      ) {
+        map.removeLayer(layer);
+      }
     });
-    markerRef.current = null;
+
+    const bounds: L.LatLngExpression[] = [];
 
     if (geometry?.coordinates?.length) {
       const latlngs = geometry.coordinates.map(([lngVal, latVal]) => [latVal, lngVal] as [number, number]);
-      L.polyline(latlngs, { color: "#3b82f6", weight: 5, opacity: 0.85 }).addTo(map);
-      map.fitBounds(L.latLngBounds(latlngs), { padding: [32, 32] });
+      L.polyline(latlngs, { color: "#3B82F6", weight: 6, opacity: 0.9 }).addTo(map);
+      latlngs.forEach((ll) => bounds.push(ll));
     }
 
-    if (lat != null && lng != null) {
-      const marker = L.circleMarker([lat, lng], {
-        radius: 10,
-        color: "#22c55e",
-        fillColor: "#22c55e",
-        fillOpacity: 0.9,
-        weight: 3,
-      }).addTo(map);
-      marker.bindPopup("You are here");
-      markerRef.current = marker;
-      if (!geometry?.coordinates?.length) map.setView([lat, lng], 15);
+    if (source) {
+      addLabeledMarker(map, source.lat, source.lng, {
+        label: "A",
+        color: "#22C55E",
+        ringColor: "#22C55E",
+        title: sourceName ?? "Start",
+        subtitle: "Trip origin",
+      });
+      bounds.push([source.lat, source.lng]);
     }
-  }, [lat, lng, geometry]);
+
+    if (destination) {
+      addLabeledMarker(map, destination.lat, destination.lng, {
+        label: "B",
+        color: "#EF4444",
+        ringColor: "#EF4444",
+        title: destinationName ?? "Destination",
+        subtitle: "Trip destination",
+      });
+      bounds.push([destination.lat, destination.lng]);
+    }
+
+    if (showUser && userLat != null && userLng != null) {
+      addLabeledMarker(map, userLat, userLng, {
+        label: "You",
+        color: "#3B82F6",
+        ringColor: "#3B82F6",
+        title: "You are here",
+        subtitle: "Live location",
+      });
+      bounds.push([userLat, userLng]);
+    }
+
+    if (bounds.length > 0) {
+      map.fitBounds(L.latLngBounds(bounds), { padding: [48, 48], maxZoom: 16 });
+    } else if (showUser && userLat != null && userLng != null) {
+      map.setView([userLat, userLng], 15);
+    }
+  }, [
+    geometry,
+    source,
+    destination,
+    sourceName,
+    destinationName,
+    showUser,
+    userLat,
+    userLng,
+  ]);
 
   return (
-    <div
-      ref={containerRef}
-      style={{ height }}
-      className="overflow-hidden rounded-2xl border border-[var(--border)] shadow-inner"
-    />
+    <div className="relative">
+      <div
+        ref={containerRef}
+        style={{ height }}
+        className="overflow-hidden rounded-2xl border border-[var(--border)] shadow-inner"
+      />
+      <div className="pointer-events-none absolute bottom-3 left-3 z-[500] flex flex-wrap gap-2 text-[10px] font-semibold">
+        <span className="rounded-md bg-black/80 px-2 py-1 text-[#22C55E]">A Start</span>
+        <span className="rounded-md bg-black/80 px-2 py-1 text-[#EF4444]">B Destination</span>
+        {showUser && (
+          <span className="rounded-md bg-black/80 px-2 py-1 text-[#3B82F6]">● You (live)</span>
+        )}
+      </div>
+    </div>
   );
 }
