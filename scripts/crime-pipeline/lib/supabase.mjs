@@ -1,4 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
+import { loadProjectEnv } from "./load-env.mjs";
+
+loadProjectEnv();
 
 export function getSupabaseAdmin() {
   const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
@@ -6,7 +9,12 @@ export function getSupabaseAdmin() {
 
   if (!url || !key) {
     throw new Error(
-      "Missing SUPABASE_URL (or VITE_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY for pipeline import."
+      "Missing Supabase credentials for pipeline import.\n" +
+        "  Add to apps/web/.env.local:\n" +
+        "    VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co\n" +
+        "    SUPABASE_SERVICE_ROLE_KEY=your-service-role-key\n" +
+        "  Find service role key: Supabase Dashboard → Project Settings → API.\n" +
+        "  Without it, the app auto-seeds via refresh_ncrb_crime_seed() RPC on startup."
     );
   }
 

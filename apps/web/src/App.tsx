@@ -1,4 +1,5 @@
 import { AuthProvider, ProtectedRoute } from "@/features/auth";
+import { CrimeDataBootstrap } from "@/components/CrimeDataBootstrap";
 import { AppShell } from "@/components/layout/AppShell";
 import { EmergencyPage } from "@/pages/EmergencyPage";
 import { HomePage } from "@/pages/HomePage";
@@ -16,6 +17,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <CrimeDataBootstrap />
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />

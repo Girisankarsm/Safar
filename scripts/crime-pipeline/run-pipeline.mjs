@@ -12,6 +12,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadProjectEnv } from "./lib/load-env.mjs";
 import { OFFICIAL_SOURCES, PATHS, SEED_CSV } from "./config.mjs";
 import { parseCsv, validateRows } from "./lib/clean.mjs";
 import { detectFileType, ensureDir, logEvent } from "./lib/download.mjs";
@@ -30,6 +31,8 @@ const LOG_PATH = path.join(ROOT, PATHS.logs, "pipeline.jsonl");
 const args = new Set(process.argv.slice(2));
 const seedOnly = args.has("--seed-only");
 const dryRun = args.has("--dry-run");
+
+loadProjectEnv();
 
 async function main() {
   ensureDir(path.join(ROOT, PATHS.raw));
