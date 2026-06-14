@@ -1,6 +1,6 @@
 import type { RouteRecommendation } from "@/lib/ai-insights";
 import { motion } from "framer-motion";
-import { Sparkles, CheckCircle2 } from "lucide-react";
+import { Sparkles, CheckCircle2, Map } from "lucide-react";
 
 const ROUTE_LABELS: Record<string, string> = {
   safest: "Safest Route",
@@ -22,6 +22,7 @@ export function AIRouteRecommendation({
     <motion.button
       type="button"
       onClick={onSelect}
+      aria-label={`View ${ROUTE_LABELS[route.route_type] ?? route.route_type} on map`}
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ scale: 1.005 }}
@@ -52,7 +53,10 @@ export function AIRouteRecommendation({
         ))}
       </ul>
 
-      <p className="mt-3 text-xs font-semibold text-[#3B82F6]">Tap to view on map →</p>
+      <p className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-[#3B82F6]">
+        <Map className="h-3.5 w-3.5" />
+        Tap to view on map →
+      </p>
     </motion.button>
   );
 }

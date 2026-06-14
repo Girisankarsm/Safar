@@ -54,6 +54,15 @@ export interface SafetyReport {
   created_at: string;
 }
 
+export interface CommunityComment {
+  id: string;
+  report_id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+  author_name?: string | null;
+}
+
 export interface SafeWaitingSpot {
   id: string;
   city_id: CityId;

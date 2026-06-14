@@ -19,17 +19,21 @@ function timeAgo(iso: string) {
 export function SafetyReportCard({
   report,
   cityName,
+  commentCount = 0,
   isOwner,
   onVote,
   onVerify,
+  onComment,
   onDelete,
   deleting,
 }: {
   report: SafetyReport;
   cityName: string;
+  commentCount?: number;
   isOwner?: boolean;
   onVote: () => void;
   onVerify: () => void;
+  onComment: () => void;
   onDelete?: () => void;
   deleting?: boolean;
 }) {
@@ -65,24 +69,31 @@ export function SafetyReportCard({
         <p className="mt-1 text-xs text-[#71717A]">
           {cityName} · {timeAgo(report.created_at)}
         </p>
-        <div className="mt-auto flex items-center gap-3 pt-4">
+        <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
           <button
             type="button"
             onClick={onVote}
-            className="flex items-center gap-1 text-xs text-[#A1A1AA] hover:text-white"
+            className="flex items-center gap-1 rounded-lg border border-[#262626] px-2.5 py-1 text-xs text-[#A1A1AA] hover:border-[#3B82F6]/40 hover:text-white"
           >
             <ThumbsUp className="h-3.5 w-3.5" /> {report.upvotes}
           </button>
           <button
             type="button"
-            onClick={onVerify}
-            className="flex items-center gap-1 text-xs text-[#A1A1AA] hover:text-white"
+            onClick={onComment}
+            className="flex items-center gap-1 rounded-lg border border-[#262626] px-2.5 py-1 text-xs text-[#A1A1AA] hover:border-[#3B82F6]/40 hover:text-white"
           >
-            <MessageCircle className="h-3.5 w-3.5" /> {report.verifications}
+            <MessageCircle className="h-3.5 w-3.5" /> {commentCount}
+          </button>
+          <button
+            type="button"
+            onClick={onVerify}
+            className="flex items-center gap-1 rounded-lg border border-[#262626] px-2.5 py-1 text-xs text-[#A1A1AA] hover:border-[#22C55E]/40 hover:text-white"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" /> {report.verifications}
           </button>
           {report.is_verified && (
             <span className="ml-auto flex items-center gap-1 rounded-full bg-[#22C55E]/15 px-2 py-0.5 text-[10px] font-bold text-[#22C55E]">
-              <CheckCircle2 className="h-3 w-3" /> Verified
+              Verified
             </span>
           )}
         </div>

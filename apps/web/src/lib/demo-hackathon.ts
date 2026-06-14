@@ -1,4 +1,4 @@
-import type { CityId, ReportType, SafetyReport } from "@/types/database";
+import type { CityId, CommunityComment, ReportType, SafetyReport } from "@/types/database";
 import type { ActivityItem, PlatformStats } from "@/lib/community-activity";
 import { DEMO_CITY_CENTERS } from "@/lib/demo-data";
 
@@ -96,6 +96,43 @@ export function demoReports(cityId: CityId): SafetyReport[] {
 
 export function demoAllReports(): SafetyReport[] {
   return (["chennai", "trivandrum", "bangalore"] as CityId[]).flatMap(demoReports);
+}
+
+const DEMO_COMMENT_SEEDS: Record<string, { body: string; author_name: string; hoursAgo: number }[]> = {
+  "dr-c1": [
+    { body: "I walk here every evening — street lights have been out for weeks.", author_name: "Priya M.", hoursAgo: 5 },
+    { body: "Reported to GCC last month, still no fix.", author_name: "Arun K.", hoursAgo: 12 },
+  ],
+  "dr-c2": [
+    { body: "Avoid this stretch after 10 PM if alone.", author_name: "Meera S.", hoursAgo: 8 },
+  ],
+  "dr-c3": [
+    { body: "Bus stop has no shelter and poor visibility.", author_name: "Vikram R.", hoursAgo: 3 },
+    { body: "Agree — felt unsafe waiting here last week.", author_name: "Anitha L.", hoursAgo: 6 },
+  ],
+  "dr-t1": [
+    { body: "Technopark gate area needs better lighting.", author_name: "Rahul N.", hoursAgo: 4 },
+  ],
+  "dr-b1": [
+    { body: "Metro exit is crowded and poorly lit at night.", author_name: "Sneha P.", hoursAgo: 7 },
+    { body: "Police patrols increased recently — slight improvement.", author_name: "Karthik D.", hoursAgo: 18 },
+  ],
+};
+
+export function demoComments(reportId: string): CommunityComment[] {
+  const seeds = DEMO_COMMENT_SEEDS[reportId] ?? [];
+  return seeds.map((c, i) => ({
+    id: `demo-comment-${reportId}-${i}`,
+    report_id: reportId,
+    user_id: "demo-user-0000-0000-0000-000000000001",
+    body: c.body,
+    created_at: new Date(Date.now() - c.hoursAgo * 3_600_000).toISOString(),
+    author_name: c.author_name,
+  }));
+}
+
+export function demoCommentCount(reportId: string): number {
+  return DEMO_COMMENT_SEEDS[reportId]?.length ?? 0;
 }
 
 export function demoActivityFeed(cityId: CityId): ActivityItem[] {

@@ -2,18 +2,19 @@ import { SafetyHeatmap } from "@/components/map/SafetyHeatmap";
 import { SafetyMapControls, type MapLayers, type TimeFilter } from "@/components/safety/safety-map-controls";
 import { SafetyMapLegend } from "@/components/safety/safety-map-legend";
 import { SafetyReportCard } from "@/components/safety/safety-report-card";
+import { SafetyReportComments } from "@/components/safety/safety-report-comments";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getCityConfig } from "@/config/cities";
 import { useAuth } from "@/features/auth";
 import { IS_DEMO_MODE } from "@/lib/config";
-import { demoReports } from "@/lib/demo-hackathon";
+import { demoCommentCount, demoComments, demoReports } from "@/lib/demo-hackathon";
 import { heatmapService, type HeatmapPoint } from "@/services/supabase/heatmap.service";
 import { placesService } from "@/services/supabase/places.service";
 import { reportsService } from "@/services/supabase/reports.service";
 import { storageService } from "@/services/supabase/storage.service";
 import { useCityStore } from "@/stores/city.store";
-import type { ReportType, SafetyReport } from "@/types/database";
+import type { CommunityComment, ReportType, SafetyReport } from "@/types/database";
 import { ChevronDown, Crosshair, Filter, MapPin, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -46,7 +47,7 @@ function filterByTime(reports: SafetyReport[], time: TimeFilter) {
 
 export function SafetyPage() {
   const { city } = useCityStore();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [heatPoints, setHeatPoints] = useState<HeatmapPoint[]>([]);
   const [reports, setReports] = useState<SafetyReport[]>([]);
   const [center, setCenter] = useState(() => {
@@ -72,6 +73,9 @@ export function SafetyPage() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [recenterSignal, setRecenterSignal] = useState(0);
   const [loadError, setLoadError] = useState("");
+  const [commentReport, setCommentReport] = useState<SafetyReport | null>(null);
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [demoExtraComments, setDemoExtraComments] = useState<Record<string, CommunityComment[]>>({});
 
   const heatmapLayers = useMemo(
     () => ({
@@ -95,6 +99,12 @@ export function SafetyPage() {
       ]);
       setHeatPoints(heat);
       setReports(r);
+      if (!IS_DEMO_MODE) {
+        const counts = await Promise.all(
+          r.map(async (report) => [report.id, await reportsService.countComments(report.id)] as const)
+        );
+        setCommentCounts(Object.fromEntries(counts));
+      }
       const c = cities.find((x) => x.id === city);
       if (c) setCenter({ lat: c.center_lat, lng: c.center_lng, name: c.name });
     } catch (err) {
@@ -135,6 +145,47 @@ export function SafetyPage() {
   }, [reports, timeFilter, categoryFilter]);
 
   const visibleReports = showAllReports ? filteredReports : filteredReports.slice(0, 12);
+
+  function getCommentCount(reportId: string) {
+    if (IS_DEMO_MODE) {
+      return demoCommentCount(reportId) + (demoExtraComments[reportId]?.length ?? 0);
+    }
+    return commentCounts[reportId] ?? 0;
+  }
+
+  const loadComments = useCallback(
+    async (reportId: string) => {
+      if (IS_DEMO_MODE) {
+        return [...demoComments(reportId), ...(demoExtraComments[reportId] ?? [])];
+      }
+      return reportsService.listComments(reportId);
+    },
+    [demoExtraComments]
+  );
+
+  const addComment = useCallback(
+    async (reportId: string, body: string) => {
+      if (IS_DEMO_MODE) {
+        const comment: CommunityComment = {
+          id: `demo-local-${reportId}-${Date.now()}`,
+          report_id: reportId,
+          user_id: user?.id ?? "demo-user",
+          body,
+          created_at: new Date().toISOString(),
+          author_name: profile?.full_name ?? "You",
+        };
+        setDemoExtraComments((prev) => ({
+          ...prev,
+          [reportId]: [...(prev[reportId] ?? []), comment],
+        }));
+        return;
+      }
+      await reportsService.addComment(reportId, body);
+      const count = await reportsService.countComments(reportId);
+      setCommentCounts((prev) => ({ ...prev, [reportId]: count }));
+    },
+    [profile]
+  );
 
   function handleMapClick(lat: number, lng: number) {
     setShowForm(true);
@@ -356,9 +407,11 @@ export function SafetyPage() {
                     key={r.id}
                     report={r}
                     cityName={center.name}
+                    commentCount={getCommentCount(r.id)}
                     isOwner={isOwner}
                     onVote={() => reportsService.vote(r.id, "upvote").then(load)}
                     onVerify={() => reportsService.vote(r.id, "verify").then(load)}
+                    onComment={() => setCommentReport(r)}
                     onDelete={isOwner ? () => deleteReport(r.id) : undefined}
                     deleting={deletingId === r.id}
                   />
@@ -377,6 +430,14 @@ export function SafetyPage() {
           </>
         )}
       </section>
+
+      <SafetyReportComments
+        report={commentReport}
+        open={!!commentReport}
+        onClose={() => setCommentReport(null)}
+        loadComments={loadComments}
+        onAddComment={addComment}
+      />
     </div>
   );
 }

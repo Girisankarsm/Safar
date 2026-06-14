@@ -15,7 +15,7 @@ import { useCityStore } from "@/stores/city.store";
 import type { PlannedRoute, RouteType } from "@/types/database";
 import { Clock, IndianRupee, MapPin, Route, Shield, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const LABELS: Record<RouteType, string> = {
@@ -40,6 +40,8 @@ export function RoutesPage() {
   const [search, setSearch] = useState<{ source: string; destination: string } | null>(null);
   const [selected, setSelected] = useState<PlannedRoute | null>(null);
   const [starting, setStarting] = useState(false);
+  const [mapHighlight, setMapHighlight] = useState(false);
+  const mapSectionRef = useRef<HTMLDivElement>(null);
 
   const recommendation = useMemo(
     () =>
@@ -73,6 +75,15 @@ export function RoutesPage() {
     setSelected(rec?.route ?? parsed[0] ?? null);
     if (s) setSearch(JSON.parse(s));
   }, [city, profile?.women_safety_mode, profile?.night_safe_preference]);
+
+  function selectRouteAndShowMap(route: PlannedRoute) {
+    setSelected(route);
+    setMapHighlight(true);
+    window.setTimeout(() => setMapHighlight(false), 1600);
+    window.requestAnimationFrame(() => {
+      mapSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
 
   async function startTrip(route: PlannedRoute) {
     setStarting(true);
@@ -116,12 +127,23 @@ export function RoutesPage() {
       {recommendation && (
         <AIRouteRecommendation
           recommendation={recommendation}
-          onSelect={() => setSelected(recommendation.route)}
+          onSelect={() => {
+            const route =
+              routes.find((r) => r.route_type === recommendation.route.route_type) ??
+              recommendation.route;
+            selectRouteAndShowMap(route);
+          }}
         />
       )}
 
       {selected && (
-        <div className="space-y-6">
+        <div
+          ref={mapSectionRef}
+          id="route-map"
+          className={`space-y-6 scroll-mt-24 rounded-2xl transition-shadow duration-500 ${
+            mapHighlight ? "ring-2 ring-[#3B82F6]/60 ring-offset-2 ring-offset-[var(--bg)]" : ""
+          }`}
+        >
           <div className="grid gap-6 lg:grid-cols-2">
             <motion.div
               key={selected.route_type}
@@ -163,7 +185,7 @@ export function RoutesPage() {
                 className={`flex h-full cursor-pointer flex-col transition hover:border-[#3B82F6]/25 ${
                   isSelected ? "border-[#3B82F6]/50 ring-2 ring-[#3B82F6]/20" : ""
                 }`}
-                onClick={() => setSelected(r)}
+                onClick={() => selectRouteAndShowMap(r)}
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <Shield className={`h-5 w-5 ${BADGE[r.route_type]}`} />

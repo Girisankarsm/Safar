@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase/client";
-import type { CityId, ReportType, SafetyReport } from "@/types/database";
+import type { CityId, CommunityComment, ReportType, SafetyReport } from "@/types/database";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 export const reportsService = {
@@ -77,6 +77,37 @@ export const reportsService = {
     return data;
   },
 
+  async listComments(reportId: string): Promise<CommunityComment[]> {
+    const { data, error } = await supabase
+      .from("community_comments")
+      .select("id, report_id, user_id, body, created_at, users(full_name)")
+      .eq("report_id", reportId)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+
+    return (data ?? []).map((row) => {
+      const users = row.users as { full_name: string | null } | { full_name: string | null }[] | null;
+      const profile = Array.isArray(users) ? users[0] : users;
+      return {
+        id: row.id,
+        report_id: row.report_id,
+        user_id: row.user_id,
+        body: row.body,
+        created_at: row.created_at,
+        author_name: profile?.full_name ?? "Community member",
+      };
+    });
+  },
+
+  async countComments(reportId: string): Promise<number> {
+    const { count, error } = await supabase
+      .from("community_comments")
+      .select("id", { count: "exact", head: true })
+      .eq("report_id", reportId);
+    if (error) return 0;
+    return count ?? 0;
+  },
+
   async remove(reportId: string): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
@@ -123,6 +154,11 @@ export const reportsService = {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "report_votes" },
+        () => onUpdate()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "community_comments" },
         () => onUpdate()
       )
       .subscribe();
