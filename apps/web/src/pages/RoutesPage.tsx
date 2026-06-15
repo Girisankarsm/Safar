@@ -210,7 +210,7 @@ function IntelligencePanel({
 
   const TABS: { id: RightTab; label: string; icon: typeof Shield }[] = [
     { id: "intelligence", label: "Intelligence", icon: Shield },
-    { id: "ask", label: "Ask AI", icon: Bot },
+    { id: "ask", label: "Ask Safar", icon: Bot },
     { id: "story", label: "Story", icon: BookOpen },
   ];
 
@@ -609,7 +609,7 @@ export function RoutesPage() {
                 >
                   <Sparkles className="h-3.5 w-3.5 shrink-0 text-[#3B82F6]" />
                   <div className="min-w-0">
-                    <p className="truncate text-[11px] font-bold text-white">AI Recommended</p>
+                    <p className="truncate text-[11px] font-bold text-white">Safar Recommends</p>
                     <p className="text-[10px] text-[var(--text-dim)]">{recommendation.reasons[0]}</p>
                   </div>
                 </button>
