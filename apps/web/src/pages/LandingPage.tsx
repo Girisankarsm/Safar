@@ -735,53 +735,189 @@ const FAQS = [
   },
 ];
 
-function FAQItem({ item, i }: { item: typeof FAQS[0]; i: number }) {
-  const [open, setOpen] = useState(false);
+// ─── FAQ accordion ─────────────────────────────────────────────────────────────
+
+function FAQItem({
+  item,
+  i,
+  isOpen,
+  onToggle,
+  panelId,
+  triggerId,
+}: {
+  item: typeof FAQS[0];
+  i: number;
+  isOpen: boolean;
+  onToggle: () => void;
+  panelId: string;
+  triggerId: string;
+}) {
   const reduced = useReducedMotion();
+
+  function handleKey(e: React.KeyboardEvent<HTMLButtonElement>) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onToggle();
+    }
+  }
 
   return (
     <motion.div
-      initial={reduced ? false : { opacity: 0, y: 16 }}
+      initial={reduced ? false : { opacity: 0, y: 14 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-30px" }}
-      transition={{ delay: i * 0.07, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-      className={`overflow-hidden rounded-2xl border transition-colors duration-200 ${
-        open
-          ? "border-[#3B82F6]/30 bg-[#3B82F6]/04"
-          : "border-[#1e1e2a] bg-[#0a0a12] hover:border-[#2a2a38]"
-      }`}
+      viewport={{ once: true, margin: "-24px" }}
+      transition={{ delay: i * 0.06, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      style={
+        isOpen
+          ? { boxShadow: "0 0 0 1px #3b82f620, 0 4px 24px #3b82f610" }
+          : {}
+      }
+      className={[
+        "overflow-hidden rounded-2xl border transition-all duration-200",
+        isOpen
+          ? "border-[#3B82F6]/25 bg-gradient-to-b from-[#0e1423] to-[#090d18]"
+          : "border-[#1e1e2a] bg-[#08080f] hover:border-[#2d2d3d] hover:bg-[#0b0b15]",
+      ].join(" ")}
     >
+      {/* Trigger */}
       <button
+        id={triggerId}
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
+        aria-expanded={isOpen}
+        aria-controls={panelId}
+        onClick={onToggle}
+        onKeyDown={handleKey}
+        className={[
+          "flex w-full items-start justify-between gap-4 px-5 py-[18px] text-left",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6]/60 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent",
+        ].join(" ")}
       >
-        <span className="text-[14px] font-semibold text-white">{item.q}</span>
-        <motion.div
-          animate={reduced ? {} : { rotate: open ? 180 : 0 }}
-          transition={{ duration: 0.25, ease: "easeInOut" }}
-          className="shrink-0"
+        {/* Question + optional open indicator */}
+        <span
+          className={[
+            "text-[14px] font-semibold leading-snug transition-colors duration-150",
+            isOpen ? "text-white" : "text-[#d4d4e0]",
+          ].join(" ")}
         >
-          <ChevronDown className={`h-4 w-4 transition-colors ${open ? "text-[#3B82F6]" : "text-[#71717A]"}`} />
+          {item.q}
+        </span>
+
+        {/* Chevron */}
+        <motion.div
+          animate={reduced ? {} : { rotate: isOpen ? 180 : 0 }}
+          transition={{ duration: 0.26, ease: [0.4, 0, 0.2, 1] }}
+          className="mt-0.5 shrink-0"
+          aria-hidden="true"
+        >
+          <ChevronDown
+            className={[
+              "h-[18px] w-[18px] transition-colors duration-150",
+              isOpen ? "text-[#3B82F6]" : "text-[#52526a]",
+            ].join(" ")}
+          />
         </motion.div>
       </button>
 
+      {/* Answer panel */}
       <AnimatePresence initial={false}>
-        {open && (
+        {isOpen && (
           <motion.div
-            key="answer"
-            initial={reduced ? false : { height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={reduced ? {} : { height: 0, opacity: 0 }}
-            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            id={panelId}
+            role="region"
+            aria-labelledby={triggerId}
+            key="panel"
+            initial={
+              reduced
+                ? false
+                : { height: 0, opacity: 0, y: -6 }
+            }
+            animate={{ height: "auto", opacity: 1, y: 0 }}
+            exit={
+              reduced
+                ? {}
+                : { height: 0, opacity: 0, y: -4 }
+            }
+            transition={{
+              height:  { duration: 0.28, ease: [0.4, 0, 0.2, 1] },
+              opacity: { duration: 0.22, ease: "easeOut" },
+              y:       { duration: 0.22, ease: "easeOut" },
+            }}
           >
-            <p className="px-5 pb-5 pt-1 text-sm leading-relaxed text-[#A1A1AA]">
-              {item.a}
-            </p>
+            {/* Left accent bar + text */}
+            <div className="flex gap-0 px-5 pb-5 pt-0">
+              <div className="mr-4 mt-0.5 w-[2px] shrink-0 rounded-full bg-gradient-to-b from-[#3B82F6]/60 to-transparent" />
+              <p className="text-[13.5px] leading-[1.65] text-[#8e8ea0]">
+                {item.a}
+              </p>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
     </motion.div>
+  );
+}
+
+function FAQSection() {
+  const [activeIdx, setActiveIdx] = useState<number | null>(null);
+  const reduced = useReducedMotion();
+
+  function toggle(i: number) {
+    setActiveIdx((prev) => (prev === i ? null : i));
+  }
+
+  return (
+    <section id="faq" className="mx-auto max-w-3xl px-6 py-24">
+      {/* Header */}
+      <motion.div
+        initial={reduced ? false : { opacity: 0, y: 24 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+        className="mb-12 text-center"
+      >
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#262636]/80 bg-[#0f0f1a]/80 px-4 py-2 text-xs font-semibold text-[#3B82F6] backdrop-blur-md">
+          <HelpCircle className="h-3.5 w-3.5 shrink-0" />
+          Frequently Asked Questions
+        </div>
+        <h2 className="text-3xl font-bold tracking-tight text-white">
+          Everything you need to know
+        </h2>
+        <p className="mx-auto mt-3 max-w-md text-sm text-[#71717A]">
+          Can't find your answer? Reach us via the community reports inside the
+          app.
+        </p>
+      </motion.div>
+
+      {/* Accordion list */}
+      <div className="space-y-2" role="list">
+        {FAQS.map((item, i) => (
+          <FAQItem
+            key={item.q}
+            item={item}
+            i={i}
+            isOpen={activeIdx === i}
+            onToggle={() => toggle(i)}
+            triggerId={`faq-trigger-${i}`}
+            panelId={`faq-panel-${i}`}
+          />
+        ))}
+      </div>
+
+      {/* CTA nudge */}
+      <motion.div
+        initial={reduced ? false : { opacity: 0, y: 12 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ delay: 0.3, duration: 0.5 }}
+        className="mt-10 flex flex-col items-center gap-3"
+      >
+        <p className="text-sm text-[#71717A]">Ready to travel safer?</p>
+        <ButtonLink to="/login" size="lg">
+          Get started — it's free
+          <ArrowRight className="h-4 w-4" />
+        </ButtonLink>
+      </motion.div>
+    </section>
   );
 }
 
@@ -1137,47 +1273,7 @@ export function LandingPage() {
       </section>
 
       {/* ── FAQ ── */}
-      <section id="faq" className="mx-auto max-w-3xl px-6 py-24">
-        <motion.div
-          initial={reduced ? false : { opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-          className="mb-12 text-center"
-        >
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#262636]/80 bg-[#0f0f1a]/80 px-4 py-2 text-xs font-semibold text-[#3B82F6] backdrop-blur-md">
-            <HelpCircle className="h-3.5 w-3.5 shrink-0" />
-            Frequently Asked Questions
-          </div>
-          <h2 className="text-3xl font-bold tracking-tight text-white">
-            Everything you need to know
-          </h2>
-          <p className="mx-auto mt-3 max-w-md text-sm text-[#71717A]">
-            Can't find your answer? Reach us via the community reports inside the app.
-          </p>
-        </motion.div>
-
-        <div className="space-y-2.5">
-          {FAQS.map((item, i) => (
-            <FAQItem key={item.q} item={item} i={i} />
-          ))}
-        </div>
-
-        {/* CTA nudge below FAQ */}
-        <motion.div
-          initial={reduced ? false : { opacity: 0, y: 12 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.3, duration: 0.5 }}
-          className="mt-10 flex flex-col items-center gap-3"
-        >
-          <p className="text-sm text-[#71717A]">Ready to travel safer?</p>
-          <ButtonLink to="/login" size="lg">
-            Get started — it's free
-            <ArrowRight className="h-4 w-4" />
-          </ButtonLink>
-        </motion.div>
-      </section>
+      <FAQSection />
 
       {/* ── Footer ── */}
       <footer className="border-t border-[#1e1e2a] py-10">
