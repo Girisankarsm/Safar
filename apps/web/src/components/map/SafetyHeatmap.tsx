@@ -46,16 +46,25 @@ const REPORT_META: Record<
 // ─── CSS injected once per map instance ───────────────────────────────────────
 
 const MAP_STYLES = `
-  /* --- shared reset --- */
-  .safar-marker { position: relative; }
-
-  /* --- report marker --- */
-  .safar-incident {
-    width: 48px; height: 48px;
-    position: relative;
+  /*
+   * IMPORTANT: do NOT set position on .safar-marker.
+   * Leaflet's own CSS sets position:absolute on .leaflet-marker-icon.
+   * Any position override here would win (injected after leaflet.css) and
+   * break coordinate-locked placement / zoom tracking.
+   */
+  .safar-marker {
+    overflow: visible !important;   /* let sonar rings render outside the icon bounds */
+    background: transparent !important;
+    border: none !important;
   }
 
-  /* three concentric rings — centered via translate, always visible at different phases */
+  /* --- report marker: fills the Leaflet icon box exactly --- */
+  .safar-incident {
+    position: absolute;
+    inset: 0;                         /* 0 0 0 0 — fills the 48×48 Leaflet container */
+  }
+
+  /* three sonar rings — centered on the anchor point */
   .safar-incident .si-ring {
     position: absolute;
     width: 28px; height: 28px;
@@ -63,8 +72,10 @@ const MAP_STYLES = `
     border-radius: 50%;
     border: 1.5px solid var(--sc);
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.6);
+    transform: translate(-50%, -50%) scale(0.55);
+    transform-origin: center center;
     animation: si-ripple 2.7s ease-out infinite;
+    pointer-events: none;
   }
   .safar-incident .si-ring:nth-child(1) { animation-delay: 0s; }
   .safar-incident .si-ring:nth-child(2) { animation-delay: 0.9s; }
@@ -75,16 +86,18 @@ const MAP_STYLES = `
     width: 28px; height: 28px;
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
+    transform-origin: center center;
     border-radius: 50%;
     background: var(--sc);
     box-shadow: 0 0 12px var(--sg), 0 0 24px var(--sg);
     display: flex; align-items: center; justify-content: center;
-    font-size: 14px; line-height: 1;
+    font-size: 13px; line-height: 1;
+    pointer-events: auto;
   }
 
   @keyframes si-ripple {
-    0%   { transform: translate(-50%, -50%) scale(0.55); opacity: 0.9; }
-    70%  { opacity: 0.2; }
+    0%   { transform: translate(-50%, -50%) scale(0.55); opacity: 0.85; }
+    70%  { opacity: 0.18; }
     100% { transform: translate(-50%, -50%) scale(1.75); opacity: 0; }
   }
 
@@ -95,7 +108,7 @@ const MAP_STYLES = `
   }
 
   /* --- user location beacon --- */
-  .safar-user { width: 28px; height: 28px; }
+  .safar-user { overflow: visible !important; background: transparent !important; border: none !important; }
   .safar-user .su-halo {
     position: absolute; inset: 0;
     border-radius: 50%;
@@ -120,7 +133,7 @@ const MAP_STYLES = `
   }
 
   /* --- pin marker (report drop location) --- */
-  .safar-pin { width: 32px; height: 38px; }
+  .safar-pin { overflow: visible !important; background: transparent !important; border: none !important; }
   .safar-pin .sp-glow {
     position: absolute; top: 0; left: 4px; right: 4px; height: 24px;
     border-radius: 50%;
@@ -183,10 +196,12 @@ function incidentIcon(report: SafetyReport): L.DivIcon {
   const isFresh = ageMs < 3 * 60 * 60 * 1000; // < 3 h
 
   return L.divIcon({
-    className: "safar-marker",
+    className: `safar-marker`,
     iconSize: [48, 48],
+    // anchor = exact centre of the 48×48 box → pin stays locked on zoom
     iconAnchor: [24, 24],
-    popupAnchor: [0, -28],
+    // popup opens 26 px above the centre (top-edge of icon + 2 px gap)
+    popupAnchor: [0, -26],
     html: `<div
       class="safar-incident${isFresh ? " si-fresh" : ""}"
       style="--sc:${meta.color}; --sg:${meta.glow}"
@@ -204,8 +219,8 @@ function userLocationIcon(): L.DivIcon {
     className: "safar-marker safar-user",
     iconSize: [28, 28],
     iconAnchor: [14, 14],
-    popupAnchor: [0, -18],
-    html: `<div style="width:28px;height:28px;position:relative">
+    popupAnchor: [0, -16],
+    html: `<div style="position:absolute;inset:0">
       <div class="su-halo"></div>
       <div class="su-ring"></div>
       <div class="su-core"></div>
@@ -219,7 +234,7 @@ function pinIcon(): L.DivIcon {
     iconSize: [32, 38],
     iconAnchor: [16, 38],
     popupAnchor: [0, -40],
-    html: `<div style="width:32px;height:38px;position:relative">
+    html: `<div style="position:absolute;inset:0">
       <div class="sp-glow"></div>
       <div class="sp-stem"></div>
     </div>`,
