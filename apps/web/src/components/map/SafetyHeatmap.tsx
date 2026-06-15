@@ -1,5 +1,5 @@
 import type { HeatmapPoint } from "@/services/supabase/heatmap.service";
-import type { SafetyReport } from "@/types/database";
+import type { ReportType, SafetyReport } from "@/types/database";
 import { useSettingsStore } from "@/stores/settings.store";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -24,6 +24,195 @@ const HEAT_GRADIENT = {
   1.0: "#ef4444",
 };
 
+// ─── Report type → visual metadata ────────────────────────────────────────────
+
+const REPORT_META: Record<
+  ReportType,
+  { color: string; glow: string; icon: string; label: string }
+> = {
+  harassment:          { color: "#ef4444", glow: "#ef444460", icon: "⚠️", label: "Harassment" },
+  poor_lighting:       { color: "#f59e0b", glow: "#f59e0b60", icon: "💡", label: "Poor Lighting" },
+  unsafe_bus_stop:     { color: "#f97316", glow: "#f9731660", icon: "🚌", label: "Unsafe Stop" },
+  suspicious_activity: { color: "#a855f7", glow: "#a855f760", icon: "👁️", label: "Suspicious" },
+  flooded_area:        { color: "#3b82f6", glow: "#3b82f660", icon: "🌊", label: "Flooding" },
+  road_damage:         { color: "#78716c", glow: "#78716c60", icon: "🚧", label: "Road Damage" },
+  stray_animal:        { color: "#84cc16", glow: "#84cc1660", icon: "🐕", label: "Stray Animal" },
+  construction:        { color: "#eab308", glow: "#eab30860", icon: "🏗️", label: "Construction" },
+  unsafe_area:         { color: "#ef4444", glow: "#ef444460", icon: "🚫", label: "Unsafe Area" },
+  broken_light:        { color: "#f59e0b", glow: "#f59e0b60", icon: "🔦", label: "Broken Light" },
+  dangerous_crossing:  { color: "#f97316", glow: "#f9731660", icon: "🚦", label: "Crossing" },
+};
+
+// ─── CSS injected once per map instance ───────────────────────────────────────
+
+const MAP_STYLES = `
+  /* --- shared reset --- */
+  .safar-marker { position: relative; }
+
+  /* --- report marker --- */
+  .safar-incident { width: 36px; height: 36px; }
+  .safar-incident .si-ring {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    border: 2px solid var(--sc);
+    opacity: 0;
+    animation: si-ping 2.4s ease-out infinite;
+  }
+  .safar-incident .si-ring2 {
+    animation-delay: 0.9s;
+  }
+  .safar-incident .si-core {
+    position: absolute; inset: 7px;
+    border-radius: 50%;
+    background: var(--sc);
+    box-shadow: 0 0 10px var(--sg), 0 0 20px var(--sg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; line-height: 1;
+  }
+  @keyframes si-ping {
+    0%   { transform: scale(0.7); opacity: 0.8; }
+    100% { transform: scale(2.0); opacity: 0; }
+  }
+
+  /* --- new report (live pulse, faster) --- */
+  .safar-incident.si-fresh .si-ring {
+    animation-duration: 1.4s;
+    border-width: 3px;
+  }
+
+  /* --- user location beacon --- */
+  .safar-user { width: 28px; height: 28px; }
+  .safar-user .su-halo {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    background: #3b82f640;
+    animation: su-expand 2s ease-out infinite;
+  }
+  .safar-user .su-ring {
+    position: absolute; inset: 4px;
+    border-radius: 50%;
+    border: 2px solid #60a5fa;
+    animation: su-expand 2s ease-out 0.4s infinite;
+  }
+  .safar-user .su-core {
+    position: absolute; inset: 9px;
+    border-radius: 50%;
+    background: #3b82f6;
+    box-shadow: 0 0 0 2px #fff, 0 0 12px #3b82f6;
+  }
+  @keyframes su-expand {
+    0%   { transform: scale(0.6); opacity: 0.9; }
+    100% { transform: scale(2.2); opacity: 0; }
+  }
+
+  /* --- pin marker (report drop location) --- */
+  .safar-pin { width: 32px; height: 38px; }
+  .safar-pin .sp-glow {
+    position: absolute; top: 0; left: 4px; right: 4px; height: 24px;
+    border-radius: 50%;
+    background: #f59e0b;
+    box-shadow: 0 0 14px #f59e0b, 0 0 28px #f59e0b80;
+    animation: sp-glow 1.5s ease-in-out infinite alternate;
+  }
+  .safar-pin .sp-stem {
+    position: absolute; bottom: 0; left: 14px;
+    width: 4px; height: 14px;
+    background: linear-gradient(to bottom, #f59e0b, transparent);
+    border-radius: 2px;
+  }
+  @keyframes sp-glow {
+    0%   { box-shadow: 0 0 10px #f59e0b, 0 0 20px #f59e0b80; }
+    100% { box-shadow: 0 0 20px #f59e0b, 0 0 40px #f59e0baa; }
+  }
+
+  /* --- zone circle popup + dark leaflet popup --- */
+  .leaflet-popup-content-wrapper {
+    background: #0f0f1aee !important;
+    border: 1px solid #2a2a3a !important;
+    border-radius: 12px !important;
+    backdrop-filter: blur(12px) !important;
+    color: #e4e4f0 !important;
+    box-shadow: 0 8px 32px #00000088 !important;
+    padding: 0 !important;
+  }
+  .leaflet-popup-content {
+    margin: 12px 16px !important;
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+  }
+  .leaflet-popup-tip {
+    background: #0f0f1aee !important;
+  }
+  .leaflet-popup-close-button {
+    color: #71717a !important;
+    font-size: 16px !important;
+  }
+  .leaflet-popup-close-button:hover { color: #fff !important; }
+
+  /* --- zoom control polish --- */
+  .leaflet-control-zoom a {
+    background: #0f0f1a !important;
+    border-color: #2a2a3a !important;
+    color: #a1a1aa !important;
+  }
+  .leaflet-control-zoom a:hover {
+    background: #1a1a2a !important;
+    color: #fff !important;
+  }
+`;
+
+// ─── Marker factory helpers ────────────────────────────────────────────────────
+
+function incidentIcon(report: SafetyReport): L.DivIcon {
+  const meta = REPORT_META[report.report_type] ?? REPORT_META.unsafe_area;
+  const ageMs = Date.now() - new Date(report.created_at).getTime();
+  const isFresh = ageMs < 3 * 60 * 60 * 1000; // < 3 h
+
+  return L.divIcon({
+    className: `safar-marker safar-incident${isFresh ? " si-fresh" : ""}`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -22],
+    html: `<div
+      class="safar-incident${isFresh ? " si-fresh" : ""}"
+      style="--sc:${meta.color}; --sg:${meta.glow}; width:36px;height:36px"
+    >
+      <div class="si-ring"></div>
+      <div class="si-ring si-ring2"></div>
+      <div class="si-core">${meta.icon}</div>
+    </div>`,
+  });
+}
+
+function userLocationIcon(): L.DivIcon {
+  return L.divIcon({
+    className: "safar-marker safar-user",
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    popupAnchor: [0, -18],
+    html: `<div style="width:28px;height:28px;position:relative">
+      <div class="su-halo"></div>
+      <div class="su-ring"></div>
+      <div class="su-core"></div>
+    </div>`,
+  });
+}
+
+function pinIcon(): L.DivIcon {
+  return L.divIcon({
+    className: "safar-marker safar-pin",
+    iconSize: [32, 38],
+    iconAnchor: [16, 38],
+    popupAnchor: [0, -40],
+    html: `<div style="width:32px;height:38px;position:relative">
+      <div class="sp-glow"></div>
+      <div class="sp-stem"></div>
+    </div>`,
+  });
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 export type HeatmapLayers = {
   heatmap: boolean;
   reports: boolean;
@@ -45,6 +234,8 @@ function clearLeafletContainer(el: LeafletContainer | null) {
   delete el._leaflet_id;
   el.innerHTML = "";
 }
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function SafetyHeatmap({
   center,
@@ -86,27 +277,32 @@ export function SafetyHeatmap({
   const lowDataMode = useSettingsStore((s) => s.lowDataMode);
   const mapMaxZoom = lowDataMode ? 15 : 19;
 
-  useEffect(() => {
-    centerRef.current = center;
-  }, [center]);
+  useEffect(() => { centerRef.current = center; }, [center]);
+  useEffect(() => { onMapClickRef.current = onMapClick; }, [onMapClick]);
 
-  useEffect(() => {
-    onMapClickRef.current = onMapClick;
-  }, [onMapClick]);
-
+  // ── Map init ────────────────────────────────────────────────────────────────
   useEffect(() => {
     const container = containerRef.current as LeafletContainer | null;
     if (!container || mapRef.current) return;
+
+    // Inject CSS once
+    const styleId = "safar-map-styles";
+    if (!container.ownerDocument.getElementById(styleId)) {
+      const styleEl = container.ownerDocument.createElement("style");
+      styleEl.id = styleId;
+      styleEl.textContent = MAP_STYLES;
+      container.ownerDocument.head.appendChild(styleEl);
+    }
 
     const map = L.map(container, { zoomControl: true }).setView(
       [center.lat, center.lng],
       12
     );
 
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-      attribution: '&copy; OSM &copy; CARTO',
-      maxZoom: mapMaxZoom,
-    }).addTo(map);
+    L.tileLayer(
+      "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      { attribution: "&copy; OSM &copy; CARTO", maxZoom: mapMaxZoom }
+    ).addTo(map);
 
     overlayRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
@@ -126,6 +322,7 @@ export function SafetyHeatmap({
     };
   }, []);
 
+  // ── Center sync ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -133,6 +330,7 @@ export function SafetyHeatmap({
     requestAnimationFrame(() => map.invalidateSize());
   }, [center.lat, center.lng]);
 
+  // ── Overlays ────────────────────────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
     const overlay = overlayRef.current;
@@ -148,13 +346,13 @@ export function SafetyHeatmap({
       : [];
     const clusterPoints = cappedHeat.filter((p) => p.source !== "ncrb");
 
+    // Heatmap layer
     if (layers.heatmap && cappedHeat.length > 0) {
       const heatData: [number, number, number][] = cappedHeat.map((p) => [
         p.lat,
         p.lng,
         Math.max(0.25, p.weight),
       ]);
-
       const heat = (
         L as unknown as {
           heatLayer: (d: [number, number, number][], o?: object) => L.Layer;
@@ -170,77 +368,115 @@ export function SafetyHeatmap({
       overlay.addLayer(heat);
     }
 
-    const circlePoints = layers.safeZones ? zonePoints : layers.heatmap ? clusterPoints : [];
+    // Zone circles (NCRB baseline + cluster)
+    const circlePoints = layers.safeZones
+      ? zonePoints
+      : layers.heatmap
+      ? clusterPoints
+      : [];
 
     circlePoints.forEach((p) => {
       const color = ZONE_COLORS[p.zone_type];
       const isBaseline = p.source === "ncrb";
 
+      // Outer glow circle
       L.circle([p.lat, p.lng], {
-        radius: isBaseline ? 900 : 500,
+        radius: isBaseline ? 950 : 550,
         color,
         fillColor: color,
-        fillOpacity: isBaseline ? 0.14 : 0.22,
-        weight: isBaseline ? 2 : 3,
-        opacity: 0.7,
+        fillOpacity: isBaseline ? 0.06 : 0.1,
+        weight: 0,
+      }).addTo(overlay);
+
+      // Main border circle
+      L.circle([p.lat, p.lng], {
+        radius: isBaseline ? 800 : 450,
+        color,
+        fillColor: color,
+        fillOpacity: isBaseline ? 0.1 : 0.17,
+        weight: isBaseline ? 1.5 : 2,
+        opacity: 0.55,
+        dashArray: isBaseline ? "6 4" : undefined,
       })
         .bindPopup(
-          `<strong>${p.label}</strong>${isBaseline ? "<br/><small>NCRB baseline zone</small>" : "<br/><small>Community report cluster</small>"}`
+          `<strong>${p.label}</strong><br/><small style="color:#a1a1aa">${
+            isBaseline ? "NCRB baseline zone" : "Community report cluster"
+          }</small>`
         )
         .addTo(overlay);
 
+      // Center dot
       L.circleMarker([p.lat, p.lng], {
-        radius: isBaseline ? 6 : 8,
-        color,
+        radius: isBaseline ? 5 : 7,
+        color: "#fff",
         fillColor: color,
-        fillOpacity: 0.85,
+        fillOpacity: 1,
         weight: 2,
       }).addTo(overlay);
 
       bounds.push([p.lat, p.lng]);
     });
 
+    // Report incident markers
     if (layers.reports) {
       cappedReports.forEach((r) => {
-        L.circleMarker([r.latitude, r.longitude], {
-          radius: 8,
-          color: "#ffffff",
-          fillColor: "#ef4444",
-          fillOpacity: 0.95,
-          weight: 2,
-        }).addTo(overlay);
+        const meta = REPORT_META[r.report_type] ?? REPORT_META.unsafe_area;
+        const ageMs = Date.now() - new Date(r.created_at).getTime();
+        const hoursAgo = Math.round(ageMs / 3_600_000);
+        const timeLabel =
+          hoursAgo < 1
+            ? "Just now"
+            : hoursAgo < 24
+            ? `${hoursAgo}h ago`
+            : `${Math.round(hoursAgo / 24)}d ago`;
+
+        L.marker([r.latitude, r.longitude], { icon: incidentIcon(r) })
+          .bindPopup(
+            `<div style="min-width:140px">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                <span style="font-size:16px">${meta.icon}</span>
+                <strong style="font-size:13px">${meta.label}</strong>
+              </div>
+              ${
+                r.description
+                  ? `<p style="color:#a1a1aa;font-size:12px;margin:0 0 4px">${r.description}</p>`
+                  : ""
+              }
+              <div style="display:flex;gap:8px;font-size:11px;color:#71717a;margin-top:4px">
+                <span>🕐 ${timeLabel}</span>
+                ${r.is_verified ? '<span style="color:#22c55e">✓ Verified</span>' : ""}
+                ${r.upvotes > 0 ? `<span>👍 ${r.upvotes}</span>` : ""}
+              </div>
+            </div>`
+          )
+          .addTo(overlay);
         bounds.push([r.latitude, r.longitude]);
       });
     }
 
+    // Pin marker (report drop location)
     if (pinLat != null && pinLng != null) {
-      L.circleMarker([pinLat, pinLng], {
-        radius: 11,
-        color: "#f59e0b",
-        fillColor: "#f59e0b",
-        fillOpacity: 0.9,
-        weight: 3,
-      })
-        .bindPopup("<strong>Report location</strong><br/>Tap Submit to flag this spot")
+      L.marker([pinLat, pinLng], { icon: pinIcon() })
+        .bindPopup(
+          `<div><strong>📍 Report location</strong><br/><small style="color:#a1a1aa">Tap Submit to flag this spot</small></div>`
+        )
         .addTo(overlay);
       bounds.push([pinLat, pinLng]);
     }
 
+    // User location beacon
     if (layers.userLocation && userLat != null && userLng != null) {
-      L.circleMarker([userLat, userLng], {
-        radius: 9,
-        color: "#3b82f6",
-        fillColor: "#3b82f6",
-        fillOpacity: 1,
-        weight: 3,
-      })
-        .bindPopup("You are here")
+      L.marker([userLat, userLng], { icon: userLocationIcon() })
+        .bindPopup(`<div><strong>📍 You are here</strong></div>`)
         .addTo(overlay);
       bounds.push([userLat, userLng]);
     }
 
     if (fitOnLoad && !hasFitRef.current && bounds.length > 1) {
-      map.fitBounds(L.latLngBounds(bounds), { padding: [40, 40], maxZoom: 13 });
+      map.fitBounds(L.latLngBounds(bounds), {
+        padding: [40, 40],
+        maxZoom: 13,
+      });
       hasFitRef.current = true;
     }
   }, [
@@ -258,10 +494,10 @@ export function SafetyHeatmap({
     lowDataMode,
   ]);
 
+  // ── Recenter ────────────────────────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!map || recenterSignal === 0) return;
-
     if (recenterToUser && userLat != null && userLng != null) {
       map.setView([userLat, userLng], 14, { animate: true });
       return;
@@ -274,7 +510,9 @@ export function SafetyHeatmap({
     <div
       ref={containerRef}
       style={{ height, width: "100%", minHeight: 320 }}
-      className={`overflow-hidden ${onMapClick ? "cursor-crosshair" : ""} ${className}`}
+      className={`overflow-hidden ${
+        onMapClick ? "cursor-crosshair" : ""
+      } ${className}`}
     />
   );
 }
