@@ -78,7 +78,7 @@ export function AppShell() {
                   </span>
                   {t(key)}
                 </Link>
-                {children?.map(({ to: childTo, key: childKey, icon: ChildIcon }) => {
+                {active && children?.map(({ to: childTo, key: childKey, icon: ChildIcon }) => {
                   const childActive = path.startsWith(childTo);
                   return (
                     <Link
