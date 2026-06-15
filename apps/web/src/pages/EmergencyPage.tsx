@@ -101,8 +101,12 @@ export function EmergencyPage() {
         if (!results.length) {
           setSpotNote(
             source?.kind === "route"
-              ? `No safe spots found near ${source.label} within 15 km. Try "Safe Spots Near Me" for your current location.`
-              : "No safe spots found within 15 km. Try moving to a busier area or call a helpline below."
+              ? `No safe spots found near ${source.label}. Try "Safe Spots Near Me" for your current location.`
+              : "No safe spots found. Try calling a helpline below."
+          );
+        } else if (radiusM > 5000) {
+          setSpotNote(
+            `Showing nearest curated safe spots for your selected city — live OSM results may be closer once GPS resolves.`
           );
         } else if (radiusM > 1000) {
           setSpotNote(

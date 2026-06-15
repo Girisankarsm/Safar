@@ -133,9 +133,13 @@ export const placesService = {
     if (live.length) return { spots: live, radiusM };
 
     if (IS_DEMO_MODE) {
-      for (const r of [1000, 2000, 3000, 5000, 8000, MAX_FALLBACK_RADIUS_M]) {
-        const demo = filterWalkingDistance(withDistance(demoSafeSpots(cityId), lat, lng), r);
-        if (demo.length) return { spots: demo, radiusM: r };
+      // Demo spots are hardcoded to city locations and may be far from the user's
+      // real GPS position. Return them sorted by distance without a radius cap so
+      // the "Near Me" button always shows results in demo mode.
+      const allDemo = withDistance(demoSafeSpots(cityId), lat, lng).slice(0, 8);
+      if (allDemo.length) {
+        const nearestDist = allDemo[0].distance_m ?? MAX_FALLBACK_RADIUS_M;
+        return { spots: allDemo, radiusM: nearestDist };
       }
       return { spots: [], radiusM: 0 };
     }
@@ -154,10 +158,12 @@ export const placesService = {
       }
     }
 
-    const fallback = withDistance(emergencyFallbackSpots(cityId), lat, lng);
-    const nearFallback = filterWalkingDistance(fallback, MAX_FALLBACK_RADIUS_M);
-    if (nearFallback.length) {
-      return { spots: nearFallback.slice(0, 8), radiusM: MAX_FALLBACK_RADIUS_M };
+    // Last resort: return closest fallback spots for the city, no distance cap.
+    // This ensures "Safe Spots Near Me" always shows results even in demo/offline.
+    const fallback = withDistance(emergencyFallbackSpots(cityId), lat, lng).slice(0, 8);
+    if (fallback.length) {
+      const nearestDist = fallback[0].distance_m ?? MAX_FALLBACK_RADIUS_M;
+      return { spots: fallback, radiusM: nearestDist };
     }
 
     return { spots: [], radiusM: 0 };
