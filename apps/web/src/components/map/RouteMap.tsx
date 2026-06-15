@@ -16,6 +16,14 @@ const SEGMENT_COLORS: Record<string, string> = {
   risk: "#EF4444",
 };
 
+// Primary line color per route type — makes it instantly obvious which route is active
+const ROUTE_TYPE_COLOR: Record<string, string> = {
+  balanced:       "#3B82F6",   // blue
+  safest:         "#22C55E",   // green
+  cheapest:       "#F59E0B",   // amber
+  women_friendly: "#A855F7",   // purple
+};
+
 function hotspotIcon(riskLevel: string): L.DivIcon {
   const color = riskLevel === "high" ? "#EF4444" : riskLevel === "moderate" ? "#F59E0B" : "#FBBF24";
   return L.divIcon({
@@ -34,13 +42,14 @@ function hotspotIcon(riskLevel: string): L.DivIcon {
 function drawSegmentedRoute(
   map: L.Map,
   geometry: GeoJSON.LineString,
-  segments: CorridorSegment[]
+  segments: CorridorSegment[],
+  fallbackColor: string
 ): void {
   const coords = geometry.coordinates;
 
   if (!segments.length) {
     L.polyline(coords.map(([lng, lat]) => [lat, lng] as [number, number]), {
-      color: "#3B82F6",
+      color: fallbackColor,
       weight: 6,
       opacity: 0.95,
     }).addTo(map);
@@ -76,6 +85,7 @@ export function RouteMap({
   sourceName,
   destinationName,
   corridorProfile,
+  routeType,
   height = 320,
   className,
   focusSegmentIdx,
@@ -87,6 +97,8 @@ export function RouteMap({
   destinationName?: string;
   /** Optional corridor profile for segment coloring and hotspot markers */
   corridorProfile?: CorridorProfile;
+  /** Route type — controls the line color so switching routes is visually obvious */
+  routeType?: string;
   /** Height in px (number) or any CSS string like "100%" / "calc(...)" */
   height?: number | string;
   className?: string;
@@ -99,6 +111,7 @@ export function RouteMap({
   const estimate = isStraightLine(geometry);
   const lowDataMode = useSettingsStore((s) => s.lowDataMode);
   const maxZoom = lowDataMode ? 14 : 19;
+  const lineColor = (routeType && ROUTE_TYPE_COLOR[routeType]) ?? "#3B82F6";
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -156,9 +169,9 @@ export function RouteMap({
       latlngs.forEach((ll) => bounds.push(ll));
 
       if (estimate) {
-        // Straight-line fallback: single dashed polyline
+        // Straight-line fallback — dashed in route-type color
         L.polyline(latlngs, {
-          color: "#F59E0B",
+          color: lineColor,
           weight: 5,
           opacity: 0.85,
           dashArray: "10 8",
@@ -166,10 +179,15 @@ export function RouteMap({
           .bindPopup("Estimated direct path — search again for road routing")
           .addTo(map);
       } else if (corridorProfile?.segments?.length) {
-        // Draw segmented route with risk coloring
-        drawSegmentedRoute(map, geometry, corridorProfile.segments);
+        // Segmented route with risk coloring; outer glow in route-type color
+        L.polyline(latlngs, {
+          color: lineColor,
+          weight: 10,
+          opacity: 0.18,
+        }).addTo(map);   // soft glow underlay
 
-        // Draw hotspot markers
+        drawSegmentedRoute(map, geometry, corridorProfile.segments, lineColor);
+
         for (const hotspot of corridorProfile.hotspots) {
           L.marker([hotspot.lat, hotspot.lng], { icon: hotspotIcon(hotspot.riskLevel) })
             .bindPopup(
@@ -180,9 +198,9 @@ export function RouteMap({
             .addTo(map);
         }
       } else {
-        // No profile yet — single color polyline
+        // Plain road route — colored by route type
         L.polyline(latlngs, {
-          color: "#3B82F6",
+          color: lineColor,
           weight: 6,
           opacity: 0.95,
         })
@@ -192,7 +210,7 @@ export function RouteMap({
     }
 
     map.fitBounds(L.latLngBounds(bounds), { padding: [48, 48], maxZoom: 15 });
-  }, [geometry, source, destination, estimate, sourceName, destinationName, corridorProfile]);
+  }, [geometry, source, destination, estimate, sourceName, destinationName, corridorProfile, lineColor]);
 
   // Zoom to a specific corridor segment when focusSegmentIdx changes
   useEffect(() => {

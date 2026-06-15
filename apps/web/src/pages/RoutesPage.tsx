@@ -653,6 +653,7 @@ export function RoutesPage() {
               >
                 <RouteMap
                   geometry={selected.geometry}
+                  routeType={selected.route_type}
                   source={{ lat: selected.source_lat, lng: selected.source_lng }}
                   destination={{ lat: selected.dest_lat, lng: selected.dest_lng }}
                   sourceName={selected.source_name}
