@@ -1,5 +1,5 @@
 import { SafetyHeatmap } from "@/components/map/SafetyHeatmap";
-import type { MapLayers, TimeFilter } from "@/components/safety/safety-map-controls";
+import type { TimeFilter } from "@/components/safety/safety-map-controls";
 import { SafetyMapLegend } from "@/components/safety/safety-map-legend";
 import { SafetyReportCard } from "@/components/safety/safety-report-card";
 import { SafetyReportComments } from "@/components/safety/safety-report-comments";
@@ -68,13 +68,6 @@ export function SafetyPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [layers, setLayers] = useState<MapLayers>({
-    heatmap: false,
-    reports: true,
-    safeZones: false,
-    wellLit: false,
-    womenSafe: false,
-  });
   const [categoryFilter, setCategoryFilter] = useState<ReportType | "all">("all");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [recenterSignal, setRecenterSignal] = useState(0);
@@ -83,15 +76,7 @@ export function SafetyPage() {
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const [demoExtraComments, setDemoExtraComments] = useState<Record<string, CommunityComment[]>>({});
 
-  const heatmapLayers = useMemo(
-    () => ({
-      heatmap: layers.heatmap,
-      reports: layers.reports,
-      safeZones: layers.safeZones,
-      userLocation: true,
-    }),
-    [layers.heatmap, layers.reports, layers.safeZones]
-  );
+  const heatmapLayers = { heatmap: false, reports: true, safeZones: false, userLocation: true };
 
   const load = useCallback(async () => {
     try {
