@@ -1,4 +1,4 @@
-import { isNightHour, isPeakHour } from "@/lib/time-safety";
+import { isNightHour } from "@/lib/time-safety";
 import type { CityId, PlannedRoute } from "@/types/database";
 
 export type RidePlatformId =

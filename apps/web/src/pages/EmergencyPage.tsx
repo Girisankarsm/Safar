@@ -260,7 +260,7 @@ export function EmergencyPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-[1400px] space-y-6 px-5 py-6 pb-24 md:px-8 lg:pb-8">
       <PageHeader
         eyebrow={t("emergency.eyebrow")}
         title={t("emergency.title")}

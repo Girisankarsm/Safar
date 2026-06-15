@@ -77,6 +77,7 @@ export function RouteMap({
   destinationName,
   corridorProfile,
   height = 320,
+  className,
 }: {
   geometry?: GeoJSON.LineString;
   source: { lat: number; lng: number };
@@ -85,7 +86,9 @@ export function RouteMap({
   destinationName?: string;
   /** Optional corridor profile for segment coloring and hotspot markers */
   corridorProfile?: CorridorProfile;
-  height?: number;
+  /** Height in px (number) or any CSS string like "100%" / "calc(...)" */
+  height?: number | string;
+  className?: string;
 }) {
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -192,11 +195,11 @@ export function RouteMap({
   const hasHotspots = (corridorProfile?.hotspots?.length ?? 0) > 0;
 
   return (
-    <div className="relative">
+    <div className={`relative${className ? ` ${className}` : ""}`}>
       <div
         ref={containerRef}
-        style={{ height, width: "100%" }}
-        className="overflow-hidden rounded-2xl border border-[#262626]"
+        style={{ height: typeof height === "number" ? height : height, width: "100%" }}
+        className={`overflow-hidden border border-[#262626]${className?.includes("rounded-none") ? "" : " rounded-2xl"}`}
       />
       <div className="pointer-events-none absolute bottom-3 left-3 z-[500] flex flex-wrap gap-1.5 text-[10px] font-semibold">
         <span className="rounded-md bg-black/80 px-2 py-1 text-[#22C55E]">{t("map.start")}</span>

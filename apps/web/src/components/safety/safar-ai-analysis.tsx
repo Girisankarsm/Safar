@@ -175,7 +175,7 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
   );
 }
 
-export function SafarAIAnalysis({ route }: { route: PlannedRoute }) {
+export function SafarAIAnalysis({ route, compact = false }: { route: PlannedRoute; compact?: boolean }) {
   const insights = generateAIInsights(route);
   const riskStyle = RISK_STYLES[insights.riskLevel];
   const hasProfile = !!route.corridor_profile;
@@ -194,7 +194,7 @@ export function SafarAIAnalysis({ route }: { route: PlannedRoute }) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
-      className="surface-card overflow-hidden rounded-2xl border border-[#3B82F6]/20"
+      className={compact ? "space-y-0" : "surface-card overflow-hidden rounded-2xl border border-[#3B82F6]/20"}
     >
       <div className="border-b border-[var(--border-subtle)] bg-gradient-to-r from-[#3B82F6]/10 to-transparent px-5 py-4">
         <div className="flex flex-wrap items-center gap-3">

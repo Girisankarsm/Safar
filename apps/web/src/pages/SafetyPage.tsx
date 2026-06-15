@@ -1,4 +1,3 @@
-import { PageHeader } from "@/components/layout/page-header";
 import { SafetyHeatmap } from "@/components/map/SafetyHeatmap";
 import { SafetyMapControls, type MapLayers, type TimeFilter } from "@/components/safety/safety-map-controls";
 import { SafetyMapLegend } from "@/components/safety/safety-map-legend";
@@ -18,6 +17,7 @@ import { reportsService } from "@/services/supabase/reports.service";
 import { storageService } from "@/services/supabase/storage.service";
 import { useCityStore } from "@/stores/city.store";
 import type { CommunityComment, ReportType, SafetyReport } from "@/types/database";
+import { FALLBACK_CRIME_SCORES } from "@/lib/crime-data";
 import { ChevronDown, Crosshair, Filter, MapPin, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -261,208 +261,289 @@ export function SafetyPage() {
     }
   }
 
+  // Derived stats for the top row
+  const totalReports = reports.length;
+  const highRiskCount = reports.filter((r) =>
+    ["harassment", "unsafe_area", "unsafe_bus_stop", "suspicious_activity"].includes(r.report_type)
+  ).length;
+  const verifiedCount = reports.filter((r) => r.verifications > 0 || r.is_verified).length;
+  const recentCount = reports.filter(
+    (r) => Date.now() - new Date(r.created_at).getTime() <= 7 * 86_400_000
+  ).length;
+  const cityNCRB = FALLBACK_CRIME_SCORES[city as keyof typeof FALLBACK_CRIME_SCORES];
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        eyebrow={t("safety.eyebrow")}
-        title={t("safety.title")}
-        subtitle={t("safety.subtitle", { city: getCityConfig(city).name })}
-      />
+    <div className="flex h-[calc(100vh-var(--shell-top))] flex-col overflow-hidden">
 
-      {loadError && (
-        <p className="rounded-xl border border-[#EF4444]/30 bg-[#EF4444]/10 px-4 py-3 text-sm text-[#FCA5A5]">
-          {loadError}
-        </p>
-      )}
+      {/* ── Stats row ── */}
+      <div className="shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] px-5 py-3 md:px-6">
+        <div className="flex items-center justify-between gap-2">
+          {/* Page title (compact) */}
+          <div className="hidden lg:block">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
+              {t("safety.eyebrow")}
+            </p>
+            <h1 className="text-[13px] font-bold text-white">{t("safety.title")}</h1>
+          </div>
 
-      {/* Map block */}
-      <div className="overflow-hidden rounded-2xl border border-[#262626] shadow-2xl">
-        <SafetyMapLegend />
-        <div className="relative h-[480px] max-h-[58vh]">
-          <SafetyHeatmap
-            key={city}
-            center={center}
-            heatPoints={heatPoints}
-            reports={filteredReports}
-            userLat={userCoords?.lat}
-            userLng={userCoords?.lng}
-            pinLat={showForm ? pinCoords?.lat : null}
-            pinLng={showForm ? pinCoords?.lng : null}
-            onMapClick={handleMapClick}
-            layers={heatmapLayers}
-            recenterSignal={recenterSignal}
-            recenterToUser={!!userCoords}
-            className="rounded-none"
-          />
-          <SafetyMapControls
-            layers={layers}
-            onLayersChange={setLayers}
-            categoryFilter={categoryFilter}
-            onCategoryChange={setCategoryFilter}
-            timeFilter={timeFilter}
-            onTimeFilterChange={setTimeFilter}
-            categories={CATEGORY_OPTIONS}
-          />
-          <button
-            type="button"
-            onClick={() => setRecenterSignal((n) => n + 1)}
-            className="absolute bottom-4 right-4 z-[1000] flex h-10 w-10 items-center justify-center rounded-xl border border-[#262626] bg-[#111111]/95 text-white shadow-lg backdrop-blur-md transition hover:border-[#3B82F6]/50 hover:text-[#3B82F6]"
-            aria-label="Re-center map"
-            title="Re-center to your location"
+          {/* Stat cards */}
+          <div className="flex flex-1 gap-2 overflow-x-auto lg:justify-end">
+            {[
+              {
+                label: "Total Reports",
+                value: totalReports,
+                color: "#3B82F6",
+                icon: "📍",
+              },
+              {
+                label: "High Risk",
+                value: highRiskCount,
+                color: "#EF4444",
+                icon: "⚠️",
+              },
+              {
+                label: "Verified",
+                value: verifiedCount,
+                color: "#22C55E",
+                icon: "✓",
+              },
+              {
+                label: "This Week",
+                value: recentCount,
+                color: "#F59E0B",
+                icon: "🕐",
+              },
+              ...(cityNCRB
+                ? [
+                    {
+                      label: "NCRB Index",
+                      value: cityNCRB.crime_index,
+                      color: cityNCRB.crime_index >= 70 ? "#22C55E" : "#F59E0B",
+                      icon: "📊",
+                    },
+                  ]
+                : []),
+            ].map(({ label, value, color, icon }) => (
+              <div
+                key={label}
+                className="flex shrink-0 items-center gap-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 transition-colors hover:border-[#3B82F6]/25"
+              >
+                <span className="text-base leading-none">{icon}</span>
+                <div>
+                  <p className="text-sm font-bold tabular-nums text-white" style={{ color }}>
+                    {value}
+                  </p>
+                  <p className="text-[9px] font-medium text-[var(--text-dim)]">{label}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Report button */}
+          <Button
+            onClick={() => setShowForm(true)}
+            className="shrink-0 gap-2 px-4 py-2 text-xs shadow-lg shadow-[#3B82F6]/20"
           >
-            <Crosshair className="h-4 w-4" />
-          </button>
-
-          {showForm && (
-            <div className="absolute bottom-0 left-0 right-0 z-[1001] max-h-[70%] overflow-y-auto rounded-t-2xl border-t border-[#262626] bg-[#111111]/98 p-4 shadow-2xl backdrop-blur-md sm:left-4 sm:right-auto sm:bottom-4 sm:max-w-md sm:rounded-2xl sm:border">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-base font-bold text-white">Report an issue</h2>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowForm(false);
-                    setPinCoords(null);
-                  }}
-                  className="rounded-lg p-2 text-[#71717A] hover:bg-[#262626] hover:text-white"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              {!pinCoords && (
-                <p className="mb-3 flex items-center gap-2 rounded-xl border border-[#F59E0B]/30 bg-[#F59E0B]/10 px-3 py-2 text-xs text-[#FCD34D]">
-                  <MapPin className="h-3.5 w-3.5 shrink-0" />
-                  Tap the map above to pin the location
-                </p>
-              )}
-
-              <div className="mb-3 flex flex-wrap gap-2">
-                {REPORT_TYPES.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setType(t.id)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                      type === t.id
-                        ? "bg-[#3B82F6] text-white"
-                        : "border border-[#262626] text-[#A1A1AA] hover:border-[#3B82F6]/40"
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-
-              {pinCoords && (
-                <p className="mb-3 text-xs text-[#22C55E]">
-                  Pin set at {pinCoords.lat.toFixed(5)}°, {pinCoords.lng.toFixed(5)}°
-                </p>
-              )}
-
-              <Input
-                placeholder="What happened? (optional)"
-                value={desc}
-                onChange={(e) => setDesc(e.target.value)}
-              />
-              <input
-                type="file"
-                accept="image/*"
-                className="mt-3 text-sm text-[#A1A1AA]"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              />
-              {error && <p className="mt-3 text-sm text-[#EF4444]">{error}</p>}
-              <div className="mt-4 flex gap-2">
-                <Button onClick={submit} disabled={submitting} className="flex-1">
-                  {submitting ? "Submitting…" : "Submit report"}
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setShowForm(false);
-                    setPinCoords(null);
-                  }}
-                  disabled={submitting}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
+            <Plus className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{t("safety.report")}</span>
+            <span className="sm:hidden">Report</span>
+          </Button>
         </div>
       </div>
 
-      {/* Reports feed */}
-      <section>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <Button
-            onClick={() => setShowForm(true)}
-            className="gap-2 rounded-xl px-5 shadow-lg shadow-[#3B82F6]/20"
-          >
-            <Plus className="h-4 w-4" />
-            {t("safety.report")}
-          </Button>
-          <div className="flex items-center gap-2 text-xs text-[#A1A1AA]">
-            <Filter className="h-3.5 w-3.5" />
-            Sort by:
-            <div className="relative">
-              <select
-                className="appearance-none rounded-lg border border-[#262626] bg-[#111111] py-1.5 pl-3 pr-8 text-xs font-semibold text-white outline-none"
-                defaultValue="recent"
-              >
-                <option value="recent">Recent</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2" />
-            </div>
+      {loadError && (
+        <div className="shrink-0 border-b border-[#EF4444]/20 bg-[#EF4444]/08 px-5 py-2 text-xs text-[#FCA5A5]">
+          {loadError}
+        </div>
+      )}
+
+      {/* ── Two-column body ── */}
+      <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[1fr_380px]">
+
+        {/* LEFT — Heatmap (dominant visual) */}
+        <div className="relative flex min-h-[360px] flex-col lg:min-h-0">
+          <SafetyMapLegend />
+          <div className="relative flex-1">
+            <SafetyHeatmap
+              key={city}
+              center={center}
+              heatPoints={heatPoints}
+              reports={filteredReports}
+              userLat={userCoords?.lat}
+              userLng={userCoords?.lng}
+              pinLat={showForm ? pinCoords?.lat : null}
+              pinLng={showForm ? pinCoords?.lng : null}
+              onMapClick={handleMapClick}
+              layers={heatmapLayers}
+              recenterSignal={recenterSignal}
+              recenterToUser={!!userCoords}
+              className="rounded-none"
+            />
+            <SafetyMapControls
+              layers={layers}
+              onLayersChange={setLayers}
+              categoryFilter={categoryFilter}
+              onCategoryChange={setCategoryFilter}
+              timeFilter={timeFilter}
+              onTimeFilterChange={setTimeFilter}
+              categories={CATEGORY_OPTIONS}
+            />
+            <button
+              type="button"
+              onClick={() => setRecenterSignal((n) => n + 1)}
+              className="absolute bottom-4 right-4 z-[1000] flex h-10 w-10 items-center justify-center rounded-xl border border-[#262626] bg-[#111111]/95 text-white shadow-lg backdrop-blur-md transition hover:border-[#3B82F6]/50 hover:text-[#3B82F6]"
+              aria-label="Re-center map"
+              title="Re-center to your location"
+            >
+              <Crosshair className="h-4 w-4" />
+            </button>
+
+            {/* Report form floating panel */}
+            {showForm && (
+              <div className="absolute bottom-0 left-0 right-0 z-[1001] max-h-[70%] overflow-y-auto rounded-t-2xl border-t border-[#262626] bg-[#111111]/98 p-4 shadow-2xl backdrop-blur-md sm:bottom-4 sm:left-4 sm:right-auto sm:max-w-[420px] sm:rounded-2xl sm:border">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-base font-bold text-white">Report an issue</h2>
+                  <button
+                    type="button"
+                    onClick={() => { setShowForm(false); setPinCoords(null); }}
+                    className="rounded-lg p-2 text-[#71717A] hover:bg-[#262626] hover:text-white"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                {!pinCoords && (
+                  <p className="mb-3 flex items-center gap-2 rounded-xl border border-[#F59E0B]/30 bg-[#F59E0B]/10 px-3 py-2 text-xs text-[#FCD34D]">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" />
+                    Tap the map to pin the location
+                  </p>
+                )}
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {REPORT_TYPES.map((rt) => (
+                    <button
+                      key={rt.id}
+                      type="button"
+                      onClick={() => setType(rt.id)}
+                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                        type === rt.id
+                          ? "bg-[#3B82F6] text-white"
+                          : "border border-[#262626] text-[#A1A1AA] hover:border-[#3B82F6]/40"
+                      }`}
+                    >
+                      {rt.label}
+                    </button>
+                  ))}
+                </div>
+                {pinCoords && (
+                  <p className="mb-3 text-xs text-[#22C55E]">
+                    Pin: {pinCoords.lat.toFixed(5)}°, {pinCoords.lng.toFixed(5)}°
+                  </p>
+                )}
+                <Input
+                  placeholder="What happened? (optional)"
+                  value={desc}
+                  onChange={(e) => setDesc(e.target.value)}
+                />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="mt-3 text-sm text-[#A1A1AA]"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                />
+                {error && <p className="mt-3 text-sm text-[#EF4444]">{error}</p>}
+                <div className="mt-4 flex gap-2">
+                  <Button onClick={submit} disabled={submitting} className="flex-1">
+                    {submitting ? "Submitting…" : "Submit report"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => { setShowForm(false); setPinCoords(null); }}
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-[#71717A]">
-          Live Community Reports
-        </p>
-
-        {filteredReports.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[#262626] bg-[#111111]/50 px-6 py-10 text-center">
-            <p className="text-sm font-semibold text-white">No community reports in {center.name} yet</p>
-            <p className="mt-2 text-sm text-[#71717A]">
-              NCRB risk zones are still visible on the map. Tap the map to drop a pin and report the first issue.
-            </p>
-            <Button className="mt-4" onClick={() => setShowForm(true)}>
-              Report first issue
-            </Button>
-          </div>
-        ) : (
-          <>
-            <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2 scrollbar-thin">
-              {visibleReports.map((r) => {
-                const isOwner = !IS_DEMO_MODE && user?.id === r.user_id;
-                return (
-                  <SafetyReportCard
-                    key={r.id}
-                    report={r}
-                    cityName={center.name}
-                    commentCount={getCommentCount(r.id)}
-                    isOwner={isOwner}
-                    onVote={() => reportsService.vote(r.id, "upvote").then(load)}
-                    onVerify={() => reportsService.vote(r.id, "verify").then(load)}
-                    onComment={() => setCommentReport(r)}
-                    onDelete={isOwner ? () => deleteReport(r.id) : undefined}
-                    deleting={deletingId === r.id}
-                  />
-                );
-              })}
+        {/* RIGHT — Intelligence feed */}
+        <div className="intel-panel flex flex-col overflow-hidden border-t border-[var(--border-subtle)] lg:border-l lg:border-t-0">
+          {/* Feed header */}
+          <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
+                Live Intelligence
+              </p>
+              <p className="text-xs font-semibold text-white">
+                {filteredReports.length} report{filteredReports.length !== 1 ? "s" : ""}
+                {categoryFilter !== "all" && ` · ${categoryFilter}`}
+              </p>
             </div>
-            {filteredReports.length > 12 && !showAllReports && (
-              <Button
-                variant="ghost"
-                className="mt-4 w-full rounded-xl border border-[#262626] py-6 text-sm font-semibold text-[#A1A1AA] hover:border-[#3B82F6]/30 hover:text-white"
-                onClick={() => setShowAllReports(true)}
-              >
-                {t("safety.viewAll")} ({filteredReports.length})
-              </Button>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Filter className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--text-dim)]" />
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value as typeof categoryFilter)}
+                  className="appearance-none rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] py-1.5 pl-7 pr-6 text-[11px] font-semibold text-white outline-none"
+                >
+                  {CATEGORY_OPTIONS.map((c) => (
+                    <option key={c.id} value={c.id}>{c.label}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--text-dim)]" />
+              </div>
+            </div>
+          </div>
+
+          {/* Scrollable report cards */}
+          <div className="flex-1 overflow-y-auto p-3 pb-24 lg:pb-3">
+            {filteredReports.length === 0 ? (
+              <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
+                <p className="text-sm font-semibold text-white">
+                  No reports in {center.name} yet
+                </p>
+                <p className="mt-2 text-xs text-[var(--text-dim)]">
+                  NCRB risk zones are visible on the heatmap. Tap the map to report an issue.
+                </p>
+                <Button className="mt-4" onClick={() => setShowForm(true)}>
+                  Report first issue
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {visibleReports.map((r) => {
+                  const isOwner = !IS_DEMO_MODE && user?.id === r.user_id;
+                  return (
+                    <SafetyReportCard
+                      key={r.id}
+                      report={r}
+                      cityName={center.name}
+                      commentCount={getCommentCount(r.id)}
+                      isOwner={isOwner}
+                      onVote={() => reportsService.vote(r.id, "upvote").then(load)}
+                      onVerify={() => reportsService.vote(r.id, "verify").then(load)}
+                      onComment={() => setCommentReport(r)}
+                      onDelete={isOwner ? () => deleteReport(r.id) : undefined}
+                      deleting={deletingId === r.id}
+                    />
+                  );
+                })}
+                {filteredReports.length > 12 && !showAllReports && (
+                  <button
+                    type="button"
+                    className="w-full rounded-xl border border-[var(--border-subtle)] py-3 text-xs font-semibold text-[var(--text-muted)] transition hover:border-[#3B82F6]/30 hover:text-white"
+                    onClick={() => setShowAllReports(true)}
+                  >
+                    {t("safety.viewAll")} ({filteredReports.length})
+                  </button>
+                )}
+              </div>
             )}
-          </>
-        )}
-      </section>
+          </div>
+        </div>
+      </div>
 
       <SafetyReportComments
         report={commentReport}

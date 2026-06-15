@@ -122,20 +122,22 @@ export function TripPage() {
 
   if (!id) {
     return (
-      <EmptyState
-        icon={Navigation}
-        title={t("trip.noTrip")}
-        description={t("trip.noTripDesc")}
-        actionLabel={t("trip.goDashboard")}
-        onAction={() => navigate("/home")}
-      />
+      <div className="px-5 py-8 md:px-8">
+        <EmptyState
+          icon={Navigation}
+          title={t("trip.noTrip")}
+          description={t("trip.noTripDesc")}
+          actionLabel={t("trip.goDashboard")}
+          onAction={() => navigate("/home")}
+        />
+      </div>
     );
   }
 
   const isActive = trip?.status === "active";
 
   return (
-    <div className="page-container mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-[1400px] space-y-6 px-5 py-6 pb-24 md:px-8 lg:pb-8">
       <PageHeader
         eyebrow={t("trip.eyebrow")}
         title={t("trip.title")}

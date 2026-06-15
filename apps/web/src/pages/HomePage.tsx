@@ -138,7 +138,7 @@ export function HomePage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-[1400px] space-y-8 px-5 py-6 pb-24 md:px-8 lg:pb-8">
       <PageHeader
         eyebrow={t("home.eyebrow")}
         title={t("home.title")}
@@ -248,3 +248,4 @@ export function HomePage() {
     </div>
   );
 }
+

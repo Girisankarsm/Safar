@@ -6,15 +6,30 @@
 }
 
 :root {
+  /* ── Core palette ── */
   --bg: #0a0a0c;
-  --bg-elevated: #121216;
-  --bg-surface: #18181d;
+  --bg-elevated: #111115;
+  --bg-surface: #17171d;
+  --bg-panel: #0f0f13;
   --border: #2a2a32;
-  --border-subtle: #1f1f26;
+  --border-subtle: #1e1e26;
   --text: #f4f4f5;
   --text-muted: #a1a1aa;
+  --text-dim: #71717a;
   --primary: #3b82f6;
   --success: #22c55e;
+
+  /* ── Sidebar / layout ── */
+  --sidebar-w: 280px;
+  --header-h: 53px;
+  --city-banner-h: 36px;
+  --shell-top: calc(var(--header-h) + var(--city-banner-h));
+
+  /* ── Elevation shadows ── */
+  --shadow-sm:  0 1px 3px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.03) inset;
+  --shadow-md:  0 4px 16px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04) inset;
+  --shadow-lg:  0 8px 32px rgba(0,0,0,.55), 0 1px 0 rgba(255,255,255,.05) inset;
+  --shadow-xl:  0 16px 48px rgba(0,0,0,.65), 0 1px 0 rgba(255,255,255,.06) inset;
 }
 
 * { box-sizing: border-box; }
@@ -44,12 +59,72 @@ body {
   max-width: 72rem;
 }
 
+/* ── Glassmorphism surface cards ── */
 .surface-card {
   border-radius: 1rem;
   border: 1px solid var(--border-subtle);
-  background: linear-gradient(180deg, rgba(24, 24, 29, 0.9) 0%, rgba(18, 18, 22, 0.95) 100%);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 32px rgba(0, 0, 0, 0.25);
+  background: linear-gradient(160deg, rgba(23,23,29,0.92) 0%, rgba(15,15,19,0.97) 100%);
+  box-shadow: var(--shadow-md);
 }
+
+/* Panel glass (sidebar / intelligence panels) */
+.panel-glass {
+  background: rgba(14,14,18,0.85);
+  border-right: 1px solid var(--border-subtle);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Stat cards in dashboard rows */
+.stat-card {
+  border-radius: 0.875rem;
+  border: 1px solid var(--border-subtle);
+  background: linear-gradient(145deg, rgba(23,23,30,0.9) 0%, rgba(15,15,20,0.95) 100%);
+  box-shadow: var(--shadow-sm);
+  padding: 1rem 1.25rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.stat-card:hover {
+  border-color: rgba(59,130,246,0.25);
+  box-shadow: var(--shadow-md);
+}
+
+/* Intelligence panel right sidebar */
+.intel-panel {
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border-subtle);
+}
+
+/* Three-column full-height layout container */
+.desktop-3col {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) {
+  .desktop-3col {
+    grid-template-columns: 296px 1fr 368px;
+    height: calc(100vh - var(--shell-top));
+    overflow: hidden;
+  }
+  .desktop-3col > * {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+}
+
+/* Keyboard focus ring */
+:focus-visible {
+  outline: 2px solid rgba(59,130,246,0.7);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
 
 @keyframes btn-lift {
   0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.35), 0 10px 30px -8px rgba(59, 130, 246, 0.45); }
