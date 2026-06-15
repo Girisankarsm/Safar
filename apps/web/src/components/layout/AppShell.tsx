@@ -6,6 +6,7 @@ import { useI18n } from "@/i18n/use-i18n";
 import { useCityStore } from "@/stores/city.store";
 import { cn } from "@/lib/utils";
 import { ArrowDownUp, Home, Map, Route, Shield, Siren } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 type NavChild = { to: string; key: string; icon: typeof Route };
@@ -30,10 +31,22 @@ export function AppShell() {
   const cityConfig = getCityConfig(city);
   const { t } = useI18n();
 
-  function isNavActive(to: string, exact?: boolean) {
-    if (exact) return path === to;
-    if (to === "/routes") return path === "/routes";
-    return path.startsWith(to);
+  // Track which parent nav item is expanded (by its `to` path).
+  // Auto-open when landing directly on a child route.
+  const [openNav, setOpenNav] = useState<string | null>(() => {
+    const parent = NAV_ITEMS.find(({ to, children }) => children && path.startsWith(to));
+    return parent?.to ?? null;
+  });
+
+  // Keep expanded when the user navigates directly to a child route.
+  useEffect(() => {
+    const parent = NAV_ITEMS.find(({ to, children }) => children && path.startsWith(to));
+    if (parent) setOpenNav(parent.to);
+  }, [path]);
+
+  function isNavActive(to: string) {
+    // Highlight parent if on it OR any of its children
+    return path === to || path.startsWith(to + "/");
   }
 
   return (
@@ -58,11 +71,18 @@ export function AppShell() {
             Navigation
           </p>
           {NAV_ITEMS.map(({ to, key, icon: Icon, children }) => {
-            const active = isNavActive(to, to === "/routes");
+            const active = isNavActive(to);
+            const expanded = openNav === to;
             return (
               <div key={to}>
                 <Link
                   to={to}
+                  onClick={() => {
+                    if (children) {
+                      // Toggle: collapse if already open, expand if closed
+                      setOpenNav((prev) => (prev === to ? null : to));
+                    }
+                  }}
                   className={cn(
                     "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-150",
                     active
@@ -78,7 +98,9 @@ export function AppShell() {
                   </span>
                   {t(key)}
                 </Link>
-                {active && children?.map(({ to: childTo, key: childKey, icon: ChildIcon }) => {
+
+                {/* Children only shown when this parent is expanded */}
+                {expanded && children?.map(({ to: childTo, key: childKey, icon: ChildIcon }) => {
                   const childActive = path.startsWith(childTo);
                   return (
                     <Link
