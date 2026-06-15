@@ -50,34 +50,48 @@ const MAP_STYLES = `
   .safar-marker { position: relative; }
 
   /* --- report marker --- */
-  .safar-incident { width: 36px; height: 36px; }
-  .safar-incident .si-ring {
-    position: absolute; inset: 0;
-    border-radius: 50%;
-    border: 2px solid var(--sc);
-    opacity: 0;
-    animation: si-ping 2.4s ease-out infinite;
-  }
-  .safar-incident .si-ring2 {
-    animation-delay: 0.9s;
-  }
-  .safar-incident .si-core {
-    position: absolute; inset: 7px;
-    border-radius: 50%;
-    background: var(--sc);
-    box-shadow: 0 0 10px var(--sg), 0 0 20px var(--sg);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 11px; line-height: 1;
-  }
-  @keyframes si-ping {
-    0%   { transform: scale(0.7); opacity: 0.8; }
-    100% { transform: scale(2.0); opacity: 0; }
+  .safar-incident {
+    width: 48px; height: 48px;
+    position: relative;
   }
 
-  /* --- new report (live pulse, faster) --- */
+  /* three concentric rings — centered via translate, always visible at different phases */
+  .safar-incident .si-ring {
+    position: absolute;
+    width: 28px; height: 28px;
+    top: 50%; left: 50%;
+    border-radius: 50%;
+    border: 1.5px solid var(--sc);
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+    animation: si-ripple 2.7s ease-out infinite;
+  }
+  .safar-incident .si-ring:nth-child(1) { animation-delay: 0s; }
+  .safar-incident .si-ring:nth-child(2) { animation-delay: 0.9s; }
+  .safar-incident .si-ring:nth-child(3) { animation-delay: 1.8s; }
+
+  .safar-incident .si-core {
+    position: absolute;
+    width: 28px; height: 28px;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: var(--sc);
+    box-shadow: 0 0 12px var(--sg), 0 0 24px var(--sg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; line-height: 1;
+  }
+
+  @keyframes si-ripple {
+    0%   { transform: translate(-50%, -50%) scale(0.55); opacity: 0.9; }
+    70%  { opacity: 0.2; }
+    100% { transform: translate(-50%, -50%) scale(1.75); opacity: 0; }
+  }
+
+  /* --- fresh report — faster, slightly thicker rings --- */
   .safar-incident.si-fresh .si-ring {
-    animation-duration: 1.4s;
-    border-width: 3px;
+    animation-duration: 1.5s;
+    border-width: 2px;
   }
 
   /* --- user location beacon --- */
@@ -169,16 +183,17 @@ function incidentIcon(report: SafetyReport): L.DivIcon {
   const isFresh = ageMs < 3 * 60 * 60 * 1000; // < 3 h
 
   return L.divIcon({
-    className: `safar-marker safar-incident${isFresh ? " si-fresh" : ""}`,
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
-    popupAnchor: [0, -22],
+    className: "safar-marker",
+    iconSize: [48, 48],
+    iconAnchor: [24, 24],
+    popupAnchor: [0, -28],
     html: `<div
       class="safar-incident${isFresh ? " si-fresh" : ""}"
-      style="--sc:${meta.color}; --sg:${meta.glow}; width:36px;height:36px"
+      style="--sc:${meta.color}; --sg:${meta.glow}"
     >
       <div class="si-ring"></div>
-      <div class="si-ring si-ring2"></div>
+      <div class="si-ring"></div>
+      <div class="si-ring"></div>
       <div class="si-core">${meta.icon}</div>
     </div>`,
   });
