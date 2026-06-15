@@ -1,5 +1,5 @@
 import { SafetyHeatmap } from "@/components/map/SafetyHeatmap";
-import { SafetyMapControls, type MapLayers, type TimeFilter } from "@/components/safety/safety-map-controls";
+import type { MapLayers, TimeFilter } from "@/components/safety/safety-map-controls";
 import { SafetyMapLegend } from "@/components/safety/safety-map-legend";
 import { SafetyReportCard } from "@/components/safety/safety-report-card";
 import { SafetyReportComments } from "@/components/safety/safety-report-comments";
@@ -378,15 +378,6 @@ export function SafetyPage() {
               recenterSignal={recenterSignal}
               recenterToUser={!!userCoords}
               className="rounded-none"
-            />
-            <SafetyMapControls
-              layers={layers}
-              onLayersChange={setLayers}
-              categoryFilter={categoryFilter}
-              onCategoryChange={setCategoryFilter}
-              timeFilter={timeFilter}
-              onTimeFilterChange={setTimeFilter}
-              categories={CATEGORY_OPTIONS}
             />
             <button
               type="button"
