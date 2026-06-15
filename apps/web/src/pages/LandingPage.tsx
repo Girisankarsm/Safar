@@ -33,6 +33,8 @@ import {
   Zap,
   Clock,
   TrendingUp,
+  ChevronDown,
+  HelpCircle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -700,6 +702,89 @@ function CommandCenter() {
   );
 }
 
+// ─── FAQ ─────────────────────────────────────────────────────────────────────
+
+const FAQS = [
+  {
+    q: "Is Safar free to use?",
+    a: "Yes — Safar is completely free for commuters. Sign up with your email, start planning safer routes, and contribute community safety reports at no cost.",
+  },
+  {
+    q: "How does Safar calculate safety scores?",
+    a: "Safar combines five real data sources: NCRB city-level crime statistics (official government data), OpenStreetMap police station and hospital proximity, crowdsourced community safety reports, estimated lighting coverage, and time-of-day risk factors. Every route gets a unique corridor-level profile — not a generic city score.",
+  },
+  {
+    q: "Which cities are supported?",
+    a: `Safar currently covers ${CITY_LIST.map((c) => c.name).join(", ")}. We are actively expanding to more Indian cities.`,
+  },
+  {
+    q: "How do community safety reports work?",
+    a: "Any signed-in user can file a safety report (poor lighting, harassment, unsafe bus stop, etc.) pinned to a location. Other users can verify reports, increasing their confidence score. Reports feed directly into route safety scoring in real time.",
+  },
+  {
+    q: "What is the Emergency Shield feature?",
+    a: "Emergency Shield lets you send a WhatsApp SOS alert with your live location to your saved emergency contacts, see the nearest police stations and hospitals, and access national women's helpline numbers — all from a single tap.",
+  },
+  {
+    q: "Does Safar work offline?",
+    a: "Safar is a Progressive Web App (PWA) with offline caching. Your last searched routes and safety data are available offline. Live maps and real-time reports require an internet connection.",
+  },
+  {
+    q: "Is my data private and secure?",
+    a: "Yes. Safar uses Supabase with Row-Level Security (RLS) so you only see and edit your own data. We never sell personal data. Location is only accessed when you explicitly use route planning or emergency features.",
+  },
+];
+
+function FAQItem({ item, i }: { item: typeof FAQS[0]; i: number }) {
+  const [open, setOpen] = useState(false);
+  const reduced = useReducedMotion();
+
+  return (
+    <motion.div
+      initial={reduced ? false : { opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-30px" }}
+      transition={{ delay: i * 0.07, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      className={`overflow-hidden rounded-2xl border transition-colors duration-200 ${
+        open
+          ? "border-[#3B82F6]/30 bg-[#3B82F6]/04"
+          : "border-[#1e1e2a] bg-[#0a0a12] hover:border-[#2a2a38]"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
+      >
+        <span className="text-[14px] font-semibold text-white">{item.q}</span>
+        <motion.div
+          animate={reduced ? {} : { rotate: open ? 180 : 0 }}
+          transition={{ duration: 0.25, ease: "easeInOut" }}
+          className="shrink-0"
+        >
+          <ChevronDown className={`h-4 w-4 transition-colors ${open ? "text-[#3B82F6]" : "text-[#71717A]"}`} />
+        </motion.div>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="answer"
+            initial={reduced ? false : { height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={reduced ? {} : { height: 0, opacity: 0 }}
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <p className="px-5 pb-5 pt-1 text-sm leading-relaxed text-[#A1A1AA]">
+              {item.a}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export function LandingPage() {
@@ -738,7 +823,17 @@ export function LandingPage() {
             </motion.div>
             <span className="text-[15px] font-bold tracking-tight">Safar</span>
           </Link>
-          <nav className="flex items-center gap-2">
+          <nav className="flex items-center gap-1 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                document.getElementById("faq")?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="hidden items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-[#A1A1AA] transition hover:text-white sm:flex"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              FAQ
+            </button>
             <Link to="/login"
               className="hidden rounded-lg px-3 py-2 text-sm font-medium text-[#A1A1AA] transition hover:text-white sm:block">
               Sign in
@@ -1038,6 +1133,49 @@ export function LandingPage() {
             {/* 3D dashboard */}
             <CommandCenter />
           </div>
+        </motion.div>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section id="faq" className="mx-auto max-w-3xl px-6 py-24">
+        <motion.div
+          initial={reduced ? false : { opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+          className="mb-12 text-center"
+        >
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#262636]/80 bg-[#0f0f1a]/80 px-4 py-2 text-xs font-semibold text-[#3B82F6] backdrop-blur-md">
+            <HelpCircle className="h-3.5 w-3.5 shrink-0" />
+            Frequently Asked Questions
+          </div>
+          <h2 className="text-3xl font-bold tracking-tight text-white">
+            Everything you need to know
+          </h2>
+          <p className="mx-auto mt-3 max-w-md text-sm text-[#71717A]">
+            Can't find your answer? Reach us via the community reports inside the app.
+          </p>
+        </motion.div>
+
+        <div className="space-y-2.5">
+          {FAQS.map((item, i) => (
+            <FAQItem key={item.q} item={item} i={i} />
+          ))}
+        </div>
+
+        {/* CTA nudge below FAQ */}
+        <motion.div
+          initial={reduced ? false : { opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+          className="mt-10 flex flex-col items-center gap-3"
+        >
+          <p className="text-sm text-[#71717A]">Ready to travel safer?</p>
+          <ButtonLink to="/login" size="lg">
+            Get started — it's free
+            <ArrowRight className="h-4 w-4" />
+          </ButtonLink>
         </motion.div>
       </section>
 
