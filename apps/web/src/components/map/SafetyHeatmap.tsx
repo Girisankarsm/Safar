@@ -221,9 +221,9 @@ export type HeatmapLayers = {
 };
 
 const DEFAULT_LAYERS: HeatmapLayers = {
-  heatmap: true,
+  heatmap: false,
   reports: true,
-  safeZones: true,
+  safeZones: false,
   userLocation: true,
 };
 

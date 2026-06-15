@@ -69,9 +69,9 @@ export function SafetyPage() {
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [layers, setLayers] = useState<MapLayers>({
-    heatmap: true,
+    heatmap: false,
     reports: true,
-    safeZones: true,
+    safeZones: false,
     wellLit: false,
     womenSafe: false,
   });
