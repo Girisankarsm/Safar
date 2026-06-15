@@ -42,11 +42,10 @@ export function AppShell() {
 
       {/* ── Desktop sidebar ── */}
       <aside className="panel-glass fixed inset-y-0 left-0 z-50 hidden w-[var(--sidebar-w)] flex-col lg:flex">
-
         {/* Logo */}
         <div className="flex items-center gap-3 border-b border-[var(--border-subtle)] px-6 py-5">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#3B82F6]/15 ring-1 ring-[#3B82F6]/20">
-            <Shield className="h-4.5 w-4.5 text-[#3B82F6]" />
+            <Shield className="h-4 w-4 text-[#3B82F6]" />
           </div>
           <div>
             <p className="text-[15px] font-bold tracking-tight text-white">Safar</p>
@@ -115,44 +114,47 @@ export function AppShell() {
       {/* ── Main content area ── */}
       <div className="flex min-h-screen flex-col lg:pl-[var(--sidebar-w)]">
 
-        {/* Header */}
-        <header
-          className="sticky top-0 z-40 border-b border-[var(--border-subtle)] bg-[var(--bg)]/85 backdrop-blur-xl"
-          style={{ height: "var(--header-h)" }}
-        >
-          <div className="flex h-full items-center gap-3 px-5 md:px-6">
-            {/* Mobile brand */}
-            <Link to="/home" className="flex items-center gap-2 lg:hidden">
+        {/* Header — single compact bar (combines brand + city + controls) */}
+        <header className="sticky top-0 z-40 border-b border-[var(--border-subtle)] bg-[var(--bg)]/92 backdrop-blur-xl"
+          style={{ height: "var(--header-h)" }}>
+          <div className="flex h-full items-center gap-2 px-4 md:px-6">
+
+            {/* Mobile: brand + city inline */}
+            <Link to="/home" className="flex shrink-0 items-center gap-2 lg:hidden">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#3B82F6]/15">
                 <Shield className="h-3.5 w-3.5 text-[#3B82F6]" />
               </div>
-              <span className="text-sm font-bold text-white">Safar</span>
-            </Link>
-
-            <div className="flex flex-1 items-center justify-end gap-2 lg:justify-between">
-              {/* Desktop: page breadcrumb area (left side of header) */}
-              <div className="hidden lg:block">
-                <p className="text-xs text-[var(--text-dim)]">
-                  {cityConfig.name} · {cityConfig.state}
+              <div className="leading-tight">
+                <p className="text-[13px] font-bold text-white">Safar</p>
+                <p className="text-[9px] font-medium text-[var(--text-dim)]">
+                  {cityConfig.name}
                 </p>
               </div>
+            </Link>
 
-              {/* Controls */}
-              <div className="flex items-center gap-2">
-                <LanguageSwitcher />
-                <LowDataToggle />
-                <div className="mx-1 h-5 w-px bg-[var(--border-subtle)]" />
-                <UserMenu />
+            {/* Desktop: breadcrumb */}
+            <div className="hidden flex-1 lg:block">
+              <p className="text-xs text-[var(--text-dim)]">
+                {cityConfig.name} · {cityConfig.state}
+              </p>
+            </div>
+
+            <div className="flex flex-1 items-center justify-end gap-1.5 lg:flex-none lg:gap-2">
+              {/* Mobile city switcher (compact) */}
+              <div className="lg:hidden">
+                <CitySwitcher compact />
               </div>
+              <LanguageSwitcher compact />
+              <LowDataToggle compact />
+              <div className="mx-0.5 h-4 w-px bg-[var(--border-subtle)]" />
+              <UserMenu />
             </div>
           </div>
         </header>
 
-        {/* City context banner */}
-        <div
-          className="flex items-center justify-center border-b border-[var(--border-subtle)] bg-[#3B82F6]/5"
-          style={{ height: "var(--city-banner-h)" }}
-        >
+        {/* City context banner — desktop only */}
+        <div className="hidden items-center justify-center border-b border-[var(--border-subtle)] bg-[#3B82F6]/5 lg:flex"
+          style={{ height: "var(--city-banner-h)" }}>
           <p className="text-[11px] font-medium text-[var(--text-dim)]">
             {t("city.showing")}{" "}
             <span className="font-semibold text-white">
@@ -161,14 +163,14 @@ export function AppShell() {
           </p>
         </div>
 
-        {/* Page content — full-bleed pages control their own padding/height */}
+        {/* Page content */}
         <main className="flex-1">
           <Outlet key={revision} />
         </main>
       </div>
 
       {/* ── Mobile bottom nav ── */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-[var(--border-subtle)] bg-[var(--bg-elevated)]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-[var(--border-subtle)] bg-[var(--bg-elevated)]/96 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
         {NAV_ITEMS.map(({ to, key, icon: Icon }) => {
           const active =
             to === "/routes" ? path.startsWith("/routes") : path.startsWith(to);
@@ -177,12 +179,15 @@ export function AppShell() {
               key={to}
               to={to}
               className={cn(
-                "flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-semibold transition-colors",
+                "relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[9px] font-semibold transition-colors",
                 active ? "text-[#3B82F6]" : "text-[#71717A]"
               )}
             >
-              <Icon className="h-5 w-5" />
-              {t(key)}
+              {active && (
+                <span className="absolute top-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-[#3B82F6]" />
+              )}
+              <Icon className="h-[18px] w-[18px]" />
+              <span className="leading-none">{t(key)}</span>
             </Link>
           );
         })}

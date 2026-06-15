@@ -592,7 +592,7 @@ export function RoutesPage() {
 
         {/* LEFT — Route list */}
         <aside className="overflow-y-auto border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] lg:border-b-0 lg:border-r lg:border-[var(--border-subtle)]">
-          <div className="flex gap-3 overflow-x-auto px-4 py-3 lg:flex-col lg:overflow-x-visible lg:px-3 lg:py-4">
+          <div className="flex gap-2 overflow-x-auto px-3 py-2 lg:flex-col lg:gap-3 lg:overflow-x-visible lg:px-3 lg:py-4">
             <div className="hidden lg:block lg:px-1 lg:pb-3">
               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
                 {t("routes.eyebrow")}
@@ -617,7 +617,7 @@ export function RoutesPage() {
             </div>
 
             {routes.map((r) => (
-              <div key={r.route_type} className="w-64 shrink-0 lg:w-auto">
+              <div key={r.route_type} className="w-56 shrink-0 sm:w-64 lg:w-auto">
                 <RouteListCard
                   route={r}
                   isSelected={selected?.route_type === r.route_type}
@@ -649,7 +649,7 @@ export function RoutesPage() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.25 }}
-                className="h-[320px] lg:h-full"
+                className="h-[260px] sm:h-[300px] lg:h-full"
               >
                 <RouteMap
                   geometry={selected.geometry}
@@ -726,20 +726,59 @@ export function RoutesPage() {
         </aside>
       </div>
 
-      {/* Mobile: score + AI below map */}
+      {/* Mobile bottom panel — compact safety summary + CTA */}
       {selected && (
-        <div className="overflow-y-auto border-t border-[var(--border-subtle)] px-4 py-4 pb-24 lg:hidden">
-          {selected.safety_breakdown?.length > 0 && (
-            <SafetyScoreBreakdown
-              score={selected.safety_score}
-              breakdown={selected.safety_breakdown}
-            />
-          )}
-          <div className="mt-4">
-            <SafarAIAnalysis route={selected} />
+        <div className="safe-bottom border-t border-[var(--border-subtle)] px-4 pt-3 lg:hidden">
+          {/* Score strip */}
+          <div className="mb-3 flex items-center gap-3 rounded-xl bg-[var(--bg-surface)] p-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">Safety</p>
+              <p className="text-2xl font-bold text-white">{selected.safety_score}<span className="text-sm text-[var(--text-dim)]">/100</span></p>
+            </div>
+            {selected.corridor_profile && (
+              <>
+                <div className="h-8 w-px bg-[var(--border-subtle)]" />
+                <div>
+                  <p className="text-[10px] text-[var(--text-dim)]">Police</p>
+                  <p className="text-sm font-bold text-white">{selected.corridor_profile.policeCount}</p>
+                </div>
+                <div className="h-8 w-px bg-[var(--border-subtle)]" />
+                <div>
+                  <p className="text-[10px] text-[var(--text-dim)]">Confidence</p>
+                  <p className="text-sm font-bold text-white">{selected.corridor_profile.confidenceScore}%</p>
+                </div>
+                {selected.corridor_profile.hotspots.length === 0 ? (
+                  <>
+                    <div className="h-8 w-px bg-[var(--border-subtle)]" />
+                    <span className="rounded-full bg-[#22C55E]/10 px-2 py-0.5 text-[10px] font-bold text-[#86EFAC]">Clear</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="h-8 w-px bg-[var(--border-subtle)]" />
+                    <span className="rounded-full bg-[#EF4444]/10 px-2 py-0.5 text-[10px] font-bold text-[#FCA5A5]">{selected.corridor_profile.hotspots.length} risk</span>
+                  </>
+                )}
+              </>
+            )}
+            {/* Story shortcut */}
+            {selected.corridor_profile?.segments?.length ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab("story")}
+                className="ml-auto flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] px-2.5 py-1.5 text-[10px] font-semibold text-white"
+              >
+                <BookOpen className="h-3 w-3 text-[#3B82F6]" />
+                Story
+              </button>
+            ) : null}
           </div>
+
+          {/* AI explanation — compact */}
+          <SafarAIAnalysis route={selected} compact />
+
+          {/* CTA */}
           <Button
-            className="mt-4 w-full gap-2 py-3 font-bold"
+            className="mt-3 w-full gap-2 py-2.5 text-[13px] font-bold"
             onClick={() => startTrip(selected)}
             disabled={starting}
           >

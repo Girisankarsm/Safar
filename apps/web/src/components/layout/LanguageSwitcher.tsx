@@ -2,8 +2,28 @@ import { LOCALE_LABELS, type Locale } from "@/i18n/translations";
 import { useLanguageStore } from "@/stores/language.store";
 import { Globe } from "lucide-react";
 
-export function LanguageSwitcher() {
+export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
   const { locale, setLocale } = useLanguageStore();
+  const shortCode = locale.toUpperCase().slice(0, 2);
+
+  if (compact) {
+    return (
+      <div className="relative">
+        <Globe className="pointer-events-none absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-[#71717A]" />
+        <select
+          value={locale}
+          onChange={(e) => setLocale(e.target.value as Locale)}
+          className="appearance-none rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] py-1 pl-6 pr-4 text-[11px] font-bold text-white outline-none"
+          aria-label="Language"
+        >
+          {(Object.keys(LOCALE_LABELS) as Locale[]).map((code) => (
+            <option key={code} value={code}>{code === locale ? shortCode : LOCALE_LABELS[code]}</option>
+          ))}
+        </select>
+        <span className="sr-only">Language: {LOCALE_LABELS[locale]}</span>
+      </div>
+    );
+  }
 
   return (
     <div className="relative">
@@ -15,9 +35,7 @@ export function LanguageSwitcher() {
         aria-label="Language"
       >
         {(Object.keys(LOCALE_LABELS) as Locale[]).map((code) => (
-          <option key={code} value={code}>
-            {LOCALE_LABELS[code]}
-          </option>
+          <option key={code} value={code}>{LOCALE_LABELS[code]}</option>
         ))}
       </select>
     </div>

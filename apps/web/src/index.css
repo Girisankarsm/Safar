@@ -21,9 +21,12 @@
 
   /* ── Sidebar / layout ── */
   --sidebar-w: 280px;
-  --header-h: 53px;
-  --city-banner-h: 36px;
-  --shell-top: calc(var(--header-h) + var(--city-banner-h));
+  /* Mobile: header-only shell (no city banner row) */
+  --header-h: 48px;
+  --city-banner-h: 0px;
+  --shell-top: var(--header-h);
+  /* Bottom nav height (mobile) + safe area */
+  --bottom-nav-h: 56px;
 
   /* ── Elevation shadows ── */
   --shadow-sm:  0 1px 3px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.03) inset;
@@ -101,7 +104,13 @@ body {
   grid-template-columns: 1fr;
 }
 
+/* Desktop: restore header + city banner height */
 @media (min-width: 1024px) {
+  :root {
+    --header-h: 53px;
+    --city-banner-h: 36px;
+    --shell-top: calc(var(--header-h) + var(--city-banner-h));
+  }
   .desktop-3col {
     grid-template-columns: 296px 1fr 368px;
     height: calc(100vh - var(--shell-top));
@@ -111,6 +120,19 @@ body {
     overflow-y: auto;
     overflow-x: hidden;
   }
+}
+
+/* Mobile card — tighter padding, compact border-radius */
+.mobile-card {
+  border-radius: 0.875rem;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  padding: 0.875rem 1rem;
+}
+
+/* Safe bottom padding for content above mobile nav */
+.safe-bottom {
+  padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 0.5rem);
 }
 
 /* Keyboard focus ring */

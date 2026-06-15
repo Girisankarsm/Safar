@@ -1,7 +1,6 @@
 import { CommunityActivityFeed } from "@/components/dashboard/community-activity-feed";
 import { SafetyStatisticsPanel } from "@/components/dashboard/safety-statistics-panel";
 import { LocationAutocomplete, type SelectedPlace } from "@/components/location/LocationAutocomplete";
-import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { buildActivityFromReports, computePlatformStats } from "@/lib/community-activity";
 import {
@@ -138,33 +137,46 @@ export function HomePage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-8 px-5 py-6 pb-24 md:px-8 lg:pb-8">
-      <PageHeader
-        eyebrow={t("home.eyebrow")}
-        title={t("home.title")}
-        subtitle={t("home.subtitle", { city: getCityConfig(city).name })}
-        action={
-          <Link
-            to="/emergency"
-            className="inline-flex items-center gap-2 rounded-xl border border-[#EF4444]/30 bg-[#EF4444]/10 px-4 py-2.5 text-sm font-semibold text-[#EF4444] transition hover:bg-[#EF4444]/15"
-          >
-            <Shield className="h-4 w-4" />
-            {t("home.emergencyShield")}
-          </Link>
-        }
-      />
+    <div className="mx-auto max-w-[1400px] safe-bottom px-4 py-4 md:space-y-8 md:px-8 md:py-6 lg:pb-8">
 
-      <SafetyStatisticsPanel stats={stats} />
+      {/* Page header — compact on mobile */}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)] md:text-xs">
+            {t("home.eyebrow")}
+          </p>
+          <h1 className="mt-0.5 text-[20px] font-bold leading-tight text-white md:text-2xl">
+            {t("home.title")}
+          </h1>
+          <p className="mt-0.5 text-xs text-[var(--text-muted)] md:text-sm">
+            {t("home.subtitle", { city: getCityConfig(city).name })}
+          </p>
+        </div>
+        <Link
+          to="/emergency"
+          className="mt-0.5 flex shrink-0 items-center gap-1.5 rounded-xl border border-[#EF4444]/30 bg-[#EF4444]/10 px-3 py-2 text-xs font-semibold text-[#EF4444] transition hover:bg-[#EF4444]/15 md:px-4 md:py-2.5 md:text-sm"
+        >
+          <Shield className="h-3.5 w-3.5 md:h-4 md:w-4" />
+          <span className="hidden sm:inline">{t("home.emergencyShield")}</span>
+          <span className="sm:hidden">SOS</span>
+        </Link>
+      </div>
 
-      <div className="surface-card space-y-5 rounded-2xl p-6 md:p-8">
-        <div className="flex items-center gap-2 text-xs font-medium text-[#71717A]">
-          <Sparkles className="h-3.5 w-3.5 text-[#3B82F6]" />
+      {/* Stats — compact 2-col on mobile */}
+      <div className="mt-3 md:mt-0">
+        <SafetyStatisticsPanel stats={stats} />
+      </div>
+
+      {/* Search card */}
+      <div className="surface-card mt-3 space-y-3.5 rounded-2xl p-4 md:mt-0 md:space-y-5 md:p-6 lg:p-8">
+        <div className="flex items-center gap-2 text-[11px] font-medium text-[#71717A] md:text-xs">
+          <Sparkles className="h-3 w-3 text-[#3B82F6] md:h-3.5 md:w-3.5" />
           {t("home.pickPlaces")}
         </div>
         <LocationAutocomplete
           key={`${city}-from`}
           label={t("home.from")}
-          placeholder={`Search in ${getCityConfig(city).name} — e.g. station, college, area`}
+          placeholder={`Search in ${getCityConfig(city).name}`}
           cityId={city}
           value={source}
           selectedPlace={sourcePlace}
@@ -183,42 +195,68 @@ export function HomePage() {
           onPlaceSelect={setDestinationPlace}
           disabled={loading}
         />
-        <div className="flex flex-wrap items-end gap-4">
-          <label className="block w-44 shrink-0 text-xs font-semibold text-[#A1A1AA]">
-            {t("home.departure")}
+
+        {/* Departure row — horizontal on mobile */}
+        <div className="flex items-center gap-3">
+          <label className="flex flex-1 flex-col gap-1 text-[11px] font-semibold text-[#A1A1AA]">
+            <span className="flex items-center justify-between">
+              {t("home.departure")}
+              <span className="text-[12px] font-bold text-white">
+                {formatDepartureLabel(effectiveDepartureHour)}
+              </span>
+            </span>
             <input
               type="range"
               min={0}
               max={23}
               value={effectiveDepartureHour}
               onChange={(e) => setDepartureHour(Number(e.target.value))}
-              className="mt-2 w-full accent-[#3B82F6]"
+              className="w-full accent-[#3B82F6]"
             />
-            <span className="mt-1 block text-sm font-bold text-white">
-              {formatDepartureLabel(effectiveDepartureHour)}
-            </span>
-            <span className="mt-0.5 block text-[10px] text-[#71717A]">{t("home.timeSafety")}</span>
           </label>
           {lowDataMode && (
-            <p className="rounded-xl border border-[#3B82F6]/25 bg-[#3B82F6]/10 px-3 py-2 text-xs text-[#93C5FD]">
-              {t("settings.lowDataHint")}
-            </p>
+            <span className="shrink-0 rounded-lg border border-[#3B82F6]/25 bg-[#3B82F6]/10 px-2 py-1 text-[10px] text-[#93C5FD]">
+              Low data
+            </span>
           )}
         </div>
+
         {error && (
-          <p className="rounded-xl border border-[#EF4444]/30 bg-[#EF4444]/10 px-4 py-3 text-sm text-[#FCA5A5]">
+          <p className="rounded-xl border border-[#EF4444]/30 bg-[#EF4444]/10 px-3 py-2.5 text-xs text-[#FCA5A5] md:px-4 md:py-3 md:text-sm">
             {error}
           </p>
         )}
-        <Button onClick={search} disabled={loading} className="w-full" size="lg">
+        <Button onClick={search} disabled={loading} className="w-full py-2.5 md:py-3" size="lg">
           {loading ? t("home.searching") : t("home.search")}
         </Button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <CommunityActivityFeed items={activity} loading={feedLoading} />
+      {/* Quick links — horizontal 2-col on mobile */}
+      <div className="mt-3 grid grid-cols-2 gap-2.5 md:mt-0 md:hidden">
+        <Link
+          to="/safety"
+          className="group mobile-card flex items-center gap-2.5 transition hover:border-[#3B82F6]/30"
+        >
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#3B82F6]/15">
+            <Map className="h-4 w-4 text-[#3B82F6]" />
+          </div>
+          <p className="text-[12px] font-bold leading-tight text-white">{t("home.safetyHeatmap")}</p>
+        </Link>
+        <Link
+          to="/emergency"
+          className="group mobile-card flex items-center gap-2.5 transition hover:border-[#EF4444]/30"
+        >
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#EF4444]/15">
+            <Shield className="h-4 w-4 text-[#EF4444]" />
+          </div>
+          <p className="text-[12px] font-bold leading-tight text-white">{t("home.safeWaiting")}</p>
+        </Link>
+      </div>
 
-        <div className="grid gap-4 sm:grid-cols-1">
+      {/* Community feed + quick links — desktop layout */}
+      <div className="hidden gap-6 md:grid lg:grid-cols-2">
+        <CommunityActivityFeed items={activity} loading={feedLoading} />
+        <div className="grid gap-4">
           <Link
             to="/safety"
             className="group surface-card flex gap-4 rounded-2xl p-5 transition hover:border-[#3B82F6]/30"
@@ -244,6 +282,11 @@ export function HomePage() {
             </div>
           </Link>
         </div>
+      </div>
+
+      {/* Community feed — mobile only */}
+      <div className="mt-3 md:hidden">
+        <CommunityActivityFeed items={activity} loading={feedLoading} />
       </div>
     </div>
   );
