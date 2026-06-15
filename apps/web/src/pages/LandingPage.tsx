@@ -40,7 +40,6 @@ import {
   Navigation,
   Activity,
   Zap,
-  Clock,
   TrendingUp,
   ChevronDown,
   HelpCircle,

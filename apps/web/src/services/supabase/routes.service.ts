@@ -337,8 +337,7 @@ function scoreRouteWithProfile(
 
 /** Fetch OSM emergency places covering the full route corridor in one call */
 async function fetchCorridorPlaces(
-  samples: { lat: number; lng: number }[],
-  routeGeometry: GeoJSON.LineString
+  samples: { lat: number; lng: number }[]
 ): Promise<import("@/services/osm/overpass.service").OverpassPlace[]> {
   if (!samples.length) return [];
 
@@ -549,7 +548,7 @@ export const routesService = {
 
     // ── Fetch OSM corridor places once for the primary route ──────────────
     const routeSamples = sampleLineString(primary.geometry, 10);
-    const osmPlaces = await fetchCorridorPlaces(routeSamples, primary.geometry);
+    const osmPlaces = await fetchCorridorPlaces(routeSamples);
 
     const routes = VARIANTS.map((v) => {
       const ors = altMap[v.altIndex] ?? primary;

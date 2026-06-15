@@ -148,19 +148,166 @@ export interface Notification {
   created_at: string;
 }
 
+// ── Supabase insert/update helpers ──────────────────────────────────────────
+
+type SafetyReportInsert = {
+  user_id: string;
+  city_id: CityId;
+  report_type: ReportType;
+  description?: string | null;
+  latitude: number;
+  longitude: number;
+  image_url?: string | null;
+  upvotes?: number;
+  verifications?: number;
+  is_verified?: boolean;
+  status?: string;
+};
+
+type SafetyReportUpdate = Partial<Pick<SafetyReport, "upvotes" | "verifications" | "is_verified" | "flag_count">>;
+
+type LocationCacheRow = {
+  query_key: string;
+  display_name: string;
+  latitude: number;
+  longitude: number;
+  city_id: CityId;
+  expires_at: string;
+  source?: string | null;
+};
+
+type RouteCacheRow = {
+  cache_key: string;
+  source_lat: number;
+  source_lng: number;
+  dest_lat: number;
+  dest_lng: number;
+  route_type: string;
+  ors_profile: string;
+  distance_km: number;
+  duration_min: number;
+  geometry: GeoJSON.LineString;
+  expires_at: string;
+};
+
+type TripInsert = {
+  user_id: string;
+  city_id: CityId;
+  route_id?: string | null;
+  status?: string;
+  current_lat?: number | null;
+  current_lng?: number | null;
+  share_token?: string | null;
+  share_expires_at?: string | null;
+  sos_triggered?: boolean;
+};
+
+type EmergencyContactInsert = {
+  user_id: string;
+  name: string;
+  phone: string;
+  relationship?: string | null;
+};
+
+type ReportUpvoteInsert = {
+  report_id: string;
+  user_id?: string | null;
+};
+
+type ReportCommentInsert = {
+  report_id: string;
+  user_id?: string | null;
+  body: string;
+};
+
+type OsmPlaceInsert = {
+  osm_id: number;
+  osm_type: string;
+  place_type: OsmPlaceType;
+  name: string;
+  latitude: number;
+  longitude: number;
+  city_id: CityId;
+  tags: Record<string, string>;
+  fetched_at: string;
+};
+
+// ── Database schema ──────────────────────────────────────────────────────────
+
 export interface Database {
   public: {
     Tables: {
-      cities: { Row: { id: string; name: string; center_lat: number; center_lng: number } };
-      users: { Row: UserProfile };
-      safety_reports: { Row: SafetyReport };
-      safe_waiting_spots: { Row: SafeWaitingSpot };
-      osm_places: { Row: Record<string, unknown> };
-      location_cache: { Row: Record<string, unknown> };
-      route_cache: { Row: Record<string, unknown> };
-      trips: { Row: Trip };
-      emergency_contacts: { Row: EmergencyContact };
-      notifications: { Row: Notification };
+      cities: {
+        Row: { id: string; name: string; center_lat: number; center_lng: number };
+        Insert: { id: string; name: string; center_lat: number; center_lng: number };
+        Update: Partial<{ name: string; center_lat: number; center_lng: number }>;
+      };
+      users: {
+        Row: UserProfile;
+        Insert: Partial<UserProfile> & { id: string };
+        Update: Partial<UserProfile>;
+      };
+      safety_reports: {
+        Row: SafetyReport;
+        Insert: SafetyReportInsert;
+        Update: SafetyReportUpdate;
+      };
+      safe_waiting_spots: {
+        Row: SafeWaitingSpot;
+        Insert: Omit<SafeWaitingSpot, "id">;
+        Update: Partial<SafeWaitingSpot>;
+      };
+      osm_places: {
+        Row: OsmPlaceInsert & { id: string };
+        Insert: OsmPlaceInsert;
+        Update: Partial<OsmPlaceInsert>;
+      };
+      location_cache: {
+        Row: LocationCacheRow;
+        Insert: LocationCacheRow;
+        Update: Partial<LocationCacheRow>;
+      };
+      route_cache: {
+        Row: RouteCacheRow;
+        Insert: RouteCacheRow;
+        Update: Partial<RouteCacheRow>;
+      };
+      trips: {
+        Row: Trip;
+        Insert: TripInsert;
+        Update: Partial<Omit<Trip, "id" | "user_id" | "started_at">>;
+      };
+      emergency_contacts: {
+        Row: EmergencyContact & { user_id: string };
+        Insert: EmergencyContactInsert;
+        Update: Partial<EmergencyContactInsert>;
+      };
+      notifications: {
+        Row: Notification;
+        Insert: Omit<Notification, "id" | "created_at">;
+        Update: Partial<Pick<Notification, "is_read">>;
+      };
+      report_upvotes: {
+        Row: ReportUpvoteInsert & { id: string; created_at: string };
+        Insert: ReportUpvoteInsert;
+        Update: never;
+      };
+      report_comments: {
+        Row: CommunityComment;
+        Insert: ReportCommentInsert;
+        Update: Partial<Pick<CommunityComment, "body">>;
+      };
+      routes: {
+        Row: PlannedRoute & { id: string; user_id: string; city_id: CityId; created_at: string };
+        Insert: Omit<PlannedRoute, "id"> & { user_id: string; city_id: CityId };
+        Update: Partial<PlannedRoute>;
+      };
+    };
+    Functions: {
+      increment_upvotes: {
+        Args: { p_report_id: string };
+        Returns: void;
+      };
     };
   };
 }

@@ -1,5 +1,4 @@
 import { SafetyHeatmap } from "@/components/map/SafetyHeatmap";
-import type { TimeFilter } from "@/components/safety/safety-map-controls";
 import { SafetyMapLegend } from "@/components/safety/safety-map-legend";
 import { SafetyReportCard } from "@/components/safety/safety-report-card";
 import { SafetyReportComments } from "@/components/safety/safety-report-comments";
@@ -40,6 +39,8 @@ const CATEGORY_OPTIONS = [
   ...REPORT_TYPES,
 ];
 
+type TimeFilter = "all" | "24h" | "7d" | "30d";
+
 function filterByTime(reports: SafetyReport[], time: TimeFilter) {
   if (time === "all") return reports;
   const now = Date.now();
@@ -69,7 +70,7 @@ export function SafetyPage() {
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<ReportType | "all">("all");
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  const timeFilter: TimeFilter = "all";
   const [recenterSignal, setRecenterSignal] = useState(0);
   const [loadError, setLoadError] = useState("");
   const [commentReport, setCommentReport] = useState<SafetyReport | null>(null);
@@ -145,16 +146,8 @@ export function SafetyPage() {
     if (categoryFilter !== "all") {
       list = list.filter((r) => r.report_type === categoryFilter);
     }
-    if (layers.wellLit) {
-      list = list.filter((r) => r.report_type === "poor_lighting" || r.report_type === "broken_light");
-    }
-    if (layers.womenSafe) {
-      list = list.filter((r) =>
-        ["harassment", "unsafe_area", "unsafe_bus_stop", "suspicious_activity"].includes(r.report_type)
-      );
-    }
     return list;
-  }, [reports, timeFilter, categoryFilter, layers.wellLit, layers.womenSafe]);
+  }, [reports, timeFilter, categoryFilter]);
 
   const visibleReports = showAllReports ? filteredReports : filteredReports.slice(0, 12);
 
