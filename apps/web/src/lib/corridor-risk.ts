@@ -14,6 +14,8 @@
  */
 
 import { haversineM, sampleLineString } from "@/lib/geo";
+import { weightedReportCount } from "@/lib/report-decay";
+import { computeLightingModifier, countCommercialNodes } from "@/lib/lighting-heuristic";
 import type { OverpassPlace } from "@/services/osm/overpass.service";
 
 /* ─────────────────────────────── types ──────────────────────────────── */
@@ -140,7 +142,15 @@ function countPlacesNearPoint(
 
 /* ─────────────────────── hotspot detection ──────────────────────────── */
 
-type Report = { latitude: number; longitude: number; category?: string };
+type Report = {
+  latitude: number;
+  longitude: number;
+  category?: string;
+  /** ISO timestamp — used by temporal decay engine */
+  created_at?: string;
+  /** Report type — used to apply severity-adjusted decay */
+  report_type?: string;
+};
 
 function detectHotspots(reports: Report[]): CorridorHotspot[] {
   const used = new Set<number>();
@@ -176,12 +186,36 @@ function detectHotspots(reports: Report[]): CorridorHotspot[] {
   return hotspots;
 }
 
-/* ───────────── reports near corridor ───────────────────────────────── */
+/* ───────────── reports near corridor (decay-weighted) ──────────────── */
 
+/**
+ * Returns a decay-weighted effective report count near a corridor point.
+ *
+ * Instead of "3 reports flagged here", this returns "1.8 effective reports"
+ * — reflecting that two of the three were filed 30+ hours ago and are
+ * now cooling-down signals, not active alerts.
+ *
+ * Raw count is preserved as a fallback for reports without timestamps.
+ */
 function countReportsNearPoint(reports: Report[], lat: number, lng: number): number {
-  return reports.filter(
+  const nearby = reports.filter(
     (r) => haversineM(lat, lng, r.latitude, r.longitude) <= REPORT_BUFFER_M
-  ).length;
+  );
+  if (!nearby.length) return 0;
+
+  // Use decay-weighted count when timestamps are available
+  const withTimestamps = nearby.filter((r) => r.created_at);
+  if (withTimestamps.length === nearby.length) {
+    return weightedReportCount(
+      withTimestamps.map((r) => ({
+        created_at: r.created_at!,
+        report_type: r.report_type,
+      }))
+    );
+  }
+
+  // Fallback: raw count for legacy data without timestamps
+  return nearby.length;
 }
 
 /* ───────────── segment risk level ─────────────────────────────────── */
@@ -197,29 +231,50 @@ function segmentRisk(
   return "safe";
 }
 
-/* ───────────── lighting quality estimate ───────────────────────────── */
+/* ───────────── lighting quality estimate (infrastructure-aware) ─────── */
 
 /**
- * Estimate lighting quality from route characteristics.
- * In the absence of OSM lighting tags (rarely populated), we use:
- * - Longer routes → more varied lighting
- * - Police presence → better lit areas
- * - Night time → discount
+ * Estimates lighting quality using a two-axis model:
+ *   1. OSM road class (primary/trunk → well-lit vs residential/path → dark)
+ *   2. Commercial node density (shops, metro, buses → ambient lighting)
+ *
+ * This replaces the basic time-of-day discount with a route-specific score
+ * that distinguishes Anna Salai at midnight from a quiet back lane.
  */
 function estimateLightingScore(
   distanceKm: number,
   policeCount: number,
-  departureHour: number
+  departureHour: number,
+  commercialNodeCount = 0,
+  osmPlaces: OverpassPlace[] = []
 ): number {
+  // Base score from police proximity + distance
   let base = 65;
   if (policeCount >= 3) base += 10;
   if (policeCount >= 5) base += 5;
   if (distanceKm < 5) base += 8;
   if (distanceKm > 15) base -= 5;
-  // Night penalty
+
+  // Crude time-of-day baseline (will be refined by infra modifier below)
   if (departureHour >= 22 || departureHour < 5) base -= 20;
   else if (departureHour >= 20 || departureHour < 7) base -= 8;
-  return Math.max(20, Math.min(95, Math.round(base)));
+
+  const baseScore = Math.max(20, Math.min(95, Math.round(base)));
+
+  // If we have OSM commercial density data, apply infrastructure modifier
+  const effectiveCommercial = commercialNodeCount || countCommercialNodes(osmPlaces);
+  if (effectiveCommercial > 0 || osmPlaces.length > 0) {
+    // Use "unknown" highway class as conservative default (no ORS waytype data)
+    const modifier = computeLightingModifier(
+      "unknown",
+      effectiveCommercial,
+      departureHour,
+      baseScore
+    );
+    return modifier.adjustedLightingScore;
+  }
+
+  return baseScore;
 }
 
 /* ───────────── confidence score ───────────────────────────────────── */
@@ -379,7 +434,9 @@ export function buildCorridorProfile(
   const lightingScore = estimateLightingScore(
     options.distanceKm,
     totalPolice,
-    options.departureHour
+    options.departureHour,
+    0,
+    osmPlaces  // pass full OSM array so lighting heuristic can count commercial nodes
   );
 
   const confidenceScore = computeConfidence(
