@@ -14,16 +14,41 @@ import { useMemo, useState } from "react";
 type SortKey = "fare" | "safety" | "eta";
 
 /**
- * Build a deep link / universal URL for each platform.
- * These open the platform's booking UI pre-filled with source → destination.
- * No credentials or API keys required — the user completes booking in the app.
+ * Booking strategies per platform:
+ *
+ * WEB_URL   — platform has a public web booking page that accepts lat/lng params.
+ *             Opens in a new browser tab with locations pre-filled.
+ * MAPS      — platform has no public web booking; open Google Maps with the
+ *             route so the user can tap "Open in [app]" from there.
+ * APP_LINK  — mobile-only deep link. On desktop shows a copy-locations tooltip.
  */
-function buildBookingUrl(
+type BookingStrategy = "web_url" | "maps" | "app_link";
+
+const BOOKING_META: Record<
+  string,
+  { strategy: BookingStrategy; label: string; note?: string }
+> = {
+  uber:        { strategy: "web_url",  label: "Book on Uber" },
+  ola:         { strategy: "web_url",  label: "Book on Ola" },
+  rapido:      { strategy: "maps",     label: "Open in Maps", note: "Rapido has no web booking — opens Google Maps so you can launch Rapido from there" },
+  namma_yatri: { strategy: "maps",     label: "Open in Maps", note: "Namma Yatri has no web booking — opens Google Maps; open the NammaYatri app separately" },
+  local:       { strategy: "maps",     label: "Directions" },
+};
+
+function buildUrl(
   brandId: string,
   src: { lat: number; lng: number; name: string },
   dst: { lat: number; lng: number; name: string }
 ): string | null {
   const enc = encodeURIComponent;
+  const meta = BOOKING_META[brandId];
+  if (!meta) return null;
+
+  const mapsUrl =
+    `https://www.google.com/maps/dir/?api=1` +
+    `&origin=${src.lat},${src.lng}&destination=${dst.lat},${dst.lng}` +
+    `&origin_place_id=${enc(src.name)}&travelmode=driving`;
+
   switch (brandId) {
     case "uber":
       return (
@@ -37,16 +62,9 @@ function buildBookingUrl(
         `&drop_lat=${dst.lat}&drop_lng=${dst.lng}&drop_name=${enc(dst.name)}`
       );
     case "rapido":
-      // Rapido doesn't expose a public deep-link; open home page
-      return `https://rapido.bike/`;
     case "namma_yatri":
-      return `https://nammayatri.in/`;
     case "local":
-      // Google Maps directions as fallback for unbooked local auto
-      return (
-        `https://www.google.com/maps/dir/?api=1` +
-        `&origin=${src.lat},${src.lng}&destination=${dst.lat},${dst.lng}&travelmode=driving`
-      );
+      return mapsUrl;
     default:
       return null;
   }
@@ -61,27 +79,34 @@ function BookButton({
   src: { lat: number; lng: number; name: string };
   dst: { lat: number; lng: number; name: string };
 }) {
-  const url = buildBookingUrl(brandId, src, dst);
-  if (!url) return null;
+  const meta = BOOKING_META[brandId];
+  const url = buildUrl(brandId, src, dst);
+  if (!meta || !url) return null;
 
-  const label =
-    brandId === "local"
-      ? "Directions"
-      : brandId === "namma_yatri"
-        ? "Open App"
-        : "Book Now";
+  const isWebBooking = meta.strategy === "web_url";
 
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noreferrer noopener"
-      title="Opens the platform — you'll see the real live fare there"
-      className="inline-flex items-center gap-1 rounded-lg border border-[#3B82F6]/30 bg-[#3B82F6]/10 px-2.5 py-1.5 text-[11px] font-semibold text-[#93C5FD] transition hover:bg-[#3B82F6]/20 active:scale-95"
-    >
-      <ExternalLink className="h-3 w-3" />
-      {label}
-    </a>
+    <div className="flex flex-col gap-1">
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer noopener"
+        title={meta.note ?? "Opens platform pre-filled with your route — real live fare shown there"}
+        className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition active:scale-95 ${
+          isWebBooking
+            ? "border-[#3B82F6]/30 bg-[#3B82F6]/10 text-[#93C5FD] hover:bg-[#3B82F6]/20"
+            : "border-[#F59E0B]/30 bg-[#F59E0B]/8 text-[#FCD34D] hover:bg-[#F59E0B]/15"
+        }`}
+      >
+        <ExternalLink className="h-3 w-3" />
+        {meta.label}
+      </a>
+      {!isWebBooking && (
+        <p className="text-[9px] leading-tight text-[#52525B]">
+          {brandId === "rapido" ? "Then open Rapido app" : brandId === "namma_yatri" ? "Then open NammaYatri" : ""}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -335,7 +360,11 @@ export function PlatformFareComparison({
         </span>
         <span className="inline-flex items-center gap-1 text-[10px] text-[#52525B]">
           <ExternalLink className="h-2.5 w-2.5 text-[#3B82F6]" />
-          Book Now — opens platform with your route pre-filled; real price shown there
+          Book Now (blue) — opens Uber/Ola web with route pre-filled; real live price shown
+        </span>
+        <span className="inline-flex items-center gap-1 text-[10px] text-[#52525B]">
+          <ExternalLink className="h-2.5 w-2.5 text-[#F59E0B]" />
+          Open in Maps (amber) — Rapido/NammaYatri have no web booking; opens Google Maps → tap &quot;Open in app&quot;
         </span>
       </div>
       <p className="text-[10px] text-[#52525B]">{t("routes.platformDisclaimer")}</p>
