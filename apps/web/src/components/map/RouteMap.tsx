@@ -78,6 +78,7 @@ export function RouteMap({
   corridorProfile,
   height = 320,
   className,
+  focusSegmentIdx,
 }: {
   geometry?: GeoJSON.LineString;
   source: { lat: number; lng: number };
@@ -89,6 +90,8 @@ export function RouteMap({
   /** Height in px (number) or any CSS string like "100%" / "calc(...)" */
   height?: number | string;
   className?: string;
+  /** When set, zooms the map to this corridor segment index */
+  focusSegmentIdx?: number | null;
 }) {
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -190,6 +193,15 @@ export function RouteMap({
 
     map.fitBounds(L.latLngBounds(bounds), { padding: [48, 48], maxZoom: 15 });
   }, [geometry, source, destination, estimate, sourceName, destinationName, corridorProfile]);
+
+  // Zoom to a specific corridor segment when focusSegmentIdx changes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map == null || focusSegmentIdx == null || !corridorProfile?.segments) return;
+    const seg = corridorProfile.segments[focusSegmentIdx];
+    if (!seg) return;
+    map.setView([seg.lat, seg.lng], 16, { animate: true });
+  }, [focusSegmentIdx, corridorProfile]);
 
   const hasSegments = !estimate && corridorProfile?.segments?.length;
   const hasHotspots = (corridorProfile?.hotspots?.length ?? 0) > 0;

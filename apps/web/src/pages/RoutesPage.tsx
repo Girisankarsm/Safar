@@ -1,19 +1,27 @@
 import { RoutesSubNav } from "@/components/layout/RoutesSubNav";
 import { RouteMap } from "@/components/map/RouteMap";
+import { RouteAssistant } from "@/components/routes/RouteAssistant";
+import { RouteRiskTimeline } from "@/components/routes/RouteRiskTimeline";
+import { SafetyStory } from "@/components/routes/SafetyStory";
 import { SafarAIAnalysis } from "@/components/safety/safar-ai-analysis";
 import { SafetyScoreBreakdown } from "@/components/safety/safety-score-breakdown";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { recommendRoute } from "@/lib/ai-insights";
+import { sampleRoutePoints, isNearRoute } from "@/lib/route-assistant";
 import { useI18n } from "@/i18n/use-i18n";
 import { routeTypeKey } from "@/i18n/translations";
 import { getCityConfig } from "@/config/cities";
 import { useAuth } from "@/features/auth";
+import { IS_DEMO_MODE } from "@/lib/config";
+import { reportsService } from "@/services/supabase/reports.service";
 import { tripsService } from "@/services/supabase/trips.service";
 import { useCityStore } from "@/stores/city.store";
-import type { PlannedRoute, RouteType } from "@/types/database";
+import type { CityId, PlannedRoute, RouteType, SafetyReport } from "@/types/database";
 import {
   AlertTriangle,
+  BookOpen,
+  Bot,
   Building2,
   Clock,
   IndianRupee,
@@ -23,36 +31,23 @@ import {
   Shield,
   Sparkles,
   Users,
+  X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
-const ROUTE_COLOR: Record<RouteType, { text: string; bg: string; border: string }> = {
-  safest: {
-    text: "text-[#22C55E]",
-    bg: "bg-[#22C55E]/10",
-    border: "border-[#22C55E]/30",
-  },
-  cheapest: {
-    text: "text-[#F59E0B]",
-    bg: "bg-[#F59E0B]/10",
-    border: "border-[#F59E0B]/30",
-  },
-  balanced: {
-    text: "text-[#3B82F6]",
-    bg: "bg-[#3B82F6]/10",
-    border: "border-[#3B82F6]/30",
-  },
-  women_friendly: {
-    text: "text-[#EC4899]",
-    bg: "bg-[#EC4899]/10",
-    border: "border-[#EC4899]/30",
-  },
+const ROUTE_COLOR: Record<RouteType, { text: string; border: string }> = {
+  safest: { text: "text-[#22C55E]", border: "border-[#22C55E]/30" },
+  cheapest: { text: "text-[#F59E0B]", border: "border-[#F59E0B]/30" },
+  balanced: { text: "text-[#3B82F6]", border: "border-[#3B82F6]/30" },
+  women_friendly: { text: "text-[#EC4899]", border: "border-[#EC4899]/30" },
 };
 
-/** Compact route card for the left list panel */
+type RightTab = "intelligence" | "ask" | "story";
+
+/** Compact route card for the left selector panel */
 function RouteListCard({
   route,
   isSelected,
@@ -67,11 +62,7 @@ function RouteListCard({
   const { t } = useI18n();
   const c = ROUTE_COLOR[route.route_type];
   const scoreColor =
-    route.safety_score >= 80
-      ? "#22C55E"
-      : route.safety_score >= 55
-        ? "#F59E0B"
-        : "#EF4444";
+    route.safety_score >= 80 ? "#22C55E" : route.safety_score >= 55 ? "#F59E0B" : "#EF4444";
 
   return (
     <button
@@ -81,7 +72,7 @@ function RouteListCard({
         "group w-full rounded-xl border p-3.5 text-left transition-all duration-150",
         isSelected
           ? "border-[#3B82F6]/50 bg-[#3B82F6]/08 ring-1 ring-[#3B82F6]/20"
-          : "border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:border-[#3B82F6]/30 hover:bg-[var(--bg-surface)]"
+          : `border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:${c.border} hover:bg-[var(--bg-surface)]`
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -106,22 +97,19 @@ function RouteListCard({
           {route.safety_score}
         </span>
       </div>
-
       <div className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[var(--text-muted)]">
         <span className="flex items-center gap-1">
           <Clock className="h-3 w-3" />
           {route.eta_minutes} min
         </span>
         <span className="flex items-center gap-1">
-          <IndianRupee className="h-3 w-3" />
-          ₹{route.estimated_cost_inr}
+          <IndianRupee className="h-3 w-3" />₹{route.estimated_cost_inr}
         </span>
         <span className="flex items-center gap-1">
           <MapPin className="h-3 w-3" />
           {route.distance_km} km
         </span>
       </div>
-
       {route.corridor_profile && (
         <div className="mt-2 flex flex-wrap gap-1">
           <span
@@ -131,18 +119,14 @@ function RouteListCard({
                 route.corridor_profile.confidenceScore >= 75
                   ? "rgba(34,197,94,0.1)"
                   : "rgba(245,158,11,0.1)",
-              color:
-                route.corridor_profile.confidenceScore >= 75
-                  ? "#86EFAC"
-                  : "#FCD34D",
+              color: route.corridor_profile.confidenceScore >= 75 ? "#86EFAC" : "#FCD34D",
             }}
           >
             {route.corridor_profile.confidenceScore}% conf.
           </span>
           {route.corridor_profile.hotspots.length > 0 ? (
             <span className="rounded-full bg-[#EF4444]/10 px-1.5 py-0.5 text-[9px] font-bold text-[#FCA5A5]">
-              {route.corridor_profile.hotspots.length} hotspot
-              {route.corridor_profile.hotspots.length > 1 ? "s" : ""}
+              {route.corridor_profile.hotspots.length} hotspot{route.corridor_profile.hotspots.length > 1 ? "s" : ""}
             </span>
           ) : (
             <span className="rounded-full bg-[#22C55E]/10 px-1.5 py-0.5 text-[9px] font-bold text-[#86EFAC]">
@@ -155,245 +139,304 @@ function RouteListCard({
   );
 }
 
-/** Right-panel intelligence section */
+/** Realtime alert banner for new reports near the route */
+function RouteAlert({
+  report,
+  onDismiss,
+}: {
+  report: SafetyReport;
+  onDismiss: () => void;
+}) {
+  const typeLabel = report.report_type.replace(/_/g, " ");
+  const minsAgo = Math.floor(
+    (Date.now() - new Date(report.created_at).getTime()) / 60000
+  );
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8, height: 0 }}
+      animate={{ opacity: 1, y: 0, height: "auto" }}
+      exit={{ opacity: 0, y: -8, height: 0 }}
+      transition={{ duration: 0.25 }}
+      className="overflow-hidden"
+    >
+      <div className="flex items-start gap-3 border-b border-[#F59E0B]/25 bg-[#F59E0B]/08 px-4 py-2.5">
+        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#F59E0B]" />
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-bold text-[#FCD34D]">
+            New report near your route
+          </p>
+          <p className="mt-0.5 text-[10px] capitalize text-[var(--text-muted)]">
+            {typeLabel} · {minsAgo < 1 ? "just now" : `${minsAgo} min ago`}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="shrink-0 rounded p-0.5 text-[var(--text-dim)] hover:text-white"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+/** Tabbed right intelligence panel */
 function IntelligencePanel({
   route,
+  allRoutes,
+  cityId: city,
+  departureHour,
   starting,
   onStart,
+  activeTab,
+  setActiveTab,
 }: {
   route: PlannedRoute;
+  allRoutes: PlannedRoute[];
+  cityId: CityId;
+  departureHour?: number;
   starting: boolean;
   onStart: () => void;
+  activeTab: RightTab;
+  setActiveTab: (t: RightTab) => void;
 }) {
   const { t } = useI18n();
   const cp = route.corridor_profile;
   const scoreColor =
-    route.safety_score >= 80
-      ? "#22C55E"
-      : route.safety_score >= 55
-        ? "#F59E0B"
-        : "#EF4444";
-  const scoreLabel =
-    route.safety_score >= 80 ? "Safe" : route.safety_score >= 55 ? "Moderate" : "High Risk";
+    route.safety_score >= 80 ? "#22C55E" : route.safety_score >= 55 ? "#F59E0B" : "#EF4444";
+  const [focusSegIdx, setFocusSegIdx] = useState<number | null>(null);
+
+  const TABS: { id: RightTab; label: string; icon: typeof Shield }[] = [
+    { id: "intelligence", label: "Intelligence", icon: Shield },
+    { id: "ask", label: "Ask AI", icon: Bot },
+    { id: "story", label: "Story", icon: BookOpen },
+  ];
 
   return (
     <div className="flex h-full flex-col">
-      {/* Score hero */}
-      <div className="border-b border-[var(--border-subtle)] p-5">
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
-          Safety Intelligence
-        </p>
-        <div className="flex items-end gap-3">
-          <span className="text-4xl font-bold tabular-nums text-white">
-            {route.safety_score}
-          </span>
-          <span className="mb-1 text-lg font-bold text-[var(--text-dim)]">/100</span>
-          <span
-            className="mb-1 ml-auto rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider"
-            style={{
-              backgroundColor: `${scoreColor}18`,
-              color: scoreColor,
-            }}
+      {/* Tab bar */}
+      <div className="flex shrink-0 gap-0.5 border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] p-1.5">
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setActiveTab(id)}
+            className={cn(
+              "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[11px] font-semibold transition",
+              activeTab === id
+                ? "bg-[#3B82F6]/15 text-white ring-1 ring-[#3B82F6]/25"
+                : "text-[var(--text-dim)] hover:bg-[var(--bg-surface)] hover:text-white"
+            )}
           >
-            {scoreLabel}
-          </span>
-        </div>
-
-        {/* Score bar */}
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--border-subtle)]">
-          <motion.div
-            key={route.route_type}
-            className="h-full rounded-full"
-            style={{ backgroundColor: scoreColor }}
-            initial={{ width: 0 }}
-            animate={{ width: `${route.safety_score}%` }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-          />
-        </div>
-
-        {cp && (
-          <div className="mt-3 flex items-center gap-2">
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--border-subtle)]">
-              <div
-                className="h-full rounded-full transition-all duration-700"
-                style={{
-                  width: `${cp.confidenceScore}%`,
-                  backgroundColor:
-                    cp.confidenceScore >= 75
-                      ? "#22C55E"
-                      : cp.confidenceScore >= 55
-                        ? "#F59E0B"
-                        : "#EF4444",
-                }}
-              />
-            </div>
-            <span className="shrink-0 text-[11px] font-bold text-[var(--text-muted)]">
-              {cp.confidenceScore}% confidence
-            </span>
-          </div>
-        )}
+            <Icon className="h-3 w-3" />
+            {label}
+          </button>
+        ))}
       </div>
 
-      {/* Corridor metrics */}
-      {cp && (
-        <div className="border-b border-[var(--border-subtle)] p-5">
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
-            Corridor Profile
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              {
-                icon: Shield,
-                label: "Police",
-                value: cp.policeCount,
-                color: "#3B82F6",
-              },
-              {
-                icon: Building2,
-                label: "Hospitals",
-                value: cp.hospitalCount,
-                color: "#22C55E",
-              },
-              {
-                icon: Users,
-                label: "Reports",
-                value: cp.reportCount,
-                color: "#A78BFA",
-              },
-              {
-                icon: AlertTriangle,
-                label: "Hotspots",
-                value: cp.hotspots.length,
-                color: cp.hotspots.length > 0 ? "#EF4444" : "#22C55E",
-              },
-            ].map(({ icon: Icon, label, value, color }) => (
-              <div
-                key={label}
-                className="flex items-center gap-2 rounded-lg bg-[var(--bg-surface)] p-2.5"
-              >
-                <div
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
-                  style={{ backgroundColor: `${color}14` }}
-                >
-                  <Icon className="h-3.5 w-3.5" style={{ color }} />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-white">{value}</p>
-                  <p className="text-[10px] text-[var(--text-dim)]">{label}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+      {/* Tab content */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <AnimatePresence mode="wait">
 
-          {/* Segment risk bar */}
-          {cp.segments.length > 0 && (
-            <div className="mt-3">
-              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
-                Segment Risk
-              </p>
-              <div className="flex h-3 overflow-hidden rounded-full">
-                {(() => {
-                  const safeCount = cp.segments.filter((s) => s.riskLevel === "safe").length;
-                  const modCount = cp.segments.filter((s) => s.riskLevel === "moderate").length;
-                  const riskCount = cp.segments.filter((s) => s.riskLevel === "risk").length;
-                  const total = cp.segments.length;
-                  return (
-                    <>
-                      {safeCount > 0 && (
-                        <div
-                          className="bg-[#22C55E] transition-all"
-                          style={{ width: `${(safeCount / total) * 100}%` }}
-                          title={`Safe: ${safeCount} segments`}
-                        />
-                      )}
-                      {modCount > 0 && (
-                        <div
-                          className="bg-[#F59E0B] transition-all"
-                          style={{ width: `${(modCount / total) * 100}%` }}
-                          title={`Moderate: ${modCount} segments`}
-                        />
-                      )}
-                      {riskCount > 0 && (
-                        <div
-                          className="bg-[#EF4444] transition-all"
-                          style={{ width: `${(riskCount / total) * 100}%` }}
-                          title={`High risk: ${riskCount} segments`}
-                        />
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-              <div className="mt-1.5 flex gap-3 text-[9px] font-semibold text-[var(--text-dim)]">
-                <span className="flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#22C55E]" />
-                  Safe
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#F59E0B]" />
-                  Moderate
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#EF4444]" />
-                  High
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Safety breakdown */}
-      {route.safety_breakdown?.length > 0 && (
-        <div className="border-b border-[var(--border-subtle)] p-5">
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
-            Risk Breakdown
-          </p>
-          <div className="space-y-2.5">
-            {route.safety_breakdown.map((item, i) => (
-              <motion.div
-                key={item.factor}
-                initial={{ opacity: 0, x: -6 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
-              >
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-[var(--text-muted)]">
-                    {item.factor}
-                    <span className="ml-1 text-[var(--text-dim)]">({item.weight_pct}%)</span>
+          {/* ── Intelligence Tab ── */}
+          {activeTab === "intelligence" && (
+            <motion.div
+              key="intel"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="flex-1 overflow-y-auto p-4 space-y-4"
+            >
+              {/* Score hero */}
+              <div>
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
+                  Safety Score
+                </p>
+                <div className="flex items-end gap-2">
+                  <span className="text-4xl font-bold tabular-nums text-white">
+                    {route.safety_score}
                   </span>
-                  <span className="font-bold text-white">{item.score}</span>
+                  <span className="mb-1 text-lg font-bold text-[var(--text-dim)]">/100</span>
+                  <span
+                    className="mb-1 ml-auto rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wider"
+                    style={{
+                      backgroundColor: `${scoreColor}18`,
+                      color: scoreColor,
+                    }}
+                  >
+                    {route.safety_score >= 80 ? "Safe" : route.safety_score >= 55 ? "Moderate" : "High Risk"}
+                  </span>
                 </div>
-                <div className="mt-1 h-1 overflow-hidden rounded-full bg-[var(--border-subtle)]">
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--border-subtle)]">
                   <motion.div
-                    className="h-full rounded-full bg-[#3B82F6]"
+                    key={route.route_type}
+                    className="h-full rounded-full"
+                    style={{ backgroundColor: scoreColor }}
                     initial={{ width: 0 }}
-                    animate={{ width: `${item.score}%` }}
-                    transition={{ delay: 0.15 + i * 0.05, duration: 0.45 }}
+                    animate={{ width: `${route.safety_score}%` }}
+                    transition={{ duration: 0.6 }}
                   />
                 </div>
-              </motion.div>
-            ))}
-          </div>
+                {cp && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--border-subtle)]">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${cp.confidenceScore}%`,
+                          backgroundColor: cp.confidenceScore >= 75 ? "#22C55E" : "#F59E0B",
+                        }}
+                      />
+                    </div>
+                    <span className="shrink-0 text-[10px] font-semibold text-[var(--text-muted)]">
+                      {cp.confidenceScore}% confidence
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Corridor metrics */}
+              {cp && (
+                <div>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
+                    Corridor Profile
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { icon: Shield, label: "Police", value: cp.policeCount, color: "#3B82F6" },
+                      { icon: Building2, label: "Hospitals", value: cp.hospitalCount, color: "#22C55E" },
+                      { icon: Users, label: "Reports", value: cp.reportCount, color: "#A78BFA" },
+                      { icon: AlertTriangle, label: "Hotspots", value: cp.hotspots.length, color: cp.hotspots.length > 0 ? "#EF4444" : "#22C55E" },
+                    ].map(({ icon: Icon, label, value, color }) => (
+                      <div key={label} className="flex items-center gap-2 rounded-lg bg-[var(--bg)] p-2.5">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${color}14` }}>
+                          <Icon className="h-3.5 w-3.5" style={{ color }} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-white">{value}</p>
+                          <p className="text-[10px] text-[var(--text-dim)]">{label}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Why X? breakdown */}
+              {route.safety_breakdown?.length > 0 && (
+                <SafetyScoreBreakdown
+                  score={route.safety_score}
+                  breakdown={route.safety_breakdown}
+                />
+              )}
+
+              {/* Risk Timeline */}
+              {cp && cp.segments.length > 0 && (
+                <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg)] p-3">
+                  <RouteRiskTimeline
+                    profile={cp}
+                    onSegmentFocus={setFocusSegIdx}
+                  />
+                </div>
+              )}
+
+              {/* Data sources */}
+              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg)] p-3">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
+                  Data Sources
+                </p>
+                <div className="space-y-1.5">
+                  {[
+                    { label: "NCRB Historical Crime Data", color: "#F59E0B" },
+                    { label: "Community Safety Reports", color: "#A78BFA" },
+                    { label: "OpenStreetMap Infrastructure", color: "#22C55E" },
+                    { label: "Police Station Locations", color: "#3B82F6" },
+                    { label: "Hospital Locations", color: "#22C55E" },
+                  ].map(({ label, color }) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
+                      <span className="text-[10px] font-medium text-[var(--text-muted)]">✓ {label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* AI explanation */}
+              <SafarAIAnalysis route={route} compact />
+            </motion.div>
+          )}
+
+          {/* ── Ask AI Tab ── */}
+          {activeTab === "ask" && (
+            <motion.div
+              key="ask"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="flex-1 overflow-hidden"
+            >
+              <RouteAssistant
+                route={route}
+                allRoutes={allRoutes}
+                cityId={city}
+                departureHour={departureHour}
+              />
+            </motion.div>
+          )}
+
+          {/* ── Story Tab ── */}
+          {activeTab === "story" && (
+            <motion.div
+              key="story"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="flex-1 overflow-hidden"
+            >
+              {cp && cp.segments.length > 0 ? (
+                <SafetyStory
+                  profile={cp}
+                  open
+                  onClose={() => setActiveTab("intelligence")}
+                  onSegmentChange={setFocusSegIdx}
+                />
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+                  <BookOpen className="mb-3 h-8 w-8 text-[var(--text-dim)]" />
+                  <p className="text-[13px] font-semibold text-white">
+                    Safety Story unavailable
+                  </p>
+                  <p className="mt-1 text-[11px] text-[var(--text-dim)]">
+                    Corridor segment data not available for this route.
+                  </p>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Start trip CTA (not shown in story mode, story has own controls) */}
+      {activeTab !== "story" && (
+        <div className="shrink-0 border-t border-[var(--border-subtle)] p-4">
+          <Button
+            className="w-full gap-2 py-3 text-sm font-bold shadow-lg shadow-[#3B82F6]/20"
+            onClick={onStart}
+            disabled={starting}
+          >
+            <Navigation className="h-4 w-4" />
+            {starting ? t("routes.starting") : t("routes.startTrip")}
+          </Button>
         </div>
       )}
 
-      {/* AI explanation */}
-      <div className="flex-1 overflow-y-auto p-5">
-        <SafarAIAnalysis route={route} compact />
-      </div>
-
-      {/* Start trip CTA */}
-      <div className="border-t border-[var(--border-subtle)] p-4">
-        <Button
-          className="w-full gap-2 py-3 text-sm font-bold shadow-lg shadow-[#3B82F6]/20"
-          onClick={onStart}
-          disabled={starting}
-        >
-          <Navigation className="h-4 w-4" />
-          {starting ? t("routes.starting") : t("routes.startTrip")}
-        </Button>
-      </div>
+      {/* Hidden: store focusSegIdx for parent to pick up */}
+      <div data-focus-seg={focusSegIdx ?? ""} className="hidden" />
     </div>
   );
 }
@@ -411,6 +454,10 @@ export function RoutesPage() {
   } | null>(null);
   const [selected, setSelected] = useState<PlannedRoute | null>(null);
   const [starting, setStarting] = useState(false);
+  const [activeTab, setActiveTab] = useState<RightTab>("intelligence");
+  const [focusSegIdx, setFocusSegIdx] = useState<number | null>(null);
+  const [nearbyAlert, setNearbyAlert] = useState<SafetyReport | null>(null);
+  const alertDismissed = useRef<Set<string>>(new Set());
 
   const recommendation = useMemo(
     () =>
@@ -427,14 +474,9 @@ export function RoutesPage() {
     const cachedCity = sessionStorage.getItem("safar-routes-city");
     const cached = sessionStorage.getItem("safar-routes");
     const s = sessionStorage.getItem("safar-search");
-
     if (!cached || cachedCity !== city) {
-      setRoutes([]);
-      setSelected(null);
-      setSearch(null);
-      return;
+      setRoutes([]); setSelected(null); setSearch(null); return;
     }
-
     const parsed = JSON.parse(cached) as PlannedRoute[];
     setRoutes(parsed);
     const rec = recommendRoute(parsed, {
@@ -444,6 +486,32 @@ export function RoutesPage() {
     setSelected(rec?.route ?? parsed[0] ?? null);
     if (s) setSearch(JSON.parse(s));
   }, [city, profile?.women_safety_mode, profile?.night_safe_preference]);
+
+  // ── Realtime safety alert subscription ──
+  useEffect(() => {
+    if (!selected || IS_DEMO_MODE) return;
+    const routePoints = sampleRoutePoints(selected.geometry ?? undefined);
+    if (!routePoints.length) return;
+
+    const channel = reportsService.subscribe(city, async () => {
+      // Re-fetch latest reports and check proximity
+      try {
+        const latest = await reportsService.listByCity(city);
+        const recent = latest.filter(
+          (r) => Date.now() - new Date(r.created_at).getTime() < 5 * 60_000
+        );
+        for (const r of recent) {
+          if (alertDismissed.current.has(r.id)) continue;
+          if (isNearRoute(r.latitude, r.longitude, routePoints)) {
+            setNearbyAlert(r);
+            break;
+          }
+        }
+      } catch {}
+    });
+
+    return () => { void channel.unsubscribe(); };
+  }, [selected, city]);
 
   async function startTrip(route: PlannedRoute) {
     setStarting(true);
@@ -490,9 +558,7 @@ export function RoutesPage() {
           {search && (
             <p className="hidden truncate text-xs text-[var(--text-dim)] lg:block">
               <MapPin className="mr-1 inline h-3 w-3" />
-              {search.source}
-              <span className="mx-1.5">→</span>
-              {search.destination}
+              {search.source} → {search.destination}
             </p>
           )}
         </div>
@@ -508,21 +574,46 @@ export function RoutesPage() {
         </div>
       )}
 
-      {/* ── Three-column desktop layout ── */}
+      {/* Realtime alert */}
+      <AnimatePresence>
+        {nearbyAlert && (
+          <RouteAlert
+            report={nearbyAlert}
+            onDismiss={() => {
+              alertDismissed.current.add(nearbyAlert.id);
+              setNearbyAlert(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Three-column layout ── */}
       <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[296px_1fr_368px]">
 
         {/* LEFT — Route list */}
         <aside className="overflow-y-auto border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] lg:border-b-0 lg:border-r lg:border-[var(--border-subtle)]">
-          {/* Mobile: horizontal scroll, Desktop: vertical list */}
           <div className="flex gap-3 overflow-x-auto px-4 py-3 lg:flex-col lg:overflow-x-visible lg:px-3 lg:py-4">
-            {/* Page header (desktop only) */}
             <div className="hidden lg:block lg:px-1 lg:pb-3">
               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
                 {t("routes.eyebrow")}
               </p>
-              <h1 className="mt-1 text-[15px] font-bold text-white">
-                {t("routes.title")}
-              </h1>
+              <h1 className="mt-1 text-[15px] font-bold text-white">{t("routes.title")}</h1>
+              {recommendation && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const rec = routes.find((r) => r.route_type === recommendation.route.route_type);
+                    if (rec) setSelected(rec);
+                  }}
+                  className="mt-2 flex w-full items-center gap-2 rounded-xl border border-[#3B82F6]/30 bg-[#3B82F6]/08 px-3 py-2 text-left transition hover:border-[#3B82F6]/50"
+                >
+                  <Sparkles className="h-3.5 w-3.5 shrink-0 text-[#3B82F6]" />
+                  <div className="min-w-0">
+                    <p className="truncate text-[11px] font-bold text-white">AI Recommended</p>
+                    <p className="text-[10px] text-[var(--text-dim)]">{recommendation.reasons[0]}</p>
+                  </div>
+                </button>
+              )}
             </div>
 
             {routes.map((r) => (
@@ -530,36 +621,20 @@ export function RoutesPage() {
                 <RouteListCard
                   route={r}
                   isSelected={selected?.route_type === r.route_type}
-                  isRecommended={
-                    recommendation?.route.route_type === r.route_type
-                  }
-                  onClick={() => setSelected(r)}
+                  isRecommended={recommendation?.route.route_type === r.route_type}
+                  onClick={() => {
+                    setSelected(r);
+                    setFocusSegIdx(null);
+                  }}
                 />
               </div>
             ))}
-
-            {/* Mobile start button */}
-            {selected && (
-              <div className="hidden shrink-0 pt-1 lg:hidden">
-                <Button
-                  className="w-64 gap-2"
-                  onClick={() => startTrip(selected)}
-                  disabled={starting}
-                >
-                  <Navigation className="h-4 w-4" />
-                  {t("routes.startTrip")}
-                </Button>
-              </div>
-            )}
           </div>
 
-          {/* Women safety note */}
           {profile?.women_safety_mode &&
             recommendation?.route.route_type === selected?.route_type && (
               <div className="hidden border-t border-[var(--border-subtle)] px-4 py-3 lg:block">
-                <p className="text-[11px] text-[#F9A8D4]">
-                  {t("routes.womenMode")}
-                </p>
+                <p className="text-[11px] text-[#F9A8D4]">{t("routes.womenMode")}</p>
               </div>
             )}
         </aside>
@@ -585,26 +660,37 @@ export function RoutesPage() {
                   corridorProfile={selected.corridor_profile}
                   height="100%"
                   className="h-full rounded-none"
+                  focusSegmentIdx={focusSegIdx}
                 />
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* Route type overlay badge on map */}
+          {/* Route type overlay */}
           {selected && (
             <div className="absolute left-3 top-3 z-[500] flex items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg)]/90 px-3 py-2 backdrop-blur-md">
-              <Shield
-                className={cn("h-3.5 w-3.5", ROUTE_COLOR[selected.route_type].text)}
-              />
+              <Shield className={cn("h-3.5 w-3.5", ROUTE_COLOR[selected.route_type].text)} />
               <span className="text-xs font-bold text-white">
                 {t(routeTypeKey(selected.route_type))}
               </span>
             </div>
           )}
+
+          {/* View Story shortcut button on map */}
+          {selected?.corridor_profile?.segments?.length && (
+            <button
+              type="button"
+              onClick={() => setActiveTab("story")}
+              className="absolute bottom-4 left-4 z-[500] flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg)]/90 px-3 py-2 text-[11px] font-semibold text-white backdrop-blur-md transition hover:bg-[var(--bg-surface)]"
+            >
+              <BookOpen className="h-3.5 w-3.5 text-[#3B82F6]" />
+              Safety Story
+            </button>
+          )}
         </div>
 
-        {/* RIGHT — Intelligence panel */}
-        <aside className="intel-panel overflow-y-auto">
+        {/* RIGHT — Tabbed intelligence panel */}
+        <aside className="intel-panel overflow-hidden">
           <AnimatePresence mode="wait">
             {selected ? (
               <motion.div
@@ -617,8 +703,16 @@ export function RoutesPage() {
               >
                 <IntelligencePanel
                   route={selected}
+                  allRoutes={routes}
+                  cityId={city}
+                  departureHour={search?.departureHour}
                   starting={starting}
                   onStart={() => startTrip(selected)}
+                  activeTab={activeTab}
+                  setActiveTab={(tab) => {
+                    setActiveTab(tab);
+                    if (tab === "story") setFocusSegIdx(0);
+                  }}
                 />
               </motion.div>
             ) : (
@@ -632,13 +726,15 @@ export function RoutesPage() {
         </aside>
       </div>
 
-      {/* Mobile: score breakdown + AI analysis (below map) */}
+      {/* Mobile: score + AI below map */}
       {selected && (
         <div className="overflow-y-auto border-t border-[var(--border-subtle)] px-4 py-4 pb-24 lg:hidden">
-          <SafetyScoreBreakdown
-            score={selected.safety_score}
-            breakdown={selected.safety_breakdown}
-          />
+          {selected.safety_breakdown?.length > 0 && (
+            <SafetyScoreBreakdown
+              score={selected.safety_score}
+              breakdown={selected.safety_breakdown}
+            />
+          )}
           <div className="mt-4">
             <SafarAIAnalysis route={selected} />
           </div>

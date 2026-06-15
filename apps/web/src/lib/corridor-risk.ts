@@ -33,6 +33,10 @@ export type CorridorSegment = {
   /** Index into the route coordinate array where this segment starts */
   fromCoordIdx: number;
   toCoordIdx: number;
+  /** Midpoint latitude of this segment (for map zoom / timeline display) */
+  lat: number;
+  /** Midpoint longitude of this segment */
+  lng: number;
   riskLevel: SegmentRisk;
   reportCount: number;
   policeNearby: number;
@@ -329,6 +333,8 @@ export function buildCorridorProfile(
     segments.push({
       fromCoordIdx: from.coordIdx,
       toCoordIdx: to.coordIdx,
+      lat: segMidLat,
+      lng: segMidLng,
       riskLevel: segmentRisk(avgReports, avgPolice, avgHospital, inHotspot),
       reportCount: avgReports,
       policeNearby: avgPolice,
