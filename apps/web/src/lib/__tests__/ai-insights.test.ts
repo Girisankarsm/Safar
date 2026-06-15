@@ -10,7 +10,6 @@ function makeRoute(
 ): PlannedRoute {
   return {
     id: `route-${type}`,
-    city: "bangalore",
     route_type: type,
     safety_score: safety,
     reliability_score: 75,
@@ -26,8 +25,6 @@ function makeRoute(
       { factor: "route_characteristics", score: 75, weight_pct: 10, contribution: 8 },
     ],
     recommendations: ["Safe corridor"],
-    waypoints: [],
-    created_at: new Date().toISOString(),
   };
 }
 

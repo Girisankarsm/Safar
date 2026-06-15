@@ -4,7 +4,7 @@ import { getAuthErrorMessage } from "./auth-errors";
 import { authService } from "./auth.service";
 
 export function useAuth() {
-  const { session, profile, loading, setSession, setProfile, setLoading } = useAuthStore();
+  const { session, profile, loading, setSession, setProfile } = useAuthStore();
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { session: nextSession, user } = await authService.signIn(email, password);

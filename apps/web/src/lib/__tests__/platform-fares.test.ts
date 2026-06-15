@@ -9,7 +9,6 @@ import type { PlannedRoute } from "@/types/database";
 
 const mockRoute: PlannedRoute = {
   id: "test-route-1",
-  city: "bangalore",
   route_type: "balanced",
   safety_score: 72,
   reliability_score: 80,
@@ -25,8 +24,6 @@ const mockRoute: PlannedRoute = {
     { factor: "route_characteristics", score: 80, weight_pct: 10, contribution: 8 },
   ],
   recommendations: ["Safe corridor with good community data"],
-  waypoints: [],
-  created_at: new Date().toISOString(),
 };
 
 describe("comparePlatformBrands", () => {

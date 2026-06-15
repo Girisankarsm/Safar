@@ -58,7 +58,7 @@ export function TripPage() {
     let watchId: number | null = null;
 
     async function loadTrip() {
-      const { data, error: fetchError } = await tripsService.getById(id);
+      const { data, error: fetchError } = await tripsService.getById(id!);
       if (fetchError) {
         setError(fetchError.message);
         return;

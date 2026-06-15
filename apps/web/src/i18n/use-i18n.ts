@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { type Locale, translate } from "@/i18n/translations";
+import { translate } from "@/i18n/translations";
 import { useLanguageStore } from "@/stores/language.store";
 
 /** Subscribe to locale so the whole tree re-renders when language changes. */

@@ -5,7 +5,6 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/use-i18n";
 import { NATIONAL_HELPLINES } from "@/lib/helplines";
-import { getCityConfig } from "@/config/cities";
 import { formatWalkingDistance } from "@/lib/geo";
 import { contactsService } from "@/services/supabase/contacts.service";
 import { placesService } from "@/services/supabase/places.service";
@@ -20,10 +19,6 @@ type SpotSource =
   | { kind: "gps"; label: string; lat: number; lng: number }
   | null;
 
-function getCityCenter(city: Parameters<typeof getCityConfig>[0]) {
-  const c = getCityConfig(city);
-  return { lat: c.center_lat, lng: c.center_lng };
-}
 
 function requestLocation(timeoutMs = 12_000): Promise<{ lat: number; lng: number } | null> {
   return new Promise((resolve) => {

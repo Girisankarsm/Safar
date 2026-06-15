@@ -50,7 +50,7 @@ export function crimeRiskLabelHuman(label: string): string {
   return map[label] ?? label;
 }
 
-export function crimeExplanation(score: number, riskLabel: string): string {
+export function crimeExplanation(score: number, _riskLabel: string): string {
   if (score >= 70) {
     return "This route passes through areas with lower historical crime rates based on official NCRB data.";
   }
