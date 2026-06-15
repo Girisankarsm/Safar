@@ -14,10 +14,11 @@ import { debounce } from "@/lib/debounce-callback";
 import { useI18n } from "@/i18n/use-i18n";
 import { getCityConfig, CITY_LIST } from "@/config/cities";
 import { reportsService } from "@/services/supabase/reports.service";
+import { nominatimService } from "@/services/osm/nominatim.service";
 import { routesService } from "@/services/supabase/routes.service";
 import { useCityStore } from "@/stores/city.store";
 import { useSettingsStore } from "@/stores/settings.store";
-import { Map, Shield, Sparkles } from "lucide-react";
+import { Crosshair, Map, Shield, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -42,6 +43,7 @@ export function HomePage() {
   const [sourcePlace, setSourcePlace] = useState<SelectedPlace | null>(null);
   const [destinationPlace, setDestinationPlace] = useState<SelectedPlace | null>(null);
   const [loading, setLoading] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [error, setError] = useState("");
   const [activity, setActivity] = useState<ReturnType<typeof buildActivityFromReports>>([]);
   const [stats, setStats] = useState(computePlatformStats([], CITY_LIST.length));
@@ -136,6 +138,58 @@ export function HomePage() {
     }
   }
 
+  async function useMyLocation() {
+    if (!navigator.geolocation) {
+      setError("Geolocation is not supported by your browser.");
+      return;
+    }
+    setLocating(true);
+    setError("");
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        try {
+          const result = await nominatimService.reverseGeocode(latitude, longitude);
+          const label = result?.name ?? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+          setSource(label);
+          setSourcePlace({
+            name: label,
+            display_name: result?.display_name ?? label,
+            lat: latitude,
+            lng: longitude,
+            source: "nominatim",
+            label,
+          });
+        } catch {
+          // If reverse geocode fails, still use the coordinates
+          const label = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+          setSource(label);
+          setSourcePlace({
+            name: label,
+            display_name: label,
+            lat: latitude,
+            lng: longitude,
+            source: "nominatim",
+            label,
+          });
+        } finally {
+          setLocating(false);
+        }
+      },
+      (err) => {
+        setLocating(false);
+        if (err.code === err.PERMISSION_DENIED) {
+          setError("Location access denied. Please enable location permission in your browser.");
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          setError("Current location unavailable. Try again or enter manually.");
+        } else {
+          setError("Could not get your location. Please try again.");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 }
+    );
+  }
+
   return (
     <div className="mx-auto max-w-[1400px] safe-bottom px-4 py-4 md:space-y-8 md:px-8 md:py-6 lg:pb-8">
 
@@ -173,17 +227,40 @@ export function HomePage() {
           <Sparkles className="h-3 w-3 text-[#3B82F6] md:h-3.5 md:w-3.5" />
           {t("home.pickPlaces")}
         </div>
-        <LocationAutocomplete
-          key={`${city}-from`}
-          label={t("home.from")}
-          placeholder={`Search in ${getCityConfig(city).name}`}
-          cityId={city}
-          value={source}
-          selectedPlace={sourcePlace}
-          onValueChange={setSource}
-          onPlaceSelect={setSourcePlace}
-          disabled={loading}
-        />
+        {/* FROM field with "Use my location" button */}
+        <div className="relative">
+          <LocationAutocomplete
+            key={`${city}-from`}
+            label={t("home.from")}
+            placeholder={`Search in ${getCityConfig(city).name}`}
+            cityId={city}
+            value={source}
+            selectedPlace={sourcePlace}
+            onValueChange={setSource}
+            onPlaceSelect={setSourcePlace}
+            disabled={loading || locating}
+          />
+          {/* Current location button — sits in the top-right of the FROM label row */}
+          <button
+            type="button"
+            onClick={useMyLocation}
+            disabled={loading || locating}
+            title="Use my current location"
+            className="absolute right-0 top-0 flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-semibold text-[#3B82F6] transition hover:bg-[#3B82F6]/10 disabled:opacity-50 md:text-xs"
+          >
+            {locating ? (
+              <>
+                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[#3B82F6]/30 border-t-[#3B82F6]" />
+                Locating…
+              </>
+            ) : (
+              <>
+                <Crosshair className="h-3 w-3 md:h-3.5 md:w-3.5" />
+                My Location
+              </>
+            )}
+          </button>
+        </div>
         <LocationAutocomplete
           key={`${city}-to`}
           label={t("home.to")}

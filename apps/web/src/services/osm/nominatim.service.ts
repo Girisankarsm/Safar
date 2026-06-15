@@ -193,6 +193,35 @@ export const nominatimService = {
     return result;
   },
 
+  /**
+   * Reverse geocode a lat/lng coordinate into a human-readable place name.
+   * Used for "Use my current location" — converts GPS coords to a named place.
+   */
+  async reverseGeocode(lat: number, lng: number): Promise<{ name: string; display_name: string } | null> {
+    try {
+      const base = NOMINATIM_URL ?? "https://nominatim.openstreetmap.org";
+      const url = `${base}/reverse?lat=${lat}&lon=${lng}&format=jsonv2&addressdetails=1&zoom=16`;
+      const res = await fetch(url, { headers: NOMINATIM_HEADERS });
+      if (!res.ok) return null;
+      const hit = await res.json();
+      if (!hit?.lat) return null;
+
+      // Build a short, human-readable label
+      const addr = hit.address ?? {};
+      const parts = [
+        hit.name,
+        addr.road ?? addr.pedestrian,
+        addr.suburb ?? addr.neighbourhood ?? addr.quarter,
+        addr.city ?? addr.town ?? addr.village,
+      ].filter(Boolean);
+
+      const shortName = parts.slice(0, 2).join(", ") || hit.display_name;
+      return { name: shortName, display_name: hit.display_name };
+    } catch {
+      return null;
+    }
+  },
+
   async autocomplete(
     query: string,
     cityId: CityId,
