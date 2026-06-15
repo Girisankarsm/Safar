@@ -74,6 +74,10 @@ export type CorridorProfile = {
   policeNames: string[];
   /** Unique OSM IDs of hospitals found along corridor */
   hospitalNames: string[];
+  /** Full location data for police stations — used for map pins */
+  policeStations: Array<{ name: string; lat: number; lng: number }>;
+  /** Full location data for hospitals — used for map pins */
+  hospitals: Array<{ name: string; lat: number; lng: number }>;
 };
 
 /* ─────────────────────────── sampling ───────────────────────────────── */
@@ -317,14 +321,16 @@ export function buildCorridorProfile(
       ? samples
       : sampleLineString(geometry, 8).map((s, i) => ({ ...s, coordIdx: i }));
 
-  // Gather all police/hospital within corridor
+  // Gather all police/hospital within corridor — collect names AND coordinates
   const seenPolice = new Set<number>();
   const seenHospital = new Set<number>();
   const policeNames: string[] = [];
   const hospitalNames: string[] = [];
+  const policeStations: Array<{ name: string; lat: number; lng: number }> = [];
+  const hospitals: Array<{ name: string; lat: number; lng: number }> = [];
 
   const perSample = effectiveSamples.map((sample) => {
-    const { police, hospitals } = countPlacesNearPoint(
+    const { police, hospitals: nearHospitals } = countPlacesNearPoint(
       osmPlaces,
       sample.lat,
       sample.lng,
@@ -334,19 +340,21 @@ export function buildCorridorProfile(
       if (!seenPolice.has(p.osm_id)) {
         seenPolice.add(p.osm_id);
         policeNames.push(p.name);
+        policeStations.push({ name: p.name, lat: p.latitude, lng: p.longitude });
       }
     });
-    hospitals.forEach((h) => {
+    nearHospitals.forEach((h) => {
       if (!seenHospital.has(h.osm_id)) {
         seenHospital.add(h.osm_id);
         hospitalNames.push(h.name);
+        hospitals.push({ name: h.name, lat: h.latitude, lng: h.longitude });
       }
     });
     const rptCount = countReportsNearPoint(reports, sample.lat, sample.lng);
     return {
       coordIdx: sample.coordIdx,
       policeCount: police.length,
-      hospitalCount: hospitals.length,
+      hospitalCount: nearHospitals.length,
       reportCount: rptCount,
     };
   });
@@ -459,8 +467,10 @@ export function buildCorridorProfile(
     lightingScore,
     confidenceScore,
     dominantRisk,
-    policeNames: policeNames.slice(0, 4),
-    hospitalNames: hospitalNames.slice(0, 4),
+    policeNames: policeNames.slice(0, 6),
+    hospitalNames: hospitalNames.slice(0, 6),
+    policeStations: policeStations.slice(0, 6),
+    hospitals: hospitals.slice(0, 6),
   };
 }
 

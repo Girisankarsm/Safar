@@ -111,7 +111,7 @@ describe("generateAIInsights", () => {
         reportCount: 1,
         hotspots: [],
         segments: [
-          { fromCoordIdx: 0, toCoordIdx: 1, riskLevel: "safe" as const, reportCount: 0, policeNearby: 2, hospitalNearby: 1 },
+          { fromCoordIdx: 0, toCoordIdx: 1, riskLevel: "safe" as const, reportCount: 0, policeNearby: 2, hospitalNearby: 1, lat: 12.934, lng: 77.614 },
         ],
         policeCoverage: 1,
         hospitalCoverage: 1,
@@ -122,6 +122,11 @@ describe("generateAIInsights", () => {
         dominantRisk: "safe" as const,
         policeNames: ["Koramangala Police Station"],
         hospitalNames: ["Apollo Hospital", "St. Martha's Hospital"],
+        policeStations: [{ name: "Koramangala Police Station", lat: 12.934, lng: 77.614 }],
+        hospitals: [
+          { name: "Apollo Hospital", lat: 12.936, lng: 77.616 },
+          { name: "St. Martha's Hospital", lat: 12.938, lng: 77.618 },
+        ],
       },
     };
     const insights = generateAIInsights(routeWithProfile);

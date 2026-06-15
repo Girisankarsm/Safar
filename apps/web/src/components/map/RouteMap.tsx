@@ -39,6 +39,25 @@ function hotspotIcon(riskLevel: string): L.DivIcon {
   });
 }
 
+function poiIcon(type: "hospital" | "police"): L.DivIcon {
+  const isHospital = type === "hospital";
+  const bg    = isHospital ? "#06B6D4" : "#3B82F6";   // cyan for hospital, blue for police
+  const label = isHospital ? "H" : "P";
+  return L.divIcon({
+    className: "",
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
+    popupAnchor: [0, -14],
+    html: `<div style="
+      width:26px;height:26px;border-radius:50%;
+      background:${bg};border:2.5px solid white;
+      box-shadow:0 2px 6px rgba(0,0,0,0.5);
+      display:flex;align-items:center;justify-content:center;
+      font-size:11px;color:white;font-weight:800;letter-spacing:-0.5px;
+    ">${label}</div>`,
+  });
+}
+
 function drawSegmentedRoute(
   map: L.Map,
   geometry: GeoJSON.LineString,
@@ -197,6 +216,20 @@ export function RouteMap({
             )
             .addTo(map);
         }
+
+        // ── Hospital pins (cyan H) ──────────────────────────────────────
+        for (const h of corridorProfile.hospitals ?? []) {
+          L.marker([h.lat, h.lng], { icon: poiIcon("hospital"), zIndexOffset: 200 })
+            .bindPopup(`<b>🏥 ${h.name}</b><br/><span style="color:#06B6D4">Hospital on corridor</span>`)
+            .addTo(map);
+        }
+
+        // ── Police station pins (blue P) ────────────────────────────────
+        for (const p of corridorProfile.policeStations ?? []) {
+          L.marker([p.lat, p.lng], { icon: poiIcon("police"), zIndexOffset: 200 })
+            .bindPopup(`<b>🚔 ${p.name}</b><br/><span style="color:#3B82F6">Police station on corridor</span>`)
+            .addTo(map);
+        }
       } else {
         // Plain road route — colored by route type
         L.polyline(latlngs, {
@@ -206,6 +239,18 @@ export function RouteMap({
         })
           .bindPopup("Road route")
           .addTo(map);
+
+        // Still render POI pins even without corridor segments
+        for (const h of corridorProfile?.hospitals ?? []) {
+          L.marker([h.lat, h.lng], { icon: poiIcon("hospital"), zIndexOffset: 200 })
+            .bindPopup(`<b>🏥 ${h.name}</b><br/><span style="color:#06B6D4">Hospital on corridor</span>`)
+            .addTo(map);
+        }
+        for (const p of corridorProfile?.policeStations ?? []) {
+          L.marker([p.lat, p.lng], { icon: poiIcon("police"), zIndexOffset: 200 })
+            .bindPopup(`<b>🚔 ${p.name}</b><br/><span style="color:#3B82F6">Police station on corridor</span>`)
+            .addTo(map);
+        }
       }
     }
 
@@ -221,8 +266,10 @@ export function RouteMap({
     map.setView([seg.lat, seg.lng], 16, { animate: true });
   }, [focusSegmentIdx, corridorProfile]);
 
-  const hasSegments = !estimate && corridorProfile?.segments?.length;
-  const hasHotspots = (corridorProfile?.hotspots?.length ?? 0) > 0;
+  const hasSegments   = !estimate && corridorProfile?.segments?.length;
+  const hasHotspots   = (corridorProfile?.hotspots?.length ?? 0) > 0;
+  const hasHospitals  = (corridorProfile?.hospitals?.length ?? 0) > 0;
+  const hasPolice     = (corridorProfile?.policeStations?.length ?? 0) > 0;
 
   return (
     <div className={`relative${className ? ` ${className}` : ""}`}>
@@ -244,6 +291,16 @@ export function RouteMap({
             {hasHotspots && (
               <span className="rounded-md bg-black/80 px-2 py-1 text-[#FBBF24]">
                 ! Hotspot
+              </span>
+            )}
+            {hasHospitals && (
+              <span className="rounded-md bg-black/80 px-2 py-1 text-[#06B6D4]">
+                H Hospital
+              </span>
+            )}
+            {hasPolice && (
+              <span className="rounded-md bg-black/80 px-2 py-1 text-[#3B82F6]">
+                P Police
               </span>
             )}
           </>
