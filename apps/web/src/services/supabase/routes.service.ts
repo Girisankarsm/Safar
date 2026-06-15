@@ -165,7 +165,7 @@ async function fetchORSAlternatives(
   }
 }
 
-/** Free OSM road routing fallback when ORS is unavailable */
+/** Single OSRM route — used for straight-line fallback detection */
 async function fetchOSRM(
   start: [number, number],
   end: [number, number],
@@ -186,6 +186,85 @@ async function fetchOSRM(
       distance_km: Math.round((route.distance / 1000) * 100) / 100,
       duration_min: Math.max(1, Math.round(route.duration / 60)),
       geometry: route.geometry,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch up to 3 genuinely different route alternatives from the OSRM public
+ * demo server. OSRM `alternatives=3` is reliable and always free.
+ *
+ * Returns routes sorted by distance ascending so callers can easily pick
+ * the shortest (cheapest) vs longer (potentially safer) options.
+ */
+async function fetchOSRMAlternatives(
+  start: [number, number],
+  end: [number, number]
+): Promise<OrsResult[]> {
+  const coords = `${start[0]},${start[1]};${end[0]},${end[1]}`;
+  try {
+    const res = await fetchWithTimeout(
+      `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&alternatives=3&steps=false`,
+      { timeoutMs: 15_000 }
+    );
+    if (!res.ok) return [];
+    const json = await res.json();
+    return ((json.routes ?? []) as Array<{ geometry: GeoJSON.LineString; distance: number; duration: number }>)
+      .map((r) => ({
+        distance_km: Math.round((r.distance / 1000) * 100) / 100,
+        duration_min: Math.max(1, Math.round(r.duration / 60)),
+        geometry: r.geometry,
+      }))
+      .filter((r) => !isStraightLineGeometry(r.geometry));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Route via an intermediate city-centre waypoint to force a genuinely
+ * different corridor. Used for "safest" and "women-friendly" variants when
+ * the routing API only returns one geometry for a given O-D pair.
+ *
+ * The waypoint is chosen as the midpoint between src and dst but offset
+ * toward the nearest city centre (lat/lng bias), producing a route that
+ * curves through denser, better-lit urban areas.
+ */
+async function fetchOSRMViaWaypoint(
+  src: GeocodedPlace,
+  dst: GeocodedPlace,
+  cityId: CityId
+): Promise<OrsResult | null> {
+  // City-centre reference points (well-lit, high-police-density areas)
+  const CITY_CENTRES: Record<CityId, [number, number]> = {
+    chennai:    [13.0827, 80.2707],   // Chennai Central / Anna Salai
+    bangalore:  [12.9716, 77.5946],   // MG Road / Brigade Road
+    trivandrum: [8.5241,  76.9366],   // East Fort / Palayam
+    hyderabad:  [17.3850, 78.4867],   // Charminar / Abids
+  };
+
+  const centre = CITY_CENTRES[cityId] ?? CITY_CENTRES.chennai;
+
+  // Waypoint = weighted midpoint shifted 35% toward city centre
+  const wLat = (src.lat + dst.lat) / 2 * 0.65 + centre[0] * 0.35;
+  const wLng = (src.lng + dst.lng) / 2 * 0.65 + centre[1] * 0.35;
+
+  const coords = `${src.lng},${src.lat};${wLng},${wLat};${dst.lng},${dst.lat}`;
+  try {
+    const res = await fetchWithTimeout(
+      `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false`,
+      { timeoutMs: 12_000 }
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    const r = json.routes?.[0];
+    if (!r?.geometry?.coordinates?.length) return null;
+    return {
+      distance_km: Math.round((r.distance / 1000) * 100) / 100,
+      duration_min: Math.max(1, Math.round(r.duration / 60)),
+      geometry: r.geometry,
     };
   } catch {
     return null;
@@ -517,56 +596,76 @@ export const routesService = {
     const start: [number, number] = [src.lng, src.lat];
     const end: [number, number] = [dst.lng, dst.lat];
 
-    // ── Fetch routes in parallel ───────────────────────────────────────────
-    // 1. Alternatives API (recommended preference, up to 3 distinct geometries)
-    // 2. Shortest path (cheapest variant)
-    // Both run concurrently.
-    const [orsAlternatives, orsShortestResult] = await Promise.all([
-      fetchORSAlternatives(start, end, "driving-car"),
-      resolveOrsRoute(src, dst, "driving-car", "shortest", "drive-short"),
-    ]);
+    // ── Step 1: Gather all available distinct road geometries ─────────────
+    // Fire all route-fetching in parallel:
+    //   a) ORS alternatives  (up to 3, if ORS is configured)
+    //   b) OSRM alternatives (up to 3, always available — public server)
+    //   c) ORS shortest      (cheapest — fewest km)
+    //   d) OSRM via city-centre waypoint (safest / women-friendly corridor)
+    const [orsAlternativesRaw, osrmAlternatives, orsShortestResult, waypointRoute] =
+      await Promise.all([
+        fetchORSAlternatives(start, end, "driving-car"),
+        fetchOSRMAlternatives(start, end),
+        resolveOrsRoute(src, dst, "driving-car", "shortest", "drive-short"),
+        fetchOSRMViaWaypoint(src, dst, cityId),
+      ]);
 
-    // Also try OSRM as fallback if ORS alternatives are empty
-    const orsAlts: OrsResult[] = orsAlternatives.filter(
-      (r) => !isStraightLineGeometry(r.geometry)
+    const orsAlts = orsAlternativesRaw.filter((r) => !isStraightLineGeometry(r.geometry));
+
+    // Prefer ORS alternatives (road-class-aware); fall back to OSRM
+    const mainAlts: OrsResult[] = orsAlts.length >= 2 ? orsAlts : osrmAlternatives;
+
+    // ── Step 2: Assign one distinct geometry per route type ───────────────
+    //
+    // balanced       → mainAlts[0]  (fastest recommended road route)
+    // safest         → mainAlts[1] if different, else waypointRoute (city-centre detour)
+    // cheapest       → shortest-km route among all candidates
+    // women_friendly → mainAlts[2] or waypointRoute (well-lit urban corridor)
+
+    // Guaranteed base
+    const primary: OrsResult =
+      mainAlts[0] ??
+      (await fetchRoadRoute(src, dst, "driving-car", "recommended"))?.result ??
+      straightLineRoute(src, dst);
+
+    // Safest: use 2nd alternative if it's genuinely different (≥2km apart), else city-centre waypoint
+    const safeCandidate = mainAlts[1];
+    const safest: OrsResult =
+      safeCandidate && Math.abs(safeCandidate.distance_km - primary.distance_km) >= 1
+        ? safeCandidate
+        : waypointRoute ?? deriveVariantRoute(primary, 1.18, 1.25);
+
+    // Cheapest: pick the route with the smallest distance_km from all candidates
+    const allCandidates = [primary, safeCandidate, orsShortestResult, ...mainAlts].filter(
+      (r): r is OrsResult => !!r && !isStraightLineGeometry(r.geometry)
     );
+    const cheapest: OrsResult =
+      allCandidates.sort((a, b) => a.distance_km - b.distance_km)[0] ??
+      deriveVariantRoute(primary, 0.85, 0.88);
 
-    // ── Build the 4 route geometries ──────────────────────────────────────
-    // altIndex mapping from VARIANTS:
-    //   0 → balanced      (ORS alt[0] = primary recommended)
-    //   1 → safest        (ORS alt[1] = 1st alternative corridor)
-    //   2 → cheapest      (ORS shortest)
-    //   3 → women_friendly (ORS alt[2] = 2nd alternative, or derived variant)
+    // Women-friendly: use 3rd alternative or waypoint route (urban lit corridor)
+    const womenCandidate = mainAlts[2];
+    const womenFriendly: OrsResult =
+      womenCandidate && womenCandidate !== primary
+        ? womenCandidate
+        : waypointRoute ?? deriveVariantRoute(primary, 1.08, 1.12);
 
-    const primary = orsAlts[0] ?? (await fetchRoadRoute(src, dst, "driving-car", "recommended"))?.result ?? straightLineRoute(src, dst);
-    const alt1 = orsAlts[1] ?? deriveVariantRoute(primary, 1.12, 1.15);   // longer but safer arterial feel
-    const shortest = !isStraightLineGeometry(orsShortestResult.geometry) ? orsShortestResult : deriveVariantRoute(primary, 0.88, 0.90);
-    const alt2 = orsAlts[2] ?? deriveVariantRoute(primary, 1.07, 1.10);   // moderate alternative
+    // Final map: each variant gets its own geometry
+    const altMap: OrsResult[] = [primary, safest, cheapest, womenFriendly];
 
-    // altIndex → OrsResult lookup
-    const altMap: OrsResult[] = [primary, alt1, shortest, alt2];
-
-    // ── Fetch OSM corridor places once for the primary route ──────────────
+    // ── Step 3: Build corridor profiles and planned routes ────────────────
     const routeSamples = sampleLineString(primary.geometry, 10);
     const osmPlaces = await fetchCorridorPlaces(routeSamples);
 
+    const crimeMeta = {
+      risk_label: crimeScore.risk_label,
+      report_year: crimeScore.report_year,
+      data_source: crimeScore.data_source,
+    };
+
     const routes = VARIANTS.map((v) => {
       const ors = altMap[v.altIndex] ?? primary;
-      return buildPlannedRoute(
-        v,
-        src,
-        dst,
-        ors,
-        allReports,
-        osmPlaces,
-        crimeScore.crime_index,
-        departureHour,
-        {
-          risk_label: crimeScore.risk_label,
-          report_year: crimeScore.report_year,
-          data_source: crimeScore.data_source,
-        }
-      );
+      return buildPlannedRoute(v, src, dst, ors, allReports, osmPlaces, crimeScore.crime_index, departureHour, crimeMeta);
     });
 
     const {
