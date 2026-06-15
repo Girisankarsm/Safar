@@ -9,7 +9,7 @@ import type { CorridorProfile } from "@/lib/corridor-risk";
 import { decayWeight } from "@/lib/report-decay";
 import { supabase } from "@/lib/supabase/client";
 import { nominatimService, type GeocodedPlace } from "@/services/osm/nominatim.service";
-import { fetchEmergencyPlacesNear } from "@/services/osm/overpass.service";
+import { fetchEmergencyPlacesAlongCorridor } from "@/services/osm/overpass.service";
 import { crimeService } from "@/services/supabase/crime.service";
 import { reportsService } from "@/services/supabase/reports.service";
 import { routeCacheService } from "@/services/supabase/route-cache.service";
@@ -661,23 +661,23 @@ function selectBestGeometry(
   });
 }
 
-/** Fetch OSM emergency places covering the full route corridor in one call */
+/**
+ * Fetch OSM emergency POIs along the full route corridor.
+ *
+ * Uses a corridor-buffer query (Overpass `around:radius,lat0,lng0,lat1,lng1,...`)
+ * instead of a centroid circle — this guarantees hospitals, police stations, and
+ * other facilities near the ACTUAL road are found, not just those near the
+ * geometric center of the route.
+ *
+ * Buffer radius: 600 m per sample point (wider than corridor-risk's 500 m
+ * buffer to pre-fetch anything that might be counted as "nearby").
+ */
 async function fetchCorridorPlaces(
   samples: { lat: number; lng: number }[]
 ): Promise<import("@/services/osm/overpass.service").OverpassPlace[]> {
   if (!samples.length) return [];
-
-  // Find centroid and max radius to cover the whole corridor in one Overpass call
-  const centLat = samples.reduce((s, p) => s + p.lat, 0) / samples.length;
-  const centLng = samples.reduce((s, p) => s + p.lng, 0) / samples.length;
-  const maxDist = samples.reduce(
-    (max, p) => Math.max(max, haversineM(centLat, centLng, p.lat, p.lng)),
-    0
-  );
-  const radiusM = Math.min(8000, Math.max(600, Math.round(maxDist + 600)));
-
   try {
-    return await fetchEmergencyPlacesNear(centLat, centLng, radiusM, 10_000);
+    return await fetchEmergencyPlacesAlongCorridor(samples, 600, 18_000);
   } catch {
     return [];
   }
@@ -848,7 +848,8 @@ export const routesService = {
     }, []);
 
     // ── Step 3: Fetch OSM corridor places once (covers full O-D bounding box) ─
-    const routeSamples = sampleLineString(pool[0].geometry, 12);
+    // 15 samples gives a point every ~460 m for a 7 km route — enough corridor coverage
+    const routeSamples = sampleLineString(pool[0].geometry, 15);
     const osmPlaces    = await fetchCorridorPlaces(routeSamples);
     const sampleCount  = routeSamples.length;
 
