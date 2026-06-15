@@ -32,7 +32,7 @@ export function AIRouteRecommendation({
       <div className="flex flex-wrap items-center gap-2">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-[#3B82F6] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-white">
           <Sparkles className="h-3 w-3" />
-          AI Recommended
+          Safar Pick
         </span>
         <span className="text-sm font-bold text-white">
           {ROUTE_LABELS[route.route_type] ?? route.route_type}
@@ -41,7 +41,7 @@ export function AIRouteRecommendation({
       </div>
 
       <p className="mt-3 text-sm text-[#A1A1AA]">
-        Safar AI selected this route based on safety, travel time, cost, and your preferences.
+        Safar selected this route based on safety, travel time, cost, and your preferences.
       </p>
 
       <ul className="mt-3 space-y-1.5">

@@ -203,9 +203,9 @@ export function SafarAIAnalysis({ route, compact = false }: { route: PlannedRout
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-widest text-[#3B82F6]">
-              Safar AI Analysis
+              Safety Analysis
             </p>
-            <p className="text-sm font-semibold text-white">Intelligence summary for this corridor</p>
+            <p className="text-sm font-semibold text-white">Corridor intelligence summary</p>
           </div>
           {/* Data source badges */}
           <div className="flex flex-wrap gap-1.5">
@@ -293,10 +293,10 @@ export function SafarAIAnalysis({ route, compact = false }: { route: PlannedRout
           ))}
         </div>
 
-        {/* AI highlights */}
+        {/* Key highlights */}
         <div className="rounded-xl border border-[var(--border-subtle)] p-3">
           <p className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-[#71717A]">
-            <MapPin className="h-3 w-3" /> AI Highlights
+            <MapPin className="h-3 w-3" /> Key Highlights
           </p>
           <ul className="space-y-1.5">
             {insights.highlights.map((h) => (

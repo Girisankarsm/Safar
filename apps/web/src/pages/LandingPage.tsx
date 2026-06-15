@@ -55,7 +55,7 @@ const METRICS = IS_DEMO_MODE
   : { safeTrips: 1200, communityReports: 48, citiesCovered: CITY_LIST.length, emergencyResponses: 86 };
 
 const FEATURES = [
-  { icon: Route,  title: "AI Route Intelligence",  description: "Corridor-level safety scores across 4 route types with police, hospital, and NCRB crime data.", color: "#3B82F6" },
+  { icon: Route,  title: "Route Safety Intelligence",  description: "Corridor-level safety scores across 4 route types with police, hospital, and NCRB crime data.", color: "#3B82F6" },
   { icon: MapPin, title: "Community Heatmap",       description: "Live safety reports from real commuters — vote, verify, and shape city-wide intelligence.",           color: "#22C55E" },
   { icon: Siren,  title: "Emergency Shield",        description: "One-tap SOS, WhatsApp alerts, nearest police & hospitals, and women's helplines at your fingertips.", color: "#EF4444" },
   { icon: Users,  title: "Live Trip Sharing",       description: "Share your journey with family via a public link — no login required for viewers.",                   color: "#EC4899" },
@@ -63,7 +63,7 @@ const FEATURES = [
 
 const STEPS = [
   { step: "01", icon: Route,      title: "Search your route",       body: "Pick from & to with city-biased autocomplete powered by OpenStreetMap." },
-  { step: "02", icon: Shield,     title: "Compare with Safar AI",   body: "Review safety scores, AI insights, and the recommended corridor for your trip." },
+  { step: "02", icon: Shield,     title: "Analyse with Safar",      body: "Review safety scores, corridor insights, and the recommended route for your trip." },
   { step: "03", icon: Navigation, title: "Travel & contribute",     body: "Start live tracking, share your trip, and flag safety issues to help others." },
 ];
 
@@ -73,7 +73,7 @@ const LIVE_NOTIFS = [
   { icon: MapPin,       color: "#3B82F6", title: "Police station nearby",  body: "320m — Arumbakkam PS"        },
   { icon: Users,        color: "#F59E0B", title: "Community report",       body: "Poor lighting at junction"   },
   { icon: Activity,     color: "#22C55E", title: "Hospital 700m away",     body: "Sri Ramachandra Medical"     },
-  { icon: Sparkles,     color: "#A78BFA", title: "Route confidence 92%",   body: "Safar AI verified"           },
+  { icon: Sparkles,     color: "#A78BFA", title: "Route confidence 92%",   body: "Safar verified"              },
   { icon: Siren,        color: "#EF4444", title: "Night travel advisory",  body: "2 active hotspots detected"  },
 ];
 
@@ -431,7 +431,7 @@ function AppMockup({ rotX, rotY }: { rotX: ReturnType<typeof useSpring>; rotY: R
               <span className="shrink-0 text-[10px] text-[#71717A]">14 min</span>
             </motion.div>
 
-            {/* Safar AI badge */}
+            {/* Safar badge */}
             <motion.div
               initial={reduced ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -439,7 +439,7 @@ function AppMockup({ rotX, rotY }: { rotX: ReturnType<typeof useSpring>; rotY: R
               className="mt-2 flex items-center gap-1.5 rounded-xl bg-[#3B82F6]/06 px-3 py-1.5"
             >
               <Sparkles className="h-3 w-3 text-[#3B82F6]" />
-              <p className="text-[10px] font-semibold text-[#93C5FD]">Safar AI recommends this route</p>
+              <p className="text-[10px] font-semibold text-[#93C5FD]">Safar recommends this route</p>
             </motion.div>
           </div>
         </motion.div>
@@ -791,7 +791,7 @@ function CommandCenter() {
           <Activity className="h-3.5 w-3.5 text-[#3B82F6]" />
           <div>
             <p className="text-[9px] font-semibold text-[#71717A]">Powered by</p>
-            <p className="text-[10px] font-bold text-white">Safar AI</p>
+            <p className="text-[10px] font-bold text-white">Safar</p>
           </div>
         </motion.div>
 
@@ -1092,7 +1092,7 @@ export function LandingPage() {
               transition={{ delay: 0.48, duration: 0.48 }}
               className="mt-6 max-w-md text-[15px] leading-relaxed text-[#A1A1AA]"
             >
-              Safer routes, AI safety analysis, community heatmaps, and emergency tools —
+              Safer routes, smart safety analysis, community heatmaps, and emergency tools —
               built for Indian commuters with real NCRB data.
             </motion.p>
 
@@ -1258,12 +1258,12 @@ export function LandingPage() {
               <motion.p initial={reduced ? false : { opacity: 0, y: 6 }} whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }} transition={{ delay: 0.22 }}
                 className="mt-4 text-sm leading-relaxed text-[#71717A]">
-                A unified dashboard for route planning, AI safety analysis, community heatmaps,
+                A unified dashboard for route planning, safety analysis, community heatmaps,
                 live trip tracking, and emergency response.
               </motion.p>
               <ul className="mt-6 space-y-3">
                 {[
-                  "Safar AI route recommendations with confidence scoring",
+                  "Safar route recommendations with confidence scoring",
                   "Realtime community reports & verified safety zones",
                   "One-tap SOS with WhatsApp emergency alerts",
                 ].map((item, i) => (

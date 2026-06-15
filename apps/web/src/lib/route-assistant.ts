@@ -1,5 +1,5 @@
 /**
- * Safar AI Route Assistant — structured explanation engine.
+ * Safar Route Assistant — structured explanation engine.
  * Generates answers entirely from existing corridor intelligence.
  * No external LLM required.
  */
@@ -235,7 +235,7 @@ export function answerQuestion(
       return {
         intent,
         headline: `Why Safar selected this route`,
-        body: `Safar AI weighs safety (60%), efficiency (25%), and cost (15%). ${route.recommendations?.[0] ?? "This route scored best across all weighted criteria."}`,
+        body: `Safar weighs safety (60%), efficiency (25%), and cost (15%). ${route.recommendations?.[0] ?? "This route scored best across all weighted criteria."}`,
         points: pts,
         confidence: cp?.confidenceScore,
       };

@@ -51,7 +51,7 @@ const en: Dict = {
   "routes.transfers": "{n} transfers",
   "routes.staleCache": "Showing an estimated direct path. Go to Dashboard and search your route again to load real road paths.",
   "routes.dashboard": "Dashboard",
-  "routes.womenMode": "Women Safety Mode is on — AI recommendations prioritize well-lit, women-friendly corridors.",
+  "routes.womenMode": "Women Safety Mode is on — Safar prioritizes well-lit, women-friendly corridors.",
   "routes.platformCompare": "Ride-hailing fare & safety comparison",
   "routes.platformCompareDesc": "Select a vehicle type above — all platforms show fares for that vehicle on your route.",
   "compare.selectVehicleType": "Select vehicle type",

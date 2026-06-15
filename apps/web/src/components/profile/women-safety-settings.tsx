@@ -37,11 +37,11 @@ export function WomenSafetySettings() {
               Women Safety Mode
             </p>
             <p className="mt-1 text-xs text-[#A1A1AA]">
-              Prioritize women-friendly routes, highlight helplines, and apply extra safety weighting in AI recommendations.
+              Prioritize women-friendly routes, highlight helplines, and apply extra safety weighting in route scoring.
             </p>
             {womenMode && (
               <p className="mt-2 text-xs font-semibold text-[#EC4899]">
-                Active — Safar AI will favor safer, well-lit corridors
+                Active — Safar will prioritise safer, well-lit corridors
               </p>
             )}
           </div>

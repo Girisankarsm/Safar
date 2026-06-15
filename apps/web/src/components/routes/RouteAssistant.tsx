@@ -140,7 +140,7 @@ export function RouteAssistant({
             <Bot className="h-3.5 w-3.5 text-[#3B82F6]" />
           </div>
           <div>
-            <p className="text-[12px] font-bold text-white">Safar AI Assistant</p>
+            <p className="text-[12px] font-bold text-white">Safar Route Assistant</p>
             <p className="text-[10px] text-[var(--text-dim)]">
               Answers from corridor intelligence
             </p>

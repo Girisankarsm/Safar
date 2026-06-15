@@ -225,7 +225,7 @@ export function generateAIInsights(route: PlannedRoute): AIInsight {
   /* ── Summary ── */
   const summary =
     riskLevel === "Low"
-      ? `Safar AI rates this ${routeLabel(route.route_type)} as a strong choice with ${safetyConfidence}% confidence. ${corridorExplanation}`
+      ? `Safar rates this ${routeLabel(route.route_type)} as a strong choice with ${safetyConfidence}% confidence. ${corridorExplanation}`
       : riskLevel === "Moderate"
         ? `This route is viable with moderate risk. ${corridorExplanation}`
         : `Exercise caution on this corridor. ${corridorExplanation}`;
