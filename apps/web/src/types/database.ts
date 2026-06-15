@@ -108,6 +108,12 @@ export interface PlannedRoute {
   recommendations: string[];
   /** Corridor-level safety intelligence — populated during route scoring */
   corridor_profile?: import("@/lib/corridor-risk").CorridorProfile;
+  /** Data confidence: how much real-world data backs this score */
+  confidence?: { label: "Low" | "Medium" | "High"; pct: number };
+  /** Women-specific safety score (35% harassment, 20% lighting, 15% police…) */
+  women_safety_score?: number;
+  /** Composite optimization score used for geometry selection (not displayed) */
+  optimization_score?: number;
 }
 
 export interface SafetyBreakdownItem {
