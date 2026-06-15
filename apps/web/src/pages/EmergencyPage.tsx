@@ -11,9 +11,14 @@ import { contactsService } from "@/services/supabase/contacts.service";
 import { placesService } from "@/services/supabase/places.service";
 import { tripsService } from "@/services/supabase/trips.service";
 import { useCityStore } from "@/stores/city.store";
-import type { EmergencyContact, SafeWaitingSpot } from "@/types/database";
-import { Heart, MapPin, MessageCircle, Phone, Plus, Siren, Trash2, UserPlus } from "lucide-react";
+import type { EmergencyContact, PlannedRoute, SafeWaitingSpot } from "@/types/database";
+import { Heart, Locate, MapPin, MessageCircle, Navigation, Phone, Plus, Siren, Trash2, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+
+type SpotSource =
+  | { kind: "route"; label: string; lat: number; lng: number }
+  | { kind: "gps"; label: string; lat: number; lng: number }
+  | null;
 
 function getCityCenter(city: Parameters<typeof getCityConfig>[0]) {
   const c = getCityConfig(city);
@@ -58,9 +63,11 @@ export function EmergencyPage() {
   const [spots, setSpots] = useState<SafeWaitingSpot[]>([]);
   const [contactList, setContactList] = useState<EmergencyContact[]>([]);
   const [status, setStatus] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [spotNote, setSpotNote] = useState("");
   const [searchRadiusM, setSearchRadiusM] = useState(0);
+  const [spotSource, setSpotSource] = useState<SpotSource>(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
   const [sosLinks, setSosLinks] = useState<{ name: string; url: string }[]>([]);
   const [showAddContact, setShowAddContact] = useState(false);
   const [newName, setNewName] = useState("");
@@ -78,48 +85,97 @@ export function EmergencyPage() {
     }
   }, []);
 
-  const loadSpots = useCallback(async () => {
-    setLoading(true);
+  const fmtRadius = (m: number) => (m >= 1000 ? `${m / 1000} km` : `${m} m`);
+
+  const loadSpotsForCoords = useCallback(
+    async (lat: number, lng: number, source: SpotSource) => {
+      setLoading(true);
+      setSpotNote("");
+      setSearchRadiusM(0);
+      setSpotSource(source);
+      try {
+        const { spots: results, radiusM } = await placesService.getSafeWaitingSpots(city, lat, lng);
+        setSpots(results);
+        setSearchRadiusM(radiusM);
+
+        if (!results.length) {
+          setSpotNote(
+            source?.kind === "route"
+              ? `No safe spots found near ${source.label} within 15 km. Try "Safe Spots Near Me" for your current location.`
+              : "No safe spots found within 15 km. Try moving to a busier area or call a helpline below."
+          );
+        } else if (radiusM > 1000) {
+          setSpotNote(
+            `No spots within 1 km — expanded to ${fmtRadius(radiusM)} to find the nearest safe locations.`
+          );
+        }
+      } catch {
+        setSpots([]);
+        setSpotNote("Could not load safe spots. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [city]
+  );
+
+  /** Load spots near the destination of the last searched route (from sessionStorage) */
+  const loadRouteSpots = useCallback(async () => {
+    const cachedRoutes = sessionStorage.getItem("safar-routes");
+    const cachedSearch = sessionStorage.getItem("safar-search");
+
+    if (cachedRoutes) {
+      try {
+        const routes = JSON.parse(cachedRoutes) as PlannedRoute[];
+        const route = routes[0];
+        if (route?.dest_lat && route?.dest_lng) {
+          const search = cachedSearch ? JSON.parse(cachedSearch) : null;
+          const label = search?.destination ?? "your destination";
+          await loadSpotsForCoords(route.dest_lat, route.dest_lng, {
+            kind: "route",
+            label,
+            lat: route.dest_lat,
+            lng: route.dest_lng,
+          });
+          return;
+        }
+      } catch {
+        // fall through to city centre
+      }
+    }
+
+    // No route cached — just show empty state, don't auto-trigger GPS
+    setSpots([]);
+    setSpotSource(null);
     setSpotNote("");
-    setSearchRadiusM(0);
+  }, [loadSpotsForCoords]);
+
+  /** Triggered explicitly by the "Safe Spots Near Me" button */
+  const loadNearMeSpots = useCallback(async () => {
+    setGpsLoading(true);
+    setSpotNote("");
     try {
       const gps = await requestLocation();
-      const coords = gps ?? getCityCenter(city);
-      const { spots: results, radiusM } = await placesService.getSafeWaitingSpots(
-        city,
-        coords.lat,
-        coords.lng
-      );
-      setSpots(results);
-      setSearchRadiusM(radiusM);
-
-      if (!results.length) {
-        setSpotNote(
-          gps
-            ? "No safe spots found within 8 km. Try moving to a busier area or call a helpline below."
-            : "Enable location access to find the nearest safe spots around you."
-        );
-      } else if (!gps) {
-        setSpotNote(
-          `Showing spots within ${radiusM >= 1000 ? `${radiusM / 1000} km` : `${radiusM} m`} of city centre — enable location for spots near your exact position.`
-        );
-      } else if (radiusM > 1000) {
-        setSpotNote(
-          `No spots within 1 km — expanded to ${radiusM >= 1000 ? `${radiusM / 1000} km` : `${radiusM} m`} to find the nearest safe locations.`
-        );
+      if (!gps) {
+        setSpotNote("Location permission denied. Enable GPS and try again.");
+        setGpsLoading(false);
+        return;
       }
-    } catch {
-      setSpots([]);
-      setSpotNote("Could not load safe spots right now. Please try again in a moment.");
+      await loadSpotsForCoords(gps.lat, gps.lng, {
+        kind: "gps",
+        label: "your location",
+        lat: gps.lat,
+        lng: gps.lng,
+      });
     } finally {
-      setLoading(false);
+      setGpsLoading(false);
     }
-  }, [city]);
+  }, [loadSpotsForCoords]);
 
   useEffect(() => {
-    loadSpots();
+    loadRouteSpots();
     loadContacts();
-  }, [loadSpots, loadContacts]);
+  }, [loadRouteSpots, loadContacts]);
 
   async function addContact() {
     if (!newName.trim() || !newPhone.trim()) return;
@@ -209,13 +265,9 @@ export function EmergencyPage() {
       <PageHeader
         eyebrow={t("emergency.eyebrow")}
         title={t("emergency.title")}
-        subtitle={
-          searchRadiusM
-            ? t("emergency.subtitle", {
-                m: searchRadiusM >= 1000 ? `${searchRadiusM / 1000} km` : `${searchRadiusM} m`,
-              })
-            : t("emergency.subtitle", { m: "1 km" })
-        }
+        subtitle={t("emergency.subtitle", {
+          m: searchRadiusM ? fmtRadius(searchRadiusM) : "your route",
+        })}
       />
 
       <Card className="!border-[#EF4444]/30 text-center">
@@ -357,29 +409,56 @@ export function EmergencyPage() {
       </Card>
 
       <div>
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold uppercase tracking-widest text-[#A1A1AA]">{t("emergency.safeSpots")}</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-[#A1A1AA]">
+              {t("emergency.safeSpots")}
+            </h2>
+            {spotSource && (
+              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                spotSource.kind === "route"
+                  ? "bg-[#3B82F6]/15 text-[#93C5FD]"
+                  : "bg-[#22C55E]/15 text-[#86EFAC]"
+              }`}>
+                {spotSource.kind === "route"
+                  ? <><Navigation className="h-2.5 w-2.5" /> Near {spotSource.label}</>
+                  : <><Locate className="h-2.5 w-2.5" /> Near you</>
+                }
+              </span>
+            )}
             {!loading && spots.length > 0 && searchRadiusM > 0 && (
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                 searchRadiusM <= 1000
                   ? "bg-[#22C55E]/15 text-[#86EFAC]"
-                  : searchRadiusM <= 2000
+                  : searchRadiusM <= 3000
                   ? "bg-[#3B82F6]/15 text-[#93C5FD]"
                   : "bg-[#F59E0B]/15 text-[#FCD34D]"
               }`}>
-                {searchRadiusM >= 1000 ? `${searchRadiusM / 1000} km radius` : `${searchRadiusM} m radius`}
+                {fmtRadius(searchRadiusM)} radius
               </span>
             )}
           </div>
-          <button
-            type="button"
-            onClick={loadSpots}
-            disabled={loading}
-            className="text-xs font-semibold text-[#3B82F6] disabled:opacity-50"
-          >
-            {t("emergency.refresh")}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={loadNearMeSpots}
+              disabled={gpsLoading || loading}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#22C55E]/30 bg-[#22C55E]/10 px-3 py-1.5 text-xs font-semibold text-[#22C55E] transition hover:bg-[#22C55E]/20 disabled:opacity-50"
+            >
+              <Locate className="h-3.5 w-3.5" />
+              {gpsLoading ? "Locating…" : "Safe Spots Near Me"}
+            </button>
+            {spotSource && (
+              <button
+                type="button"
+                onClick={loadRouteSpots}
+                disabled={loading}
+                className="text-xs font-semibold text-[#3B82F6] disabled:opacity-50"
+              >
+                {t("emergency.refresh")}
+              </button>
+            )}
+          </div>
         </div>
 
         {loading && (
@@ -392,6 +471,26 @@ export function EmergencyPage() {
                 </span>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Empty state when no route has been searched yet */}
+        {!loading && !spotSource && !spots.length && (
+          <div className="rounded-xl border border-dashed border-[var(--border-subtle)] px-4 py-8 text-center">
+            <Navigation className="mx-auto mb-3 h-8 w-8 text-[#3B82F6]/40" />
+            <p className="text-sm font-semibold text-white">Search a route first</p>
+            <p className="mt-1 text-xs text-[#71717A]">
+              Safe spots will appear near your destination once you plan a route from the Dashboard.
+            </p>
+            <button
+              type="button"
+              onClick={loadNearMeSpots}
+              disabled={gpsLoading}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#22C55E]/15 px-4 py-2 text-xs font-semibold text-[#22C55E] transition hover:bg-[#22C55E]/25 disabled:opacity-50"
+            >
+              <Locate className="h-3.5 w-3.5" />
+              {gpsLoading ? "Locating…" : "Or tap for Safe Spots Near Me"}
+            </button>
           </div>
         )}
 

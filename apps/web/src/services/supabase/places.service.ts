@@ -117,6 +117,8 @@ export const placesService = {
   /**
    * Finds safe waiting spots with progressive radius expansion.
    * Tries 1 km → 2 km → 3 km → 5 km → 8 km until spots are found.
+   * DB/demo fallback data is capped at MAX_FALLBACK_RADIUS_M to prevent
+   * showing city-center spots that are hundreds of km away.
    * Returns spots sorted by distance (nearest first) and the effective radius used.
    */
   async getSafeWaitingSpots(
@@ -124,14 +126,18 @@ export const placesService = {
     lat: number,
     lng: number
   ): Promise<{ spots: SafeWaitingSpot[]; radiusM: number }> {
+    /** Never show fallback/DB spots further than this — prevents 500+ km results */
+    const MAX_FALLBACK_RADIUS_M = 15_000;
+
     const { spots: live, radiusM } = await fetchLiveNearby(lat, lng, cityId);
     if (live.length) return { spots: live, radiusM };
 
     if (IS_DEMO_MODE) {
-      for (const r of [1000, 2000, 3000, 5000, 8000]) {
+      for (const r of [1000, 2000, 3000, 5000, 8000, MAX_FALLBACK_RADIUS_M]) {
         const demo = filterWalkingDistance(withDistance(demoSafeSpots(cityId), lat, lng), r);
         if (demo.length) return { spots: demo, radiusM: r };
       }
+      return { spots: [], radiusM: 0 };
     }
 
     const { data } = await supabase
@@ -142,15 +148,19 @@ export const placesService = {
 
     if (data?.length) {
       const sorted = withDistance(data as SafeWaitingSpot[], lat, lng);
-      for (const r of [1000, 2000, 3000, 5000, 8000]) {
+      for (const r of [1000, 2000, 3000, 5000, 8000, MAX_FALLBACK_RADIUS_M]) {
         const nearby = filterWalkingDistance(sorted, r);
         if (nearby.length) return { spots: nearby.slice(0, 8), radiusM: r };
       }
-      return { spots: sorted.slice(0, 8), radiusM: Math.round((sorted[0]?.distance_m ?? 0) + 100) };
     }
 
     const fallback = withDistance(emergencyFallbackSpots(cityId), lat, lng);
-    return { spots: fallback.slice(0, 8), radiusM: Math.round((fallback[0]?.distance_m ?? 5000) + 100) };
+    const nearFallback = filterWalkingDistance(fallback, MAX_FALLBACK_RADIUS_M);
+    if (nearFallback.length) {
+      return { spots: nearFallback.slice(0, 8), radiusM: MAX_FALLBACK_RADIUS_M };
+    }
+
+    return { spots: [], radiusM: 0 };
   },
 
   async getCities() {
