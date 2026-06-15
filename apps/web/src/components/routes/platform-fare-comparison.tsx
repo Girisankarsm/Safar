@@ -8,107 +8,11 @@ import {
   type VehicleQuote,
 } from "@/lib/platform-fares";
 import type { PlannedRoute } from "@/types/database";
-import { ArrowDownUp, Car, Clock, Database, ExternalLink, IndianRupee, Shield, Sparkles, Wifi } from "lucide-react";
+import { ArrowDownUp, Car, Clock, Database, IndianRupee, Shield, Sparkles, Wifi } from "lucide-react";
 import { useMemo, useState } from "react";
 
 type SortKey = "fare" | "safety" | "eta";
 
-/**
- * Booking strategies per platform:
- *
- * WEB_URL   — platform has a public web booking page that accepts lat/lng params.
- *             Opens in a new browser tab with locations pre-filled.
- * MAPS      — platform has no public web booking; open Google Maps with the
- *             route so the user can tap "Open in [app]" from there.
- * APP_LINK  — mobile-only deep link. On desktop shows a copy-locations tooltip.
- */
-type BookingStrategy = "web_url" | "maps" | "app_link";
-
-const BOOKING_META: Record<
-  string,
-  { strategy: BookingStrategy; label: string; note?: string }
-> = {
-  uber:        { strategy: "web_url",  label: "Book on Uber" },
-  ola:         { strategy: "web_url",  label: "Book on Ola" },
-  rapido:      { strategy: "maps",     label: "Open in Maps", note: "Rapido has no web booking — opens Google Maps so you can launch Rapido from there" },
-  namma_yatri: { strategy: "maps",     label: "Open in Maps", note: "Namma Yatri has no web booking — opens Google Maps; open the NammaYatri app separately" },
-  local:       { strategy: "maps",     label: "Directions" },
-};
-
-function buildUrl(
-  brandId: string,
-  src: { lat: number; lng: number; name: string },
-  dst: { lat: number; lng: number; name: string }
-): string | null {
-  const enc = encodeURIComponent;
-  const meta = BOOKING_META[brandId];
-  if (!meta) return null;
-
-  const mapsUrl =
-    `https://www.google.com/maps/dir/?api=1` +
-    `&origin=${src.lat},${src.lng}&destination=${dst.lat},${dst.lng}` +
-    `&origin_place_id=${enc(src.name)}&travelmode=driving`;
-
-  switch (brandId) {
-    case "uber":
-      return (
-        `https://m.uber.com/ul/?action=setPickup` +
-        `&pickup[latitude]=${src.lat}&pickup[longitude]=${src.lng}&pickup[nickname]=${enc(src.name)}` +
-        `&dropoff[latitude]=${dst.lat}&dropoff[longitude]=${dst.lng}&dropoff[nickname]=${enc(dst.name)}`
-      );
-    case "ola":
-      return (
-        `https://book.olacabs.com/?lat=${src.lat}&lng=${src.lng}&pickup_name=${enc(src.name)}` +
-        `&drop_lat=${dst.lat}&drop_lng=${dst.lng}&drop_name=${enc(dst.name)}`
-      );
-    case "rapido":
-    case "namma_yatri":
-    case "local":
-      return mapsUrl;
-    default:
-      return null;
-  }
-}
-
-function BookButton({
-  brandId,
-  src,
-  dst,
-}: {
-  brandId: string;
-  src: { lat: number; lng: number; name: string };
-  dst: { lat: number; lng: number; name: string };
-}) {
-  const meta = BOOKING_META[brandId];
-  const url = buildUrl(brandId, src, dst);
-  if (!meta || !url) return null;
-
-  const isWebBooking = meta.strategy === "web_url";
-
-  return (
-    <div className="flex flex-col gap-1">
-      <a
-        href={url}
-        target="_blank"
-        rel="noreferrer noopener"
-        title={meta.note ?? "Opens platform pre-filled with your route — real live fare shown there"}
-        className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition active:scale-95 ${
-          isWebBooking
-            ? "border-[#3B82F6]/30 bg-[#3B82F6]/10 text-[#93C5FD] hover:bg-[#3B82F6]/20"
-            : "border-[#F59E0B]/30 bg-[#F59E0B]/8 text-[#FCD34D] hover:bg-[#F59E0B]/15"
-        }`}
-      >
-        <ExternalLink className="h-3 w-3" />
-        {meta.label}
-      </a>
-      {!isWebBooking && (
-        <p className="text-[9px] leading-tight text-[#52525B]">
-          {brandId === "rapido" ? "Then open Rapido app" : brandId === "namma_yatri" ? "Then open NammaYatri" : ""}
-        </p>
-      )}
-    </div>
-  );
-}
 
 type ActiveRow = {
   brandId: string;
@@ -264,7 +168,6 @@ export function PlatformFareComparison({
                 <th className="px-3 py-2">{t("routes.eta")}</th>
                 <th className="px-3 py-2">{t("routes.safety")}</th>
                 <th className="px-3 py-2">{t("routes.notes")}</th>
-                <th className="px-3 py-2 text-[#3B82F6]">Book</th>
               </tr>
             </thead>
             <tbody>
@@ -335,13 +238,6 @@ export function PlatformFareComparison({
                     </div>
                   </td>
                   <td className="px-3 py-3 text-xs text-[#71717A]">{vehicle.safetyNote}</td>
-                  <td className="px-3 py-3">
-                    <BookButton
-                      brandId={brandId}
-                      src={{ lat: route.source_lat, lng: route.source_lng, name: route.source_name }}
-                      dst={{ lat: route.dest_lat, lng: route.dest_lng, name: route.destination_name }}
-                    />
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -349,25 +245,26 @@ export function PlatformFareComparison({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3 border-t border-[var(--border-subtle)] pt-3">
-        <span className="inline-flex items-center gap-1 text-[10px] text-[#52525B]">
-          <Database className="h-2.5 w-2.5 text-[#F59E0B]" />
-          Est. fare — typical city rate × distance ± surge
-        </span>
-        <span className="inline-flex items-center gap-1 text-[10px] text-[#52525B]">
-          <Wifi className="h-2.5 w-2.5 text-[#22C55E]" />
-          Live safety — real OSM corridor + community reports from Supabase
-        </span>
-        <span className="inline-flex items-center gap-1 text-[10px] text-[#52525B]">
-          <ExternalLink className="h-2.5 w-2.5 text-[#3B82F6]" />
-          Book Now (blue) — opens Uber/Ola web with route pre-filled; real live price shown
-        </span>
-        <span className="inline-flex items-center gap-1 text-[10px] text-[#52525B]">
-          <ExternalLink className="h-2.5 w-2.5 text-[#F59E0B]" />
-          Open in Maps (amber) — Rapido/NammaYatri have no web booking; opens Google Maps → tap &quot;Open in app&quot;
-        </span>
+      <div className="rounded-xl border border-[#F59E0B]/20 bg-[#F59E0B]/5 px-3 py-2.5 space-y-1">
+        <p className="text-[10px] font-bold text-[#FCD34D]">About these fares</p>
+        <p className="text-[10px] leading-relaxed text-[#A1A1AA]">
+          Uber, Ola, Rapido and other platforms do not provide a public API for real-time prices.
+          Fares shown are <span className="font-semibold text-[#FCD34D]">estimates</span> calculated from
+          publicly known city rate cards × your route distance ± time-of-day surge.
+          Actual price may differ by 10–20% depending on current demand.
+          Open the respective app to see the exact price before booking.
+        </p>
+        <div className="flex flex-wrap gap-3 pt-1">
+          <span className="inline-flex items-center gap-1 text-[10px] text-[#71717A]">
+            <Database className="h-2.5 w-2.5 text-[#F59E0B]" />
+            Est. fare — base rate × distance ± surge
+          </span>
+          <span className="inline-flex items-center gap-1 text-[10px] text-[#71717A]">
+            <Wifi className="h-2.5 w-2.5 text-[#22C55E]" />
+            Live safety — real OSM + community reports
+          </span>
+        </div>
       </div>
-      <p className="text-[10px] text-[#52525B]">{t("routes.platformDisclaimer")}</p>
     </section>
   );
 }
