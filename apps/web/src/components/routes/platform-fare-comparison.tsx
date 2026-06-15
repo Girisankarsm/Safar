@@ -8,10 +8,82 @@ import {
   type VehicleQuote,
 } from "@/lib/platform-fares";
 import type { PlannedRoute } from "@/types/database";
-import { ArrowDownUp, Car, Clock, Database, IndianRupee, Shield, Sparkles, Wifi } from "lucide-react";
+import { ArrowDownUp, Car, Clock, Database, ExternalLink, IndianRupee, Shield, Sparkles, Wifi } from "lucide-react";
 import { useMemo, useState } from "react";
 
 type SortKey = "fare" | "safety" | "eta";
+
+/**
+ * Build a deep link / universal URL for each platform.
+ * These open the platform's booking UI pre-filled with source → destination.
+ * No credentials or API keys required — the user completes booking in the app.
+ */
+function buildBookingUrl(
+  brandId: string,
+  src: { lat: number; lng: number; name: string },
+  dst: { lat: number; lng: number; name: string }
+): string | null {
+  const enc = encodeURIComponent;
+  switch (brandId) {
+    case "uber":
+      return (
+        `https://m.uber.com/ul/?action=setPickup` +
+        `&pickup[latitude]=${src.lat}&pickup[longitude]=${src.lng}&pickup[nickname]=${enc(src.name)}` +
+        `&dropoff[latitude]=${dst.lat}&dropoff[longitude]=${dst.lng}&dropoff[nickname]=${enc(dst.name)}`
+      );
+    case "ola":
+      return (
+        `https://book.olacabs.com/?lat=${src.lat}&lng=${src.lng}&pickup_name=${enc(src.name)}` +
+        `&drop_lat=${dst.lat}&drop_lng=${dst.lng}&drop_name=${enc(dst.name)}`
+      );
+    case "rapido":
+      // Rapido doesn't expose a public deep-link; open home page
+      return `https://rapido.bike/`;
+    case "namma_yatri":
+      return `https://nammayatri.in/`;
+    case "local":
+      // Google Maps directions as fallback for unbooked local auto
+      return (
+        `https://www.google.com/maps/dir/?api=1` +
+        `&origin=${src.lat},${src.lng}&destination=${dst.lat},${dst.lng}&travelmode=driving`
+      );
+    default:
+      return null;
+  }
+}
+
+function BookButton({
+  brandId,
+  src,
+  dst,
+}: {
+  brandId: string;
+  src: { lat: number; lng: number; name: string };
+  dst: { lat: number; lng: number; name: string };
+}) {
+  const url = buildBookingUrl(brandId, src, dst);
+  if (!url) return null;
+
+  const label =
+    brandId === "local"
+      ? "Directions"
+      : brandId === "namma_yatri"
+        ? "Open App"
+        : "Book Now";
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer noopener"
+      title="Opens the platform — you'll see the real live fare there"
+      className="inline-flex items-center gap-1 rounded-lg border border-[#3B82F6]/30 bg-[#3B82F6]/10 px-2.5 py-1.5 text-[11px] font-semibold text-[#93C5FD] transition hover:bg-[#3B82F6]/20 active:scale-95"
+    >
+      <ExternalLink className="h-3 w-3" />
+      {label}
+    </a>
+  );
+}
 
 type ActiveRow = {
   brandId: string;
@@ -167,6 +239,7 @@ export function PlatformFareComparison({
                 <th className="px-3 py-2">{t("routes.eta")}</th>
                 <th className="px-3 py-2">{t("routes.safety")}</th>
                 <th className="px-3 py-2">{t("routes.notes")}</th>
+                <th className="px-3 py-2 text-[#3B82F6]">Book</th>
               </tr>
             </thead>
             <tbody>
@@ -237,6 +310,13 @@ export function PlatformFareComparison({
                     </div>
                   </td>
                   <td className="px-3 py-3 text-xs text-[#71717A]">{vehicle.safetyNote}</td>
+                  <td className="px-3 py-3">
+                    <BookButton
+                      brandId={brandId}
+                      src={{ lat: route.source_lat, lng: route.source_lng, name: route.source_name }}
+                      dst={{ lat: route.dest_lat, lng: route.dest_lng, name: route.destination_name }}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -252,6 +332,10 @@ export function PlatformFareComparison({
         <span className="inline-flex items-center gap-1 text-[10px] text-[#52525B]">
           <Wifi className="h-2.5 w-2.5 text-[#22C55E]" />
           Live safety — real OSM corridor + community reports from Supabase
+        </span>
+        <span className="inline-flex items-center gap-1 text-[10px] text-[#52525B]">
+          <ExternalLink className="h-2.5 w-2.5 text-[#3B82F6]" />
+          Book Now — opens platform with your route pre-filled; real price shown there
         </span>
       </div>
       <p className="text-[10px] text-[#52525B]">{t("routes.platformDisclaimer")}</p>
