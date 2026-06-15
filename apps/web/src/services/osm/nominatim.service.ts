@@ -72,11 +72,14 @@ function nominatimParams(query: string, cityId: CityId, limit: string) {
   const { west, north, east, south } = city.viewbox;
   return new URLSearchParams({
     q: `${query}, ${city.name}, ${city.state}, India`,
-    format: "json",
+    format: "jsonv2",
     limit,
     countrycodes: "in",
     viewbox: `${west},${north},${east},${south}`,
-    bounded: "0",
+    bounded: "1",
+    addressdetails: "1",
+    namedetails: "1",
+    dedupe: "1",
   });
 }
 
@@ -105,7 +108,6 @@ async function nominatimAutocomplete(
   signal?: AbortSignal
 ): Promise<LocationSuggestion[]> {
   const params = nominatimParams(query, cityId, String(limit));
-  params.set("addressdetails", "1");
 
   const res = await fetch(`${NOMINATIM_URL}/search?${params}`, {
     headers: NOMINATIM_HEADERS,

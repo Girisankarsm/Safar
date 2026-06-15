@@ -84,7 +84,7 @@ export function LocationAutocomplete({
     setLoading(true);
 
     nominatimService
-      .autocomplete(debouncedQuery, cityId, { limit: 8, signal: controller.signal })
+      .autocomplete(debouncedQuery, cityId, { limit: 10, signal: controller.signal })
       .then(({ suggestions: results, fallback, message }) => {
         if (controller.signal.aborted) return;
         setSuggestions(results);
