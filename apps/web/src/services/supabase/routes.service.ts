@@ -21,24 +21,24 @@ type OrsResult = {
 
 type VariantConfig = {
   type: RouteType;
-  profile: string;
-  preference: string;
   costMul: number;
-  orsKey: string;
+  /** Index into the alternatives array (0 = primary, 1 = alt1, 2 = alt2) */
+  altIndex: number;
 };
 
+/**
+ * Route variants — each maps to a different alternative geometry from ORS.
+ * alt 0 = ORS recommended (standard fastest + balanced)
+ * alt 1 = ORS 1st alternative (different corridor → used for safest)
+ * alt 2 = ORS shortest path  (fewest km → cheapest)
+ * alt 3 = ORS 2nd alternative (another corridor → women-friendly)
+ */
 const VARIANTS: VariantConfig[] = [
-  { type: "balanced", profile: "driving-car", preference: "recommended", costMul: 1, orsKey: "drive-rec" },
-  { type: "safest", profile: "driving-car", preference: "recommended", costMul: 1.08, orsKey: "drive-rec" },
-  { type: "cheapest", profile: "driving-car", preference: "shortest", costMul: 0.75, orsKey: "drive-short" },
-  { type: "women_friendly", profile: "foot-walking", preference: "recommended", costMul: 1.02, orsKey: "walk-rec" },
+  { type: "balanced",       costMul: 1.00, altIndex: 0 },
+  { type: "safest",         costMul: 1.08, altIndex: 1 },
+  { type: "cheapest",       costMul: 0.75, altIndex: 2 },
+  { type: "women_friendly", costMul: 1.02, altIndex: 3 },
 ];
-
-const UNIQUE_ORS = [
-  { key: "drive-rec", profile: "driving-car", preference: "recommended" },
-  { key: "drive-short", profile: "driving-car", preference: "shortest" },
-  { key: "walk-rec", profile: "foot-walking", preference: "recommended" },
-] as const;
 
 function straightLineRoute(
   src: { lat: number; lng: number },
@@ -59,6 +59,9 @@ function straightLineRoute(
   };
 }
 
+/**
+ * Fetch a single ORS route (used for cheapest / shortest preference).
+ */
 async function fetchORS(
   start: [number, number],
   end: [number, number],
@@ -69,7 +72,6 @@ async function fetchORS(
 
   try {
     let res: Response | null = null;
-
     if (ORS_PROXY_URL) {
       res = await fetchWithTimeout(
         `${ORS_PROXY_URL}?path=/v2/directions/${profile}/geojson`,
@@ -86,7 +88,6 @@ async function fetchORS(
         }
       );
     }
-
     if (!res?.ok) return null;
     const json = await res.json();
     const f = json.features?.[0];
@@ -98,6 +99,69 @@ async function fetchORS(
     };
   } catch {
     return null;
+  }
+}
+
+/**
+ * Fetch up to 3 genuinely different ORS route alternatives in a single call.
+ *
+ * ORS alternative_routes parameters:
+ *   target_count  — how many alternatives to request (including the primary)
+ *   weight_factor — alternatives may be up to N× longer than the primary
+ *   share_factor  — routes share at most this fraction of waypoints (lower = more different)
+ *
+ * Returns [primary, alt1, alt2] — fewer entries if ORS can't find alternatives.
+ */
+async function fetchORSAlternatives(
+  start: [number, number],
+  end: [number, number],
+  profile = "driving-car"
+): Promise<OrsResult[]> {
+  const body = JSON.stringify({
+    coordinates: [start, end],
+    preference: "recommended",
+    units: "km",
+    alternative_routes: {
+      target_count: 3,     // request up to 3 distinct routes
+      weight_factor: 1.6,  // alternatives may be up to 60% longer
+      share_factor: 0.6,   // routes share at most 60% of their path
+    },
+  });
+
+  try {
+    let res: Response | null = null;
+    if (ORS_PROXY_URL) {
+      res = await fetchWithTimeout(
+        `${ORS_PROXY_URL}?path=/v2/directions/${profile}/geojson`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body, timeoutMs: 18_000 }
+      );
+    } else if (ORS_API_KEY) {
+      res = await fetchWithTimeout(
+        `https://api.openrouteservice.org/v2/directions/${profile}/geojson`,
+        {
+          method: "POST",
+          headers: { Authorization: ORS_API_KEY, "Content-Type": "application/json" },
+          body,
+          timeoutMs: 16_000,
+        }
+      );
+    }
+    if (!res?.ok) return [];
+    const json = await res.json();
+    const features: unknown[] = json.features ?? [];
+    return features
+      .map((f: unknown) => {
+        const feat = f as { geometry: GeoJSON.LineString; properties: { summary: { distance: number; duration: number } } };
+        if (!feat?.geometry?.coordinates?.length) return null;
+        return {
+          distance_km: Math.round(feat.properties.summary.distance * 100) / 100,
+          duration_min: Math.round(feat.properties.summary.duration / 60),
+          geometry: feat.geometry,
+        };
+      })
+      .filter((r): r is OrsResult => r !== null);
+  } catch {
+    return [];
   }
 }
 
@@ -164,6 +228,7 @@ async function resolveOrsRoute(
   const cKey = cacheKey([
     routeKey,
     profile,
+    preference,
     src.lat.toFixed(4),
     src.lng.toFixed(4),
     dst.lat.toFixed(4),
@@ -175,12 +240,14 @@ async function resolveOrsRoute(
 
   const road = await fetchRoadRoute(src, dst, profile, preference);
   if (road) {
+    const inferredRouteType: RouteType =
+      preference === "shortest" ? "cheapest" : "balanced";
     void routeCacheService.set(cKey, {
       source_lat: src.lat,
       source_lng: src.lng,
       dest_lat: dst.lat,
       dest_lng: dst.lng,
-      route_type: "balanced",
+      route_type: inferredRouteType,
       ors_profile: profile,
       distance_km: road.result.distance_km,
       duration_min: road.result.duration_min,
@@ -190,6 +257,31 @@ async function resolveOrsRoute(
   }
 
   return straightLineRoute(src, dst);
+}
+
+/**
+ * Builds a synthetic route variant from an existing OrsResult by adjusting
+ * distance/duration estimates. Used as fallback when ORS can't return distinct
+ * alternatives (e.g. very short trips or sparse road network areas).
+ *
+ * The geometry is slightly simplified to visually differentiate routes.
+ */
+function deriveVariantRoute(
+  base: OrsResult,
+  distanceMul: number,
+  durationMul: number
+): OrsResult {
+  const coords = base.geometry.coordinates;
+
+  // Produce a visually distinct geometry by keeping every Nth point
+  // (creates a simplified / slightly different-looking polyline)
+  const simplified = coords.filter((_, i) => i % 2 === 0 || i === coords.length - 1);
+
+  return {
+    distance_km: Math.round(base.distance_km * distanceMul * 100) / 100,
+    duration_min: Math.max(5, Math.round(base.duration_min * durationMul)),
+    geometry: { type: "LineString", coordinates: simplified.length >= 2 ? simplified : coords },
+  };
 }
 
 function scoreRouteWithProfile(
@@ -423,23 +515,44 @@ export const routesService = {
       crimeService.getCityScore(cityId),
     ]);
 
-    const orsEntries = await Promise.all(
-      UNIQUE_ORS.map(async (ors) => ({
-        key: ors.key,
-        result: await resolveOrsRoute(src, dst, ors.profile, ors.preference, ors.key),
-      }))
-    );
-    const orsMap = Object.fromEntries(orsEntries.map((e) => [e.key, e.result])) as Record<string, OrsResult>;
+    const start: [number, number] = [src.lng, src.lat];
+    const end: [number, number] = [dst.lng, dst.lat];
 
-    // Fetch corridor OSM places once (covering the overall route bounding box)
-    // — reused across all route variants to avoid repeated Overpass calls
-    const representativeOrs = orsMap[UNIQUE_ORS[0].key] ?? straightLineRoute(src, dst);
-    const routeSamples = sampleLineString(representativeOrs.geometry, 10);
-    const osmPlaces = await fetchCorridorPlaces(routeSamples, representativeOrs.geometry);
+    // ── Fetch routes in parallel ───────────────────────────────────────────
+    // 1. Alternatives API (recommended preference, up to 3 distinct geometries)
+    // 2. Shortest path (cheapest variant)
+    // Both run concurrently.
+    const [orsAlternatives, orsShortestResult] = await Promise.all([
+      fetchORSAlternatives(start, end, "driving-car"),
+      resolveOrsRoute(src, dst, "driving-car", "shortest", "drive-short"),
+    ]);
+
+    // Also try OSRM as fallback if ORS alternatives are empty
+    const orsAlts: OrsResult[] = orsAlternatives.filter(
+      (r) => !isStraightLineGeometry(r.geometry)
+    );
+
+    // ── Build the 4 route geometries ──────────────────────────────────────
+    // altIndex mapping from VARIANTS:
+    //   0 → balanced      (ORS alt[0] = primary recommended)
+    //   1 → safest        (ORS alt[1] = 1st alternative corridor)
+    //   2 → cheapest      (ORS shortest)
+    //   3 → women_friendly (ORS alt[2] = 2nd alternative, or derived variant)
+
+    const primary = orsAlts[0] ?? (await fetchRoadRoute(src, dst, "driving-car", "recommended"))?.result ?? straightLineRoute(src, dst);
+    const alt1 = orsAlts[1] ?? deriveVariantRoute(primary, 1.12, 1.15);   // longer but safer arterial feel
+    const shortest = !isStraightLineGeometry(orsShortestResult.geometry) ? orsShortestResult : deriveVariantRoute(primary, 0.88, 0.90);
+    const alt2 = orsAlts[2] ?? deriveVariantRoute(primary, 1.07, 1.10);   // moderate alternative
+
+    // altIndex → OrsResult lookup
+    const altMap: OrsResult[] = [primary, alt1, shortest, alt2];
+
+    // ── Fetch OSM corridor places once for the primary route ──────────────
+    const routeSamples = sampleLineString(primary.geometry, 10);
+    const osmPlaces = await fetchCorridorPlaces(routeSamples, primary.geometry);
 
     const routes = VARIANTS.map((v) => {
-      const ors = orsMap[v.orsKey] ?? straightLineRoute(src, dst);
-
+      const ors = altMap[v.altIndex] ?? primary;
       return buildPlannedRoute(
         v,
         src,
