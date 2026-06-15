@@ -44,8 +44,9 @@ export function AppShell() {
     if (parent) setOpenNav(parent.to);
   }, [path]);
 
-  function isNavActive(to: string) {
-    // Highlight parent if on it OR any of its children
+  function isNavActive(to: string, hasChildren?: boolean) {
+    // Parents with children: only highlight when on the exact parent route
+    if (hasChildren) return path === to;
     return path === to || path.startsWith(to + "/");
   }
 
@@ -71,7 +72,7 @@ export function AppShell() {
             Navigation
           </p>
           {NAV_ITEMS.map(({ to, key, icon: Icon, children }) => {
-            const active = isNavActive(to);
+            const active = isNavActive(to, !!children);
             const expanded = openNav === to;
             return (
               <div key={to}>
