@@ -169,6 +169,7 @@ export function RoutesPage() {
                 destination={{ lat: selected.dest_lat, lng: selected.dest_lng }}
                 sourceName={selected.source_name}
                 destinationName={selected.destination_name}
+                corridorProfile={selected.corridor_profile}
                 height={340}
               />
             </motion.div>
@@ -227,6 +228,37 @@ export function RoutesPage() {
                   </span>
                   <span>{t("routes.transfers", { n: r.transfer_count })}</span>
                 </div>
+                {r.corridor_profile && (
+                  <div className="mt-3 flex flex-wrap gap-1.5 border-t border-[var(--border-subtle)] pt-3">
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                      style={{
+                        backgroundColor:
+                          r.corridor_profile.confidenceScore >= 75
+                            ? "rgba(34,197,94,0.12)"
+                            : "rgba(245,158,11,0.12)",
+                        color:
+                          r.corridor_profile.confidenceScore >= 75 ? "#86EFAC" : "#FCD34D",
+                      }}
+                    >
+                      {r.corridor_profile.confidenceScore}% confidence
+                    </span>
+                    {r.corridor_profile.hotspots.length > 0 ? (
+                      <span className="rounded-full bg-[#EF4444]/10 px-2 py-0.5 text-[10px] font-bold text-[#FCA5A5]">
+                        {r.corridor_profile.hotspots.length} hotspot{r.corridor_profile.hotspots.length > 1 ? "s" : ""}
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-[#22C55E]/10 px-2 py-0.5 text-[10px] font-bold text-[#86EFAC]">
+                        No hotspots
+                      </span>
+                    )}
+                    {r.corridor_profile.policeCount > 0 && (
+                      <span className="rounded-full bg-[#3B82F6]/10 px-2 py-0.5 text-[10px] font-bold text-[#93C5FD]">
+                        {r.corridor_profile.policeCount} police
+                      </span>
+                    )}
+                  </div>
+                )}
                 <Button
                   className="mt-5 w-full"
                   onClick={(e) => {

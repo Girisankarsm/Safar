@@ -4,8 +4,10 @@ import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import { cacheKey, haversineM, sampleLineString } from "@/lib/geo";
 import { buildMultimodalLegs } from "@/lib/multimodal-legs";
 import { timeSafetyLabel, timeSafetyModifier } from "@/lib/time-safety";
+import { buildCorridorProfile, profileToScoringInputs } from "@/lib/corridor-risk";
 import { supabase } from "@/lib/supabase/client";
 import { nominatimService, type GeocodedPlace } from "@/services/osm/nominatim.service";
+import { fetchEmergencyPlacesNear } from "@/services/osm/overpass.service";
 import { crimeService } from "@/services/supabase/crime.service";
 import { reportsService } from "@/services/supabase/reports.service";
 import { routeCacheService } from "@/services/supabase/route-cache.service";
@@ -190,49 +192,39 @@ async function resolveOrsRoute(
   return straightLineRoute(src, dst);
 }
 
-function countReportsNearRoute(
-  reports: { latitude: number; longitude: number }[],
-  samples: { lat: number; lng: number }[]
-): number {
-  let near = 0;
-  for (const r of reports) {
-    for (const s of samples) {
-      const dLat = Math.abs(r.latitude - s.lat);
-      const dLng = Math.abs(r.longitude - s.lng);
-      if (dLat < 0.015 && dLng < 0.015) {
-        near += 1;
-        break;
-      }
-    }
-  }
-  return near;
-}
-
-function estimatePoiCounts(distanceKm: number) {
-  return {
-    police: Math.min(6, Math.max(1, Math.round(distanceKm / 4))),
-    hospitals: Math.min(5, Math.max(1, Math.round(distanceKm / 6))),
-  };
-}
-
-function scoreRoute(
+function scoreRouteWithProfile(
   distanceKm: number,
   routeType: RouteType,
   reportsNear: number,
   policeNear: number,
   hospitalsNear: number,
+  hotspotPenalty: number,
   crimeIndex: number,
-  departureHour: number
+  departureHour: number,
+  infraScore: number,
+  communityScore: number,
+  lightingScore: number
 ): { score: number; breakdown: SafetyBreakdownItem[] } {
-  const community = Math.max(15, 100 - reportsNear * 12);
+  // Use corridor-specific values when available, fall back gracefully
+  const community = communityScore > 0 ? communityScore : Math.max(15, 100 - reportsNear * 12);
   const crime = crimeIndex;
-  const police = Math.min(98, 40 + policeNear * 8);
+  const police =
+    infraScore > 0
+      ? Math.min(98, infraScore * 0.6 + Math.min(30, policeNear * 5))
+      : Math.min(98, 40 + policeNear * 8);
   const hospital = Math.min(90, 45 + hospitalsNear * 4);
   const timeMod = timeSafetyModifier(departureHour);
-  const routeChars = Math.min(95, Math.max(20, 55 + distanceKm * 1.2 + timeMod));
+  const lighting = lightingScore > 0 ? lightingScore : Math.min(95, Math.max(20, 55 + distanceKm * 1.2 + timeMod));
 
   let weighted =
-    community * 0.4 + crime * 0.25 + police * 0.15 + hospital * 0.1 + routeChars * 0.1;
+    community * 0.30 +
+    crime * 0.20 +
+    police * 0.18 +
+    hospital * 0.10 +
+    lighting * 0.12 +
+    Math.max(0, 80 - hotspotPenalty) * 0.10;
+
+  // Route type modifiers
   if (routeType === "safest") weighted += 6;
   if (routeType === "women_friendly") weighted += 8;
   if (routeType === "cheapest") weighted -= 4;
@@ -241,13 +233,37 @@ function scoreRoute(
   return {
     score,
     breakdown: [
-      { factor: "Community Reports", weight_pct: 40, score: community, contribution: Math.round(community * 0.4) },
-      { factor: "Historical Crime Index (NCRB)", weight_pct: 25, score: crime, contribution: Math.round(crime * 0.25) },
-      { factor: "Police Station Proximity", weight_pct: 15, score: police, contribution: Math.round(police * 0.15) },
-      { factor: "Hospital Proximity", weight_pct: 10, score: hospital, contribution: Math.round(hospital * 0.1) },
-      { factor: `Time Safety (${departureHour}:00)`, weight_pct: 10, score: Math.round(routeChars), contribution: Math.round(routeChars * 0.1) },
+      { factor: "Community Reports", weight_pct: 30, score: Math.round(community), contribution: Math.round(community * 0.3) },
+      { factor: "Historical Crime Index (NCRB)", weight_pct: 20, score: crime, contribution: Math.round(crime * 0.2) },
+      { factor: "Police Station Proximity", weight_pct: 18, score: Math.round(police), contribution: Math.round(police * 0.18) },
+      { factor: "Hospital Proximity", weight_pct: 10, score: Math.round(hospital), contribution: Math.round(hospital * 0.1) },
+      { factor: "Lighting & Infrastructure", weight_pct: 12, score: Math.round(lighting), contribution: Math.round(lighting * 0.12) },
+      { factor: "Night Travel Risk", weight_pct: 10, score: Math.max(0, 80 - hotspotPenalty), contribution: Math.round(Math.max(0, 80 - hotspotPenalty) * 0.1) },
     ],
   };
+}
+
+/** Fetch OSM emergency places covering the full route corridor in one call */
+async function fetchCorridorPlaces(
+  samples: { lat: number; lng: number }[],
+  routeGeometry: GeoJSON.LineString
+): Promise<import("@/services/osm/overpass.service").OverpassPlace[]> {
+  if (!samples.length) return [];
+
+  // Find centroid and max radius to cover the whole corridor in one Overpass call
+  const centLat = samples.reduce((s, p) => s + p.lat, 0) / samples.length;
+  const centLng = samples.reduce((s, p) => s + p.lng, 0) / samples.length;
+  const maxDist = samples.reduce(
+    (max, p) => Math.max(max, haversineM(centLat, centLng, p.lat, p.lng)),
+    0
+  );
+  const radiusM = Math.min(8000, Math.max(600, Math.round(maxDist + 600)));
+
+  try {
+    return await fetchEmergencyPlacesNear(centLat, centLng, radiusM, 10_000);
+  } catch {
+    return [];
+  }
 }
 
 function buildPlannedRoute(
@@ -255,30 +271,83 @@ function buildPlannedRoute(
   src: GeocodedPlace,
   dst: GeocodedPlace,
   ors: OrsResult,
-  reportsNear: number,
-  policeNear: number,
-  hospitalsNear: number,
+  allReports: { latitude: number; longitude: number; category?: string }[],
+  osmPlaces: import("@/services/osm/overpass.service").OverpassPlace[],
   crimeIndex: number,
   departureHour: number,
   crimeMeta?: { risk_label: string; report_year: number; data_source: string }
 ): PlannedRoute {
   const legs = buildMultimodalLegs(v.type, src, dst, ors);
-  const { score, breakdown } = scoreRoute(
+
+  // Build corridor-specific safety profile
+  const corridorProfile = buildCorridorProfile(ors.geometry, allReports, osmPlaces, {
+    distanceKm: ors.distance_km,
+    departureHour,
+    transferCount: Math.max(0, legs.length - 1),
+  });
+
+  const { policeNear, hospitalsNear, reportsNear, hotspotPenalty } =
+    profileToScoringInputs(corridorProfile);
+
+  const { score, breakdown } = scoreRouteWithProfile(
     ors.distance_km,
     v.type,
     reportsNear,
     policeNear,
     hospitalsNear,
+    hotspotPenalty,
     crimeIndex,
-    departureHour
+    departureHour,
+    corridorProfile.infraScore,
+    corridorProfile.communityScore,
+    corridorProfile.lightingScore
   );
+
   const baseCost = estimateRouteFare(legs, v.type);
   const isEstimate = isStraightLineGeometry(ors.geometry);
   const routedVia = isEstimate
     ? "Direct estimate (re-search for road routing)"
-    : ORS_API_KEY
+    : ORS_PROXY_URL || ORS_API_KEY
       ? "OpenRouteService / OSM roads"
       : "OpenStreetMap road network";
+
+  // Build corridor-specific recommendations
+  const recommendations: string[] = [timeSafetyLabel(departureHour)];
+
+  if (reportsNear > 0) {
+    recommendations.push(`${reportsNear} community report(s) along corridor`);
+  } else {
+    recommendations.push("No recent community reports on this corridor");
+  }
+
+  if (corridorProfile.hotspots.length > 0) {
+    const highRisk = corridorProfile.hotspots.filter((h) => h.riskLevel === "high").length;
+    recommendations.push(
+      highRisk > 0
+        ? `${highRisk} high-density report cluster${highRisk > 1 ? "s" : ""} detected on route`
+        : `${corridorProfile.hotspots.length} report cluster${corridorProfile.hotspots.length > 1 ? "s" : ""} near corridor`
+    );
+  }
+
+  if (crimeMeta) {
+    recommendations.push(
+      `NCRB ${crimeMeta.report_year} crime index: ${crimeIndex}/100 (${crimeMeta.risk_label.replace(/_/g, " ")})`
+    );
+  }
+
+  if (policeNear > 0) {
+    recommendations.push(
+      `${policeNear} police station${policeNear > 1 ? "s" : ""} within corridor${corridorProfile.policeNames.length ? ` — ${corridorProfile.policeNames[0]}` : ""}`
+    );
+  }
+
+  if (hospitalsNear > 0) {
+    recommendations.push(
+      `${hospitalsNear} hospital${hospitalsNear > 1 ? "s" : ""} within corridor${corridorProfile.hospitalNames.length ? ` — ${corridorProfile.hospitalNames[0]}` : ""}`
+    );
+  }
+
+  recommendations.push(`Multi-modal: ${legs.map((l) => l.mode).join(" → ")} via ${routedVia}`);
 
   return {
     route_type: v.type,
@@ -294,22 +363,16 @@ function buildPlannedRoute(
     distance_km: ors.distance_km,
     eta_minutes: legs.reduce((s, l) => s + l.duration_min, 0),
     estimated_cost_inr: baseCost,
-    reliability_score: Math.min(98, 68 + policeNear * 3),
+    reliability_score: Math.min(98, 60 + policeNear * 4 + hospitalsNear * 2),
     crowd_level: ors.duration_min < 25 ? "High" : "Moderate",
-    walking_distance_km: Math.round(
-      legs.filter((l) => l.mode === "walk").reduce((s, l) => s + l.distance_km, 0) * 100
-    ) / 100,
+    walking_distance_km:
+      Math.round(
+        legs.filter((l) => l.mode === "walk").reduce((s, l) => s + l.distance_km, 0) * 100
+      ) / 100,
     transfer_count: Math.max(0, legs.length - 1),
     geometry: ors.geometry,
-    recommendations: [
-      timeSafetyLabel(departureHour),
-      reportsNear > 0 ? `${reportsNear} community report(s) near corridor` : "No recent community reports on this corridor",
-      crimeMeta
-        ? `NCRB ${crimeMeta.report_year} crime index: ${crimeIndex}/100 (${crimeMeta.risk_label.replace(/_/g, " ")})`
-        : `Historical crime index: ${crimeIndex}/100`,
-      policeNear > 0 ? `~${policeNear} police POIs estimated along route` : "Limited police proximity data",
-      `Multi-modal: ${legs.map((l) => l.mode).join(" → ")} via ${routedVia}`,
-    ],
+    recommendations,
+    corridor_profile: corridorProfile,
   };
 }
 
@@ -368,20 +431,22 @@ export const routesService = {
     );
     const orsMap = Object.fromEntries(orsEntries.map((e) => [e.key, e.result])) as Record<string, OrsResult>;
 
+    // Fetch corridor OSM places once (covering the overall route bounding box)
+    // — reused across all route variants to avoid repeated Overpass calls
+    const representativeOrs = orsMap[UNIQUE_ORS[0].key] ?? straightLineRoute(src, dst);
+    const routeSamples = sampleLineString(representativeOrs.geometry, 10);
+    const osmPlaces = await fetchCorridorPlaces(routeSamples, representativeOrs.geometry);
+
     const routes = VARIANTS.map((v) => {
       const ors = orsMap[v.orsKey] ?? straightLineRoute(src, dst);
-      const samples = sampleLineString(ors.geometry, 8);
-      const reportsNear = countReportsNearRoute(allReports, samples);
-      const { police, hospitals } = estimatePoiCounts(ors.distance_km);
 
       return buildPlannedRoute(
         v,
         src,
         dst,
         ors,
-        reportsNear,
-        police,
-        hospitals,
+        allReports,
+        osmPlaces,
         crimeScore.crime_index,
         departureHour,
         {

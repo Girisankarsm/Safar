@@ -98,4 +98,37 @@ describe("generateAIInsights", () => {
     const insights = generateAIInsights(route);
     expect(insights.highlights.length).toBeGreaterThan(0);
   });
+
+  it("returns a corridorExplanation string", () => {
+    const insights = generateAIInsights(route);
+    expect(typeof insights.corridorExplanation).toBe("string");
+    expect(insights.corridorExplanation.length).toBeGreaterThan(5);
+  });
+
+  it("uses corridorExplanation from profile when available", () => {
+    const routeWithProfile = {
+      ...route,
+      corridor_profile: {
+        policeCount: 3,
+        hospitalCount: 2,
+        reportCount: 1,
+        hotspots: [],
+        segments: [
+          { fromCoordIdx: 0, toCoordIdx: 1, riskLevel: "safe" as const, reportCount: 0, policeNearby: 2, hospitalNearby: 1 },
+        ],
+        policeCoverage: 1,
+        hospitalCoverage: 1,
+        infraScore: 82,
+        communityScore: 90,
+        lightingScore: 72,
+        confidenceScore: 78,
+        dominantRisk: "safe" as const,
+        policeNames: ["Koramangala Police Station"],
+        hospitalNames: ["Apollo Hospital", "St. Martha's Hospital"],
+      },
+    };
+    const insights = generateAIInsights(routeWithProfile);
+    expect(insights.safetyConfidence).toBe(78);
+    expect(insights.corridorExplanation).toContain("police station");
+  });
 });

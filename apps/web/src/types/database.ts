@@ -106,6 +106,8 @@ export interface PlannedRoute {
   transfer_count: number;
   geometry?: GeoJSON.LineString;
   recommendations: string[];
+  /** Corridor-level safety intelligence — populated during route scoring */
+  corridor_profile?: import("@/lib/corridor-risk").CorridorProfile;
 }
 
 export interface SafetyBreakdownItem {

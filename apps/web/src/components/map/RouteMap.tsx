@@ -3,10 +3,70 @@ import "leaflet/dist/leaflet.css";
 import { useI18n } from "@/i18n/use-i18n";
 import { addLabeledMarker } from "@/components/map/map-markers";
 import { useSettingsStore } from "@/stores/settings.store";
+import type { CorridorProfile, CorridorSegment } from "@/lib/corridor-risk";
 import { useEffect, useRef } from "react";
 
 function isStraightLine(geometry?: GeoJSON.LineString): boolean {
   return !geometry?.coordinates?.length || geometry.coordinates.length <= 2;
+}
+
+const SEGMENT_COLORS: Record<string, string> = {
+  safe: "#22C55E",
+  moderate: "#F59E0B",
+  risk: "#EF4444",
+};
+
+function hotspotIcon(riskLevel: string): L.DivIcon {
+  const color = riskLevel === "high" ? "#EF4444" : riskLevel === "moderate" ? "#F59E0B" : "#FBBF24";
+  return L.divIcon({
+    className: "",
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+    html: `<div style="
+      width:20px;height:20px;border-radius:50%;
+      background:${color}22;border:2px solid ${color};
+      display:flex;align-items:center;justify-content:center;
+      font-size:9px;color:${color};font-weight:700;
+    ">!</div>`,
+  });
+}
+
+function drawSegmentedRoute(
+  map: L.Map,
+  geometry: GeoJSON.LineString,
+  segments: CorridorSegment[]
+): void {
+  const coords = geometry.coordinates;
+
+  if (!segments.length) {
+    L.polyline(coords.map(([lng, lat]) => [lat, lng] as [number, number]), {
+      color: "#3B82F6",
+      weight: 6,
+      opacity: 0.95,
+    }).addTo(map);
+    return;
+  }
+
+  for (const seg of segments) {
+    const from = Math.min(seg.fromCoordIdx, coords.length - 1);
+    const to = Math.min(seg.toCoordIdx, coords.length - 1);
+    if (from >= to) continue;
+    const slice = coords.slice(from, to + 1);
+    const latlngs = slice.map(([lng, lat]) => [lat, lng] as [number, number]);
+    const color = SEGMENT_COLORS[seg.riskLevel] ?? "#3B82F6";
+
+    L.polyline(latlngs, {
+      color,
+      weight: 6,
+      opacity: 0.9,
+    })
+      .bindPopup(
+        `<b>${seg.riskLevel.charAt(0).toUpperCase() + seg.riskLevel.slice(1)} Risk Segment</b><br/>` +
+          `Reports nearby: ${seg.reportCount}<br/>` +
+          `Police: ${seg.policeNearby} · Hospital: ${seg.hospitalNearby}`
+      )
+      .addTo(map);
+  }
 }
 
 export function RouteMap({
@@ -15,6 +75,7 @@ export function RouteMap({
   destination,
   sourceName,
   destinationName,
+  corridorProfile,
   height = 320,
 }: {
   geometry?: GeoJSON.LineString;
@@ -22,6 +83,8 @@ export function RouteMap({
   destination: { lat: number; lng: number };
   sourceName?: string;
   destinationName?: string;
+  /** Optional corridor profile for segment coloring and hotspot markers */
+  corridorProfile?: CorridorProfile;
   height?: number;
 }) {
   const { t } = useI18n();
@@ -84,19 +147,49 @@ export function RouteMap({
 
     if (geometry?.coordinates?.length) {
       const latlngs = geometry.coordinates.map(([lng, lat]) => [lat, lng] as [number, number]);
-      L.polyline(latlngs, {
-        color: estimate ? "#F59E0B" : "#3B82F6",
-        weight: 6,
-        opacity: 0.95,
-        dashArray: estimate ? "10 8" : undefined,
-      })
-        .bindPopup(estimate ? "Estimated direct path — search again for road routing" : "Road route")
-        .addTo(map);
       latlngs.forEach((ll) => bounds.push(ll));
+
+      if (estimate) {
+        // Straight-line fallback: single dashed polyline
+        L.polyline(latlngs, {
+          color: "#F59E0B",
+          weight: 5,
+          opacity: 0.85,
+          dashArray: "10 8",
+        })
+          .bindPopup("Estimated direct path — search again for road routing")
+          .addTo(map);
+      } else if (corridorProfile?.segments?.length) {
+        // Draw segmented route with risk coloring
+        drawSegmentedRoute(map, geometry, corridorProfile.segments);
+
+        // Draw hotspot markers
+        for (const hotspot of corridorProfile.hotspots) {
+          L.marker([hotspot.lat, hotspot.lng], { icon: hotspotIcon(hotspot.riskLevel) })
+            .bindPopup(
+              `<b>${hotspot.riskLevel.charAt(0).toUpperCase() + hotspot.riskLevel.slice(1)}-Risk Zone</b><br/>` +
+                `${hotspot.reportCount} community report${hotspot.reportCount > 1 ? "s" : ""}<br/>` +
+                `Types: ${hotspot.types.slice(0, 3).join(", ")}`
+            )
+            .addTo(map);
+        }
+      } else {
+        // No profile yet — single color polyline
+        L.polyline(latlngs, {
+          color: "#3B82F6",
+          weight: 6,
+          opacity: 0.95,
+        })
+          .bindPopup("Road route")
+          .addTo(map);
+      }
     }
 
     map.fitBounds(L.latLngBounds(bounds), { padding: [48, 48], maxZoom: 15 });
-  }, [geometry, source, destination, estimate, sourceName, destinationName]);
+  }, [geometry, source, destination, estimate, sourceName, destinationName, corridorProfile]);
+
+  const hasSegments = !estimate && corridorProfile?.segments?.length;
+  const hasHotspots = (corridorProfile?.hotspots?.length ?? 0) > 0;
 
   return (
     <div className="relative">
@@ -105,12 +198,25 @@ export function RouteMap({
         style={{ height, width: "100%" }}
         className="overflow-hidden rounded-2xl border border-[#262626]"
       />
-      <div className="pointer-events-none absolute bottom-3 left-3 z-[500] flex flex-wrap gap-2 text-[10px] font-semibold">
+      <div className="pointer-events-none absolute bottom-3 left-3 z-[500] flex flex-wrap gap-1.5 text-[10px] font-semibold">
         <span className="rounded-md bg-black/80 px-2 py-1 text-[#22C55E]">{t("map.start")}</span>
         <span className="rounded-md bg-black/80 px-2 py-1 text-[#EF4444]">{t("map.destination")}</span>
-        <span className={`rounded-md bg-black/80 px-2 py-1 ${estimate ? "text-[#F59E0B]" : "text-[#3B82F6]"}`}>
-          {estimate ? "Estimated path" : "Road route"}
-        </span>
+        {estimate ? (
+          <span className="rounded-md bg-black/80 px-2 py-1 text-[#F59E0B]">Estimated path</span>
+        ) : hasSegments ? (
+          <>
+            <span className="rounded-md bg-black/80 px-2 py-1 text-[#22C55E]">Safe</span>
+            <span className="rounded-md bg-black/80 px-2 py-1 text-[#F59E0B]">Moderate</span>
+            <span className="rounded-md bg-black/80 px-2 py-1 text-[#EF4444]">Risk</span>
+            {hasHotspots && (
+              <span className="rounded-md bg-black/80 px-2 py-1 text-[#FBBF24]">
+                ! Hotspot
+              </span>
+            )}
+          </>
+        ) : (
+          <span className="rounded-md bg-black/80 px-2 py-1 text-[#3B82F6]">Road route</span>
+        )}
       </div>
     </div>
   );
