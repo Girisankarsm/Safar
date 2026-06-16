@@ -7,7 +7,7 @@ import { SafarAIAnalysis } from "@/components/safety/safar-ai-analysis";
 import { SafetyScoreBreakdown } from "@/components/safety/safety-score-breakdown";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
-import { recommendRoute } from "@/lib/ai-insights";
+import { recommendRoute, routeTrustTagline, generateRouteComparison } from "@/lib/ai-insights";
 import { sampleRoutePoints, isNearRoute } from "@/lib/route-assistant";
 import { useI18n } from "@/i18n/use-i18n";
 import { routeTypeKey } from "@/i18n/translations";
@@ -50,11 +50,13 @@ type RightTab = "intelligence" | "ask" | "story";
 /** Compact route card for the left selector panel */
 function RouteListCard({
   route,
+  allRoutes,
   isSelected,
   isRecommended,
   onClick,
 }: {
   route: PlannedRoute;
+  allRoutes: PlannedRoute[];
   isSelected: boolean;
   isRecommended: boolean;
   onClick: () => void;
@@ -63,6 +65,9 @@ function RouteListCard({
   const c = ROUTE_COLOR[route.route_type];
   const scoreColor =
     route.safety_score >= 80 ? "#22C55E" : route.safety_score >= 55 ? "#F59E0B" : "#EF4444";
+
+  const tagline = routeTrustTagline(route, allRoutes);
+  const profile = route.corridor_profile;
 
   return (
     <button
@@ -89,6 +94,10 @@ function RouteListCard({
               {t("routes.safarPick")}
             </span>
           )}
+          {/* Trust tagline — data-driven one-liner per route type */}
+          <span className={cn("text-[10px] font-medium leading-tight", c.text)}>
+            {tagline}
+          </span>
         </div>
         <span
           className="shrink-0 rounded-lg px-2 py-1 text-sm font-bold tabular-nums"
@@ -97,6 +106,7 @@ function RouteListCard({
           {route.safety_score}
         </span>
       </div>
+
       <div className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[var(--text-muted)]">
         <span className="flex items-center gap-1">
           <Clock className="h-3 w-3" />
@@ -110,31 +120,41 @@ function RouteListCard({
           {route.distance_km} km
         </span>
       </div>
-      {route.corridor_profile && (
-        <div className="mt-2 flex flex-wrap gap-1">
+
+      {/* Trust metrics row: police, hospitals, confidence, hotspots */}
+      <div className="mt-2 flex flex-wrap gap-1">
+        {(profile?.policeCount ?? 0) > 0 && (
+          <span className="rounded-full bg-[#3B82F6]/10 px-1.5 py-0.5 text-[9px] font-bold text-[#93C5FD]">
+            {profile!.policeCount} police
+          </span>
+        )}
+        {(profile?.hospitalCount ?? 0) > 0 && (
+          <span className="rounded-full bg-[#06B6D4]/10 px-1.5 py-0.5 text-[9px] font-bold text-[#67E8F9]">
+            {profile!.hospitalCount} hospital{profile!.hospitalCount > 1 ? "s" : ""}
+          </span>
+        )}
+        {profile && (
           <span
             className="rounded-full px-1.5 py-0.5 text-[9px] font-bold"
             style={{
               backgroundColor:
-                route.corridor_profile.confidenceScore >= 75
-                  ? "rgba(34,197,94,0.1)"
-                  : "rgba(245,158,11,0.1)",
-              color: route.corridor_profile.confidenceScore >= 75 ? "#86EFAC" : "#FCD34D",
+                profile.confidenceScore >= 75 ? "rgba(34,197,94,0.1)" : "rgba(245,158,11,0.1)",
+              color: profile.confidenceScore >= 75 ? "#86EFAC" : "#FCD34D",
             }}
           >
-            {route.corridor_profile.confidenceScore}% conf.
+            {profile.confidenceScore}% conf.
           </span>
-          {route.corridor_profile.hotspots.length > 0 ? (
-            <span className="rounded-full bg-[#EF4444]/10 px-1.5 py-0.5 text-[9px] font-bold text-[#FCA5A5]">
-              {route.corridor_profile.hotspots.length} hotspot{route.corridor_profile.hotspots.length > 1 ? "s" : ""}
-            </span>
-          ) : (
-            <span className="rounded-full bg-[#22C55E]/10 px-1.5 py-0.5 text-[9px] font-bold text-[#86EFAC]">
-              Clear
-            </span>
-          )}
-        </div>
-      )}
+        )}
+        {(profile?.hotspots.length ?? 0) > 0 ? (
+          <span className="rounded-full bg-[#EF4444]/10 px-1.5 py-0.5 text-[9px] font-bold text-[#FCA5A5]">
+            {profile!.hotspots.length} hotspot{profile!.hotspots.length > 1 ? "s" : ""}
+          </span>
+        ) : profile ? (
+          <span className="rounded-full bg-[#22C55E]/10 px-1.5 py-0.5 text-[9px] font-bold text-[#86EFAC]">
+            Clear
+          </span>
+        ) : null}
+      </div>
     </button>
   );
 }
@@ -340,6 +360,23 @@ function IntelligencePanel({
                     profile={cp}
                     onSegmentFocus={setFocusSegIdx}
                   />
+                </div>
+              )}
+
+              {/* Why this route? — judge-friendly comparison */}
+              {allRoutes.length > 1 && (
+                <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg)] p-3">
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
+                    Why This Route?
+                  </p>
+                  <ul className="space-y-1.5">
+                    {generateRouteComparison(route, allRoutes).map((line, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#3B82F6]" />
+                        <span className="text-[11px] leading-snug text-[var(--text-muted)]">{line}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
 
@@ -620,6 +657,7 @@ export function RoutesPage() {
               <div key={r.route_type} className="w-56 shrink-0 sm:w-64 lg:w-auto">
                 <RouteListCard
                   route={r}
+                  allRoutes={routes}
                   isSelected={selected?.route_type === r.route_type}
                   isRecommended={recommendation?.route.route_type === r.route_type}
                   onClick={() => {

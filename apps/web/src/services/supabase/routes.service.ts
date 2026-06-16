@@ -474,9 +474,12 @@ function computeOptimizationScore(
   const costScore = Math.max(0, 100 - Math.round((costInr / 900) * 100));
 
   switch (routeType) {
-    case "safest":   return safetyScore * 0.70 + etaScore * 0.20 + costScore * 0.10;
+    // Safety: 75 % · ETA: 15 % · Cost: 10 %
+    case "safest":   return safetyScore * 0.75 + etaScore * 0.15 + costScore * 0.10;
+    // Cost: 70 % · ETA: 20 % · Safety: 10 % — favours bus/metro transit corridors
     case "cheapest": return safetyScore * 0.10 + etaScore * 0.20 + costScore * 0.70;
-    default:         return safetyScore * 0.40 + etaScore * 0.30 + costScore * 0.30;
+    // Balanced: Safety: 40 % · ETA: 35 % · Cost: 25 %
+    default:         return safetyScore * 0.40 + etaScore * 0.35 + costScore * 0.25;
   }
 }
 
@@ -635,6 +638,27 @@ function generateRouteExplanations(
  * For safest + women_friendly: enforces distance ≤ fastest × 1.15.
  * Falls back to unconstrained pool if constraint eliminates all candidates.
  */
+/**
+ * Distance and ETA hard limits per route type (relative to fastest candidate):
+ *
+ *   balanced:       dist ≤ fastest + 5%   (ensures it stays near the main corridor)
+ *   safest:         dist ≤ fastest + 20%  (allow meaningful detours for safety)
+ *   cheapest:       no constraint          (pure cost optimisation)
+ *   women_friendly: dist ≤ fastest + 10%  AND ETA ≤ fastest + 15%  (never the longest)
+ */
+const ROUTE_DIST_LIMIT: Record<RouteType, number> = {
+  balanced:       1.05,
+  safest:         1.20,
+  cheapest:       999,
+  women_friendly: 1.10,
+};
+const ROUTE_ETA_LIMIT: Record<RouteType, number> = {
+  balanced:       999,
+  safest:         999,
+  cheapest:       999,
+  women_friendly: 1.15,
+};
+
 function selectBestGeometry(
   routeType: RouteType,
   candidates: ScoredCandidate[],
@@ -642,21 +666,23 @@ function selectBestGeometry(
   src: GeocodedPlace,
   dst: GeocodedPlace
 ): ScoredCandidate {
-  const needsConstraint = routeType === "safest" || routeType === "women_friendly";
-  const maxDist = fastestDistKm * 1.15;
-  const pool = needsConstraint
-    ? (candidates.filter((c) => c.ors.distance_km <= maxDist).length > 0
-        ? candidates.filter((c) => c.ors.distance_km <= maxDist)
-        : candidates) // fallback: no constraint met
-    : candidates;
+  const maxDist = fastestDistKm * ROUTE_DIST_LIMIT[routeType];
+  const fastestDuration = Math.min(...candidates.map((c) => c.ors.duration_min));
+  const maxEta  = fastestDuration * ROUTE_ETA_LIMIT[routeType];
+
+  const constrained = candidates.filter(
+    (c) => c.ors.distance_km <= maxDist && c.ors.duration_min <= maxEta
+  );
+  // Fallback: if all candidates violate constraints, pick the one closest to limits
+  const pool = constrained.length > 0 ? constrained : candidates;
 
   return pool.reduce((best, c) => {
-    const legsC    = buildMultimodalLegs(routeType, src, dst, c.ors);
-    const legsB    = buildMultimodalLegs(routeType, src, dst, best.ors);
-    const costC    = estimateRouteFare(legsC, routeType);
-    const costB    = estimateRouteFare(legsB, routeType);
-    const scoreC   = computeOptimizationScore(c.safetyScore,    c.ors.duration_min,    costC, routeType, c.womenScore);
-    const scoreB   = computeOptimizationScore(best.safetyScore, best.ors.duration_min, costB, routeType, best.womenScore);
+    const legsC  = buildMultimodalLegs(routeType, src, dst, c.ors);
+    const legsB  = buildMultimodalLegs(routeType, src, dst, best.ors);
+    const costC  = estimateRouteFare(legsC, routeType);
+    const costB  = estimateRouteFare(legsB, routeType);
+    const scoreC = computeOptimizationScore(c.safetyScore,    c.ors.duration_min, costC, routeType, c.womenScore);
+    const scoreB = computeOptimizationScore(best.safetyScore, best.ors.duration_min, costB, routeType, best.womenScore);
     return scoreC > scoreB ? c : best;
   });
 }

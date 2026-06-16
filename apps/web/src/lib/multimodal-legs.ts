@@ -52,19 +52,20 @@ function dmin(km: number, mode: string): number {
 }
 
 /**
- * Select primary transit mode.
+ * Distance-aware transit mode selection.
  *
- *   ≤ 1.5 km:  walk
- *   ≤ 5 km:    walk (cheapest)  | auto (others)
- *   ≤ 15 km:   metro (cheapest/balanced/women) | auto (safest)
- *   ≤ 30 km:   metro (cheapest) | cab  (others)
- *   30+ km:    bus   (cheapest) | cab  (others)
+ *   0–2 km:    walk  (all types)
+ *   2–8 km:    bus   (cheapest) | auto (others)
+ *   8–20 km:   metro (cheapest/balanced/women) | cab (safest — door-to-door safety)
+ *   20+ km:    bus   (cheapest) | cab  (safest/balanced/women)
+ *
+ * Constraint: auto is NEVER assigned for routes > 8 km.
+ *             metro is NEVER assigned for routes > 20 km.
  */
 function selectMode(distKm: number, routeType: RouteType): string {
-  if (distKm <= 1.5) return "walk";
-  if (distKm <= 5) return routeType === "cheapest" ? "walk" : "auto";
-  if (distKm <= 15) return routeType === "safest" ? "auto" : "metro";
-  if (distKm <= 30) return routeType === "cheapest" ? "metro" : "cab";
+  if (distKm <= 2)  return "walk";
+  if (distKm <= 8)  return routeType === "cheapest" ? "bus" : "auto";
+  if (distKm <= 20) return routeType === "safest" ? "cab" : "metro";
   return routeType === "cheapest" ? "bus" : "cab";
 }
 
