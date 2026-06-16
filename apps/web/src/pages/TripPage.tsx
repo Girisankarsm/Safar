@@ -6,9 +6,10 @@ import { Card } from "@/components/ui/card";
 import { useI18n } from "@/i18n/use-i18n";
 import { tripsService } from "@/services/supabase/trips.service";
 import type { PlannedRoute, Trip } from "@/types/database";
-import { CheckCircle2, Copy, MapPin, Navigation, Share2, Siren } from "lucide-react";
+import { CheckCircle2, Copy, Crosshair, LocateFixed, MapPin, Maximize2, Minimize2, Navigation, Share2, Siren } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 function formatCoords(lat: number, lng: number) {
   return `${lat.toFixed(5)}°, ${lng.toFixed(5)}°`;
@@ -34,6 +35,9 @@ export function TripPage() {
   const [copied, setCopied] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [hasLiveGps, setHasLiveGps] = useState(false);
+  const [mapFullscreen, setMapFullscreen] = useState(false);
+  const [trackUser, setTrackUser] = useState(true);
+  const [mapResizeSignal, setMapResizeSignal] = useState(0);
 
   const activeRoute = useMemo(() => loadActiveRoute(), [id]);
 
@@ -97,6 +101,27 @@ export function TripPage() {
 
     return () => navigator.geolocation.clearWatch(watchId);
   }, [id, trip?.status, t]);
+
+  useEffect(() => {
+    if (!mapFullscreen) {
+      document.body.style.overflow = "";
+      return;
+    }
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMapFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [mapFullscreen]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setMapResizeSignal((n) => n + 1), 150);
+    return () => window.clearTimeout(timer);
+  }, [mapFullscreen]);
 
   async function copyShareLink() {
     if (!shareUrl) return;
@@ -163,32 +188,80 @@ export function TripPage() {
         </div>
       )}
 
-      <LiveTripMap
-        geometry={activeRoute?.geometry}
-        source={
-          activeRoute
-            ? { lat: activeRoute.source_lat, lng: activeRoute.source_lng }
-            : undefined
-        }
-        destination={
-          activeRoute
-            ? { lat: activeRoute.dest_lat, lng: activeRoute.dest_lng }
-            : undefined
-        }
-        sourceName={activeRoute?.source_name}
-        destinationName={activeRoute?.destination_name}
-        showUser={isActive && hasLiveGps}
-        userLat={hasLiveGps ? trip?.current_lat : null}
-        userLng={hasLiveGps ? trip?.current_lng : null}
-        height={320}
-      />
+      <div
+        className={cn(
+          "relative",
+          mapFullscreen && "fixed inset-0 z-[100000] flex flex-col bg-[var(--bg)]"
+        )}
+      >
+        <div className={cn("relative", mapFullscreen ? "min-h-0 flex-1" : "")}>
+          <LiveTripMap
+            geometry={activeRoute?.geometry}
+            source={
+              activeRoute
+                ? { lat: activeRoute.source_lat, lng: activeRoute.source_lng }
+                : undefined
+            }
+            destination={
+              activeRoute
+                ? { lat: activeRoute.dest_lat, lng: activeRoute.dest_lng }
+                : undefined
+            }
+            sourceName={activeRoute?.source_name}
+            destinationName={activeRoute?.destination_name}
+            showUser={isActive && hasLiveGps}
+            followUser={trackUser && isActive && hasLiveGps}
+            userLat={hasLiveGps ? trip?.current_lat : null}
+            userLng={hasLiveGps ? trip?.current_lng : null}
+            height={mapFullscreen ? "100%" : 320}
+            resizeSignal={mapResizeSignal}
+            className={mapFullscreen ? "h-full rounded-none" : undefined}
+          />
 
-      {!hasLiveGps && isActive && (
+          <div className="absolute right-3 top-3 z-[500] flex items-center gap-2 sm:right-4 sm:top-4">
+            {isActive && hasLiveGps && (
+              <button
+                type="button"
+                onClick={() => setTrackUser((v) => !v)}
+                className={cn(
+                  "flex h-10 w-10 items-center justify-center rounded-xl border shadow-lg backdrop-blur-md transition",
+                  trackUser
+                    ? "border-[#3B82F6]/50 bg-[#3B82F6]/20 text-[#93C5FD]"
+                    : "border-[#262626] bg-[#111111]/95 text-white hover:border-[#3B82F6]/50 hover:text-[#3B82F6]"
+                )}
+                aria-label={trackUser ? "Stop tracking location" : "Track my location"}
+                title={trackUser ? "Tracking on" : "Track me"}
+              >
+                {trackUser ? <LocateFixed className="h-4 w-4" /> : <Crosshair className="h-4 w-4" />}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setMapFullscreen((v) => !v)}
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#262626] bg-[#111111]/95 text-white shadow-lg backdrop-blur-md transition hover:border-[#3B82F6]/50 hover:text-[#3B82F6]"
+              aria-label={mapFullscreen ? "Exit full screen map" : "Full screen map"}
+              title={mapFullscreen ? "Exit full screen" : "Full screen"}
+            >
+              {mapFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
+          </div>
+
+          {mapFullscreen && isActive && (
+            <div className="pointer-events-none absolute bottom-4 left-1/2 z-[500] -translate-x-1/2 rounded-full border border-[#3B82F6]/30 bg-[#111111]/90 px-4 py-2 text-[11px] font-semibold text-[#93C5FD] backdrop-blur-md">
+              {trackUser && hasLiveGps ? "Live tracking your position" : "Full screen map"}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {!mapFullscreen && !hasLiveGps && isActive && (
         <p className="rounded-xl border border-[#3B82F6]/25 bg-[#3B82F6]/10 px-4 py-3 text-xs text-[#93C5FD]">
           {t("trip.waitingGps")}
         </p>
       )}
 
+      {!mapFullscreen && (
+        <>
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
           <p className="text-xs font-semibold uppercase tracking-wider text-[#71717A]">{t("trip.status")}</p>
@@ -283,6 +356,8 @@ export function TripPage() {
       >
         {completing ? t("trip.completing") : t("trip.complete")}
       </Button>
+        </>
+      )}
     </div>
   );
 }

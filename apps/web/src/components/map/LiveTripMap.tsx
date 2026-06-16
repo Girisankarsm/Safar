@@ -2,6 +2,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useI18n } from "@/i18n/use-i18n";
 import { addLabeledMarker } from "@/components/map/map-markers";
+import { cn } from "@/lib/utils";
 import { useEffect, useRef } from "react";
 
 export function LiveTripMap({
@@ -13,7 +14,10 @@ export function LiveTripMap({
   userLat,
   userLng,
   showUser = false,
+  followUser = false,
   height = 280,
+  className,
+  resizeSignal = 0,
 }: {
   geometry?: GeoJSON.LineString;
   source?: { lat: number; lng: number };
@@ -23,7 +27,10 @@ export function LiveTripMap({
   userLat?: number | null;
   userLng?: number | null;
   showUser?: boolean;
-  height?: number;
+  followUser?: boolean;
+  height?: number | string;
+  className?: string;
+  resizeSignal?: number;
 }) {
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -104,6 +111,11 @@ export function LiveTripMap({
       bounds.push([userLat, userLng]);
     }
 
+    if (showUser && followUser && userLat != null && userLng != null) {
+      map.setView([userLat, userLng], Math.max(map.getZoom(), 15), { animate: true });
+      return;
+    }
+
     if (bounds.length > 0) {
       map.fitBounds(L.latLngBounds(bounds), { padding: [48, 48], maxZoom: 16 });
     } else if (showUser && userLat != null && userLng != null) {
@@ -116,16 +128,28 @@ export function LiveTripMap({
     sourceName,
     destinationName,
     showUser,
+    followUser,
     userLat,
     userLng,
   ]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || resizeSignal === 0) return;
+    requestAnimationFrame(() => {
+      map.invalidateSize({ animate: false });
+    });
+  }, [resizeSignal]);
+
   return (
-    <div className="relative">
+    <div className={cn("relative h-full min-h-0", className)}>
       <div
         ref={containerRef}
-        style={{ height }}
-        className="overflow-hidden rounded-2xl border border-[var(--border)] shadow-inner"
+        style={{ height: typeof height === "number" ? height : height, width: "100%" }}
+        className={cn(
+          "h-full min-h-0 overflow-hidden border border-[var(--border)] shadow-inner",
+          className?.includes("rounded-none") ? "rounded-none" : "rounded-2xl"
+        )}
       />
       <div className="pointer-events-none absolute bottom-3 left-3 z-[500] flex flex-wrap gap-2 text-[10px] font-semibold">
         <span className="rounded-md bg-black/80 px-2 py-1 text-[#22C55E]">{t("map.start")}</span>
