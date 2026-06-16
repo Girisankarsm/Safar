@@ -4,7 +4,6 @@
  */
 
 import { ButtonLink } from "@/components/ui/button";
-import { PresentationDeckTag } from "@/components/layout/PresentationDeckTag";
 import { CountUp } from "@/components/ui/count-up";
 import { DEMO_LANDING_METRICS } from "@/lib/demo-hackathon";
 import { CITY_LIST } from "@/config/cities";
@@ -451,7 +450,6 @@ export function LandingPage() {
             >
               FAQ
             </button>
-            <PresentationDeckTag className="hidden sm:inline-flex" />
             <Link to="/login" className="hidden rounded-lg px-3 py-2 text-sm text-[#a1a1aa] transition hover:text-white sm:block">
               Sign in
             </Link>
@@ -659,7 +657,6 @@ export function LandingPage() {
             <span className="text-sm font-semibold">Safar</span>
           </div>
           <p className="text-xs text-[#52525b]">Travel Smarter. Travel Safer.</p>
-          <PresentationDeckTag />
           <p className="text-[11px] text-[#3f3f46]">NCRB · OpenStreetMap · Supabase · Community verified</p>
         </div>
       </footer>

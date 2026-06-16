@@ -31,7 +31,3 @@ export const GEOCODE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 export const NOMINATIM_URL = "https://nominatim.openstreetmap.org";
-
-/** Safar pitch / demo deck (Google Slides) */
-export const PRESENTATION_DECK_URL =
-  "https://docs.google.com/presentation/d/1XY18c7GKHgzhzwkFZOJvO7xIkPqXmeHL/edit?usp=sharing";
