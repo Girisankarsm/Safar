@@ -18,16 +18,28 @@
 
 ## Demo Video
 
-Watch the 1–2 minute walkthrough on YouTube:
+<div align="center">
 
-[![Safar demo video](https://img.youtube.com/vi/PS1CElUsZkM/hqdefault.jpg)](https://youtu.be/PS1CElUsZkM)
+**Watch the 1–2 minute walkthrough**
+
+[![Safar demo video](https://img.youtube.com/vi/PS1CElUsZkM/maxresdefault.jpg)](https://youtu.be/PS1CElUsZkM)
+
+[▶️ Watch on YouTube](https://youtu.be/PS1CElUsZkM) ·
+[📑 Presentation Deck](https://docs.google.com/presentation/d/1XY18c7GKHgzhzwkFZOJvO7xIkPqXmeHL/edit?usp=sharing) ·
+[🌐 Live App](https://safar-travel-web.vercel.app)
+
+</div>
+
+**What you’ll see in the demo**
+- Route planning (Balanced / Safest / Cheapest / Women‑Friendly)
+- Safety heatmap + community incident reporting
+- SOS Shield (call + WhatsApp) and nearest resources
 
 ## What is Safar?
 
 Safar is a premium urban mobility web app that helps Indian commuters plan safer, smarter routes using live community intelligence, OpenStreetMap infrastructure data, and NCRB crime statistics.
 
 It goes far beyond navigation — Safar understands **who is travelling, when, and through which corridor**, and selects the optimal route accordingly.
-
 
 ---
 
