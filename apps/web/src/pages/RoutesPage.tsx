@@ -2,7 +2,6 @@ import { RoutesSubNav } from "@/components/layout/RoutesSubNav";
 import { RouteMap } from "@/components/map/RouteMap";
 import { RouteAssistant } from "@/components/routes/RouteAssistant";
 import { RouteRiskTimeline } from "@/components/routes/RouteRiskTimeline";
-import { SafetyStory } from "@/components/routes/SafetyStory";
 import { SafarAIAnalysis } from "@/components/safety/safar-ai-analysis";
 import { SafetyScoreBreakdown } from "@/components/safety/safety-score-breakdown";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -20,7 +19,6 @@ import { useCityStore } from "@/stores/city.store";
 import type { CityId, PlannedRoute, RouteType, SafetyReport } from "@/types/database";
 import {
   AlertTriangle,
-  BookOpen,
   Bot,
   Building2,
   Clock,
@@ -45,7 +43,7 @@ const ROUTE_COLOR: Record<RouteType, { text: string; border: string }> = {
   women_friendly: { text: "text-[#EC4899]", border: "border-[#EC4899]/30" },
 };
 
-type RightTab = "intelligence" | "ask" | "story";
+type RightTab = "intelligence" | "ask";
 
 /** Compact route card for the left selector panel */
 function RouteListCard({
@@ -226,12 +224,9 @@ function IntelligencePanel({
   const cp = route.corridor_profile;
   const scoreColor =
     route.safety_score >= 80 ? "#22C55E" : route.safety_score >= 55 ? "#F59E0B" : "#EF4444";
-  const [focusSegIdx, setFocusSegIdx] = useState<number | null>(null);
-
   const TABS: { id: RightTab; label: string; icon: typeof Shield }[] = [
     { id: "intelligence", label: "Intelligence", icon: Shield },
     { id: "ask", label: "Ask Safar", icon: Bot },
-    { id: "story", label: "Story", icon: BookOpen },
   ];
 
   return (
@@ -356,10 +351,7 @@ function IntelligencePanel({
               {/* Risk Timeline */}
               {cp && cp.segments.length > 0 && (
                 <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg)] p-3">
-                  <RouteRiskTimeline
-                    profile={cp}
-                    onSegmentFocus={setFocusSegIdx}
-                  />
+                  <RouteRiskTimeline profile={cp} />
                 </div>
               )}
 
@@ -425,55 +417,20 @@ function IntelligencePanel({
             </motion.div>
           )}
 
-          {/* ── Story Tab ── */}
-          {activeTab === "story" && (
-            <motion.div
-              key="story"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="flex-1 overflow-hidden"
-            >
-              {cp && cp.segments.length > 0 ? (
-                <SafetyStory
-                  profile={cp}
-                  open
-                  onClose={() => setActiveTab("intelligence")}
-                  onSegmentChange={setFocusSegIdx}
-                />
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-                  <BookOpen className="mb-3 h-8 w-8 text-[var(--text-dim)]" />
-                  <p className="text-[13px] font-semibold text-white">
-                    Safety Story unavailable
-                  </p>
-                  <p className="mt-1 text-[11px] text-[var(--text-dim)]">
-                    Corridor segment data not available for this route.
-                  </p>
-                </div>
-              )}
-            </motion.div>
-          )}
         </AnimatePresence>
       </div>
 
-      {/* Start trip CTA (not shown in story mode, story has own controls) */}
-      {activeTab !== "story" && (
-        <div className="shrink-0 border-t border-[var(--border-subtle)] p-4">
-          <Button
-            className="w-full gap-2 py-3 text-sm font-bold shadow-lg shadow-[#3B82F6]/20"
-            onClick={onStart}
-            disabled={starting}
-          >
-            <Navigation className="h-4 w-4" />
-            {starting ? t("routes.starting") : t("routes.startTrip")}
-          </Button>
-        </div>
-      )}
-
-      {/* Hidden: store focusSegIdx for parent to pick up */}
-      <div data-focus-seg={focusSegIdx ?? ""} className="hidden" />
+      {/* Start trip CTA */}
+      <div className="shrink-0 border-t border-[var(--border-subtle)] p-4">
+        <Button
+          className="w-full gap-2 py-3 text-sm font-bold shadow-lg shadow-[#3B82F6]/20"
+          onClick={onStart}
+          disabled={starting}
+        >
+          <Navigation className="h-4 w-4" />
+          {starting ? t("routes.starting") : t("routes.startTrip")}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -492,7 +449,6 @@ export function RoutesPage() {
   const [selected, setSelected] = useState<PlannedRoute | null>(null);
   const [starting, setStarting] = useState(false);
   const [activeTab, setActiveTab] = useState<RightTab>("intelligence");
-  const [focusSegIdx, setFocusSegIdx] = useState<number | null>(null);
   const [nearbyAlert, setNearbyAlert] = useState<SafetyReport | null>(null);
   const alertDismissed = useRef<Set<string>>(new Set());
 
@@ -660,10 +616,7 @@ export function RoutesPage() {
                   allRoutes={routes}
                   isSelected={selected?.route_type === r.route_type}
                   isRecommended={recommendation?.route.route_type === r.route_type}
-                  onClick={() => {
-                    setSelected(r);
-                    setFocusSegIdx(null);
-                  }}
+                  onClick={() => setSelected(r)}
                 />
               </div>
             ))}
@@ -699,7 +652,7 @@ export function RoutesPage() {
                   corridorProfile={selected.corridor_profile}
                   height="100%"
                   className="h-full rounded-none"
-                  focusSegmentIdx={focusSegIdx}
+                  focusSegmentIdx={null}
                 />
               </motion.div>
             )}
@@ -715,17 +668,6 @@ export function RoutesPage() {
             </div>
           )}
 
-          {/* View Story shortcut button on map */}
-          {selected?.corridor_profile?.segments?.length && (
-            <button
-              type="button"
-              onClick={() => setActiveTab("story")}
-              className="absolute bottom-4 left-4 z-[500] flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg)]/90 px-3 py-2 text-[11px] font-semibold text-white backdrop-blur-md transition hover:bg-[var(--bg-surface)]"
-            >
-              <BookOpen className="h-3.5 w-3.5 text-[#3B82F6]" />
-              Safety Story
-            </button>
-          )}
         </div>
 
         {/* RIGHT — Tabbed intelligence panel */}
@@ -748,10 +690,7 @@ export function RoutesPage() {
                   starting={starting}
                   onStart={() => startTrip(selected)}
                   activeTab={activeTab}
-                  setActiveTab={(tab) => {
-                    setActiveTab(tab);
-                    if (tab === "story") setFocusSegIdx(0);
-                  }}
+                  setActiveTab={setActiveTab}
                 />
               </motion.div>
             ) : (
@@ -799,17 +738,6 @@ export function RoutesPage() {
                 )}
               </>
             )}
-            {/* Story shortcut */}
-            {selected.corridor_profile?.segments?.length ? (
-              <button
-                type="button"
-                onClick={() => setActiveTab("story")}
-                className="ml-auto flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] px-2.5 py-1.5 text-[10px] font-semibold text-white"
-              >
-                <BookOpen className="h-3 w-3 text-[#3B82F6]" />
-                Story
-              </button>
-            ) : null}
           </div>
 
           {/* AI explanation — compact */}
