@@ -34,7 +34,7 @@ export function CitySwitcher({ compact = false }: { compact?: boolean }) {
         value={city}
         onChange={(e) => setCity(e.target.value as CityId)}
         aria-label="Select city"
-        className="appearance-none rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] py-2.5 pl-9 pr-9 text-sm font-semibold text-white outline-none transition hover:border-[#3B82F6]/40 focus:border-[#3B82F6]/60 focus:ring-2 focus:ring-[#3B82F6]/15"
+        className="appearance-none border-0 bg-transparent py-2 pl-9 pr-6 text-sm font-semibold text-white outline-none transition hover:text-[#3B82F6]"
       >
         {CITY_LIST.map((c) => (
           <option key={c.id} value={c.id}>{c.name}</option>
