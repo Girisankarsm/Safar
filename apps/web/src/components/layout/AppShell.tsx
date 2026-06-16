@@ -125,7 +125,7 @@ export function AppShell() {
 
         {/* City switcher */}
         <div className="border-t border-[var(--border-subtle)] px-4 py-4">
-          <div className="flex items-center gap-2 rounded-xl bg-[var(--bg-surface)] px-2 py-1.5 ring-1 ring-[var(--border-subtle)]">
+          <div className="flex items-center gap-2 px-2 py-1.5">
             <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#22C55E] shadow-[0_0_5px_#22C55E]" />
             <CitySwitcher />
           </div>
