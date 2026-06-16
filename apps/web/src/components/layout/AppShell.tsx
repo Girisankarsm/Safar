@@ -183,14 +183,16 @@ export function AppShell() {
           </p>
         </div>
 
-        {/* Page content */}
-        <main className="flex-1">
+        {/* Page content — gets automatic bottom clearance so nothing hides behind the nav */}
+        <main className="flex-1 main-mobile-safe">
           <Outlet key={revision} />
         </main>
       </div>
 
-      {/* ── Mobile bottom nav ── */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-[var(--border-subtle)] bg-[var(--bg-elevated)]/96 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
+      {/* ── Mobile bottom nav — permanently fixed, never scrolls ── */}
+      <nav className="fixed inset-x-0 bottom-0 z-[9999] flex border-t border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-[0_-4px_24px_rgba(0,0,0,0.6)] pb-[env(safe-area-inset-bottom,0px)] lg:hidden"
+        style={{ WebkitBackdropFilter: "none", backdropFilter: "none" }}
+      >
         {NAV_ITEMS.map(({ to, key, icon: Icon }) => {
           const active =
             to === "/routes" ? path.startsWith("/routes") : path.startsWith(to);
@@ -199,15 +201,20 @@ export function AppShell() {
               key={to}
               to={to}
               className={cn(
-                "relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[9px] font-semibold transition-colors",
-                active ? "text-[#3B82F6]" : "text-[#71717A]"
+                "relative flex flex-1 flex-col items-center justify-center gap-1 py-3 text-[10px] font-semibold transition-colors select-none",
+                active ? "text-[#3B82F6]" : "text-[#52525B] hover:text-[#A1A1AA]"
               )}
             >
+              {/* Active indicator bar at top */}
               {active && (
-                <span className="absolute top-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-[#3B82F6]" />
+                <span className="absolute top-0 left-1/2 h-0.5 w-10 -translate-x-1/2 rounded-full bg-[#3B82F6]" />
               )}
-              <Icon className="h-[18px] w-[18px]" />
-              <span className="leading-none">{t(key)}</span>
+              {/* Active glow pill behind icon */}
+              {active && (
+                <span className="absolute inset-x-2 top-1.5 h-8 rounded-xl bg-[#3B82F6]/10" />
+              )}
+              <Icon className="relative h-5 w-5" />
+              <span className="relative leading-none tracking-wide">{t(key)}</span>
             </Link>
           );
         })}

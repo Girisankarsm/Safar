@@ -253,7 +253,7 @@ export function SafetyPage() {
   const cityNCRB = FALLBACK_CRIME_SCORES[city as keyof typeof FALLBACK_CRIME_SCORES];
 
   return (
-    <div className="flex h-[calc(100vh-var(--shell-top))] flex-col overflow-hidden">
+    <div className="flex h-[calc(100vh-var(--shell-top)-var(--bottom-nav-h))] flex-col overflow-hidden lg:h-[calc(100vh-var(--shell-top))]">
 
       {/* ── Stats row ── */}
       <div className="shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] px-5 py-3 md:px-6">

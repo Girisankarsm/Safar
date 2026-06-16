@@ -661,7 +661,7 @@ export function RoutesPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-var(--shell-top))] flex-col overflow-hidden">
+    <div className="flex h-[calc(100vh-var(--shell-top)-var(--bottom-nav-h))] flex-col overflow-hidden lg:h-[calc(100vh-var(--shell-top))]">
 
       {/* Sub-nav strip */}
       <div className="shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg)] px-5 py-2 md:px-6">

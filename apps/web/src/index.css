@@ -26,7 +26,9 @@
   --city-banner-h: 0px;
   --shell-top: var(--header-h);
   /* Bottom nav height (mobile) + safe area */
-  --bottom-nav-h: 56px;
+  --bottom-nav-h: 60px;
+  /* Total safe bottom clearance — content must not go below this */
+  --bottom-safe: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px));
 
   /* ── Elevation shadows ── */
   --shadow-sm:  0 1px 3px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.03) inset;
@@ -132,7 +134,15 @@ body {
 
 /* Safe bottom padding for content above mobile nav */
 .safe-bottom {
-  padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 0.5rem);
+  padding-bottom: calc(var(--bottom-safe) + 0.75rem);
+}
+
+/* Applied to <main> in AppShell — all pages get clearance automatically */
+.main-mobile-safe {
+  padding-bottom: var(--bottom-safe);
+}
+@media (min-width: 1024px) {
+  .main-mobile-safe { padding-bottom: 0; }
 }
 
 /* Keyboard focus ring */
