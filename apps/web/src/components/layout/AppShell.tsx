@@ -1,6 +1,7 @@
 import { CitySwitcher } from "@/components/layout/CitySwitcher";
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
+import { PresentationDeckTag } from "@/components/layout/PresentationDeckTag";
 import { PWAInstallButton } from "@/components/layout/PWAInstallButton";
 import { getCityConfig } from "@/config/cities";
 import { UserMenu } from "@/features/auth";
@@ -130,8 +131,9 @@ export function AppShell() {
           })}
         </nav>
 
-        {/* City switcher */}
-        <div className="border-t border-[var(--border-subtle)] px-4 py-4">
+        {/* City switcher + deck link */}
+        <div className="space-y-3 border-t border-[var(--border-subtle)] px-4 py-4">
+          <PresentationDeckTag className="w-full justify-center" />
           <div className="flex items-center gap-2 px-2 py-1.5">
             <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#22C55E] shadow-[0_0_5px_#22C55E]" />
             <CitySwitcher />
@@ -183,6 +185,7 @@ export function AppShell() {
                 <span className="status-live absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[#22C55E]" />
               </Link>
               <LanguageSwitcher compact />
+              <PresentationDeckTag compact />
               <div className="mx-0.5 h-4 w-px bg-[var(--border-subtle)]" />
               {/* Install button — right next to profile, hidden once installed */}
               <PWAInstallButton />
