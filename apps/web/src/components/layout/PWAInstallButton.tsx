@@ -91,10 +91,10 @@ export function PWAInstallButton() {
         exit={{ opacity: 0, scale: 0.88, x: 6 }}
         transition={{ duration: 0.22 }}
         title="Install Safar on your device"
-        className="flex items-center gap-1.5 rounded-lg border border-[#3B82F6]/35 bg-[#3B82F6]/12 px-2.5 py-1.5 text-[11px] font-bold text-[#93C5FD] shadow-sm shadow-[#3B82F6]/10 transition hover:bg-[#3B82F6]/22 hover:text-white active:scale-95"
+        className="flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1.5 text-[11px] font-semibold text-[var(--text-muted)] transition hover:border-[#3B82F6]/40 hover:text-[#93C5FD] active:scale-95"
       >
-        <Download className="h-3.5 w-3.5 shrink-0" />
-        <span className="hidden sm:inline">Install</span>
+        <Download className="h-3 w-3 shrink-0" />
+        <span className="hidden sm:inline text-[11px]">Install</span>
       </motion.button>
     </AnimatePresence>
   );
