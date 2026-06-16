@@ -6,7 +6,7 @@
   **India's first community-powered urban mobility intelligence platform**  
   Built for real commuters. Backed by real data.
 
-  [![Live Demo](https://img.shields.io/badge/Live%20Demo-safar--ai--web.vercel.app-3B82F6?style=for-the-badge&logo=vercel)](https://safar-ai-web.vercel.app)
+  [![Live Demo](https://img.shields.io/badge/Live%20Demo-safar--travel--web.vercel.app-3B82F6?style=for-the-badge&logo=vercel)](https://safar-travel-web.vercel.app)
   [![GitHub](https://img.shields.io/badge/GitHub-Girisankarsm%2FSafar-181717?style=for-the-badge&logo=github)](https://github.com/Girisankarsm/Safar)
   [![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](LICENSE)
 
