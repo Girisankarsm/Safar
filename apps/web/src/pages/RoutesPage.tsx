@@ -463,13 +463,6 @@ function IntelligencePanel({
                 );
               })()}
 
-              {/* ── Radar Chart — hide on small mobile to save space ── */}
-              {allRoutes.length > 1 && (
-                <div className={mobile ? "hidden sm:block" : undefined}>
-                  <RouteRadarChart routes={allRoutes} selected={route} />
-                </div>
-              )}
-
               {/* Why X? breakdown */}
               {route.safety_breakdown?.length > 0 && (
                 <SafetyScoreBreakdown
