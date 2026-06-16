@@ -1,13 +1,11 @@
 import { RoutesSubNav } from "@/components/layout/RoutesSubNav";
+import { IntelligenceDrawer, IntelligenceTrigger } from "@/components/routes/IntelligenceDrawer";
+import type { IntelligenceTab } from "@/components/routes/intelligence-panel";
 import { RouteMap } from "@/components/map/RouteMap";
-import { RouteAssistant } from "@/components/routes/RouteAssistant";
-import { RouteRiskTimeline } from "@/components/routes/RouteRiskTimeline";
-import { SafarAIAnalysis } from "@/components/safety/safar-ai-analysis";
-import { SafetyScoreBreakdown } from "@/components/safety/safety-score-breakdown";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
-import { recommendRoute, routeTrustTagline, generateRouteComparison } from "@/lib/ai-insights";
 import { sampleRoutePoints, isNearRoute } from "@/lib/route-assistant";
+import { recommendRoute, routeTrustTagline } from "@/lib/ai-insights";
 import { useI18n } from "@/i18n/use-i18n";
 import { routeTypeKey } from "@/i18n/translations";
 import { modeLabel, primaryTransitMode } from "@/lib/multimodal-legs";
@@ -18,25 +16,17 @@ import { loadRoutesSession } from "@/lib/routes-session-cache";
 import { reportsService } from "@/services/supabase/reports.service";
 import { tripsService } from "@/services/supabase/trips.service";
 import { useCityStore } from "@/stores/city.store";
-import type { CityId, PlannedRoute, RouteType, SafetyReport } from "@/types/database";
+import type { PlannedRoute, RouteType, SafetyReport } from "@/types/database";
 import {
   AlertTriangle,
-  Bot,
-  Building2,
-  CheckCircle2,
   Clock,
   IndianRupee,
-  Lightbulb,
   MapPin,
   Navigation,
   Route,
   Shield,
-  ShoppingBag,
   Sparkles,
-  TrendingUp,
-  Users,
   X,
-  XCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -49,8 +39,6 @@ const ROUTE_COLOR: Record<RouteType, { text: string; border: string }> = {
   balanced: { text: "text-[#3B82F6]", border: "border-[#3B82F6]/30" },
   women_friendly: { text: "text-[#EC4899]", border: "border-[#EC4899]/30" },
 };
-
-type RightTab = "intelligence" | "ask";
 
 /** Compact route card for the left selector panel */
 function RouteListCard({
@@ -221,353 +209,23 @@ function RouteAlert({
   );
 }
 
-/** Tabbed right intelligence panel */
-function IntelligencePanel({
-  route,
-  allRoutes,
-  cityId: city,
-  departureHour,
-  starting,
-  onStart,
-  activeTab,
-  setActiveTab,
-  mobile = false,
-}: {
-  route: PlannedRoute;
-  allRoutes: PlannedRoute[];
-  cityId: CityId;
-  departureHour?: number;
-  starting: boolean;
-  onStart: () => void;
-  activeTab: RightTab;
-  setActiveTab: (t: RightTab) => void;
-  /** Mobile: flows in page scroll — no nested scroll trap */
-  mobile?: boolean;
-}) {
-  const { t } = useI18n();
-  const cp = route.corridor_profile;
-  const scoreColor =
-    route.safety_score >= 80 ? "#22C55E" : route.safety_score >= 55 ? "#F59E0B" : "#EF4444";
-  const TABS: { id: RightTab; label: string; icon: typeof Shield }[] = [
-    { id: "intelligence", label: "Intelligence", icon: Shield },
-    { id: "ask", label: "Ask Safar", icon: Bot },
-  ];
-
-  return (
-    <div className={cn("flex flex-col", !mobile && "h-full")}>
-      {/* Tab bar — sticky on mobile while scrolling page */}
-      <div
-        className={cn(
-          "flex shrink-0 gap-0.5 border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] p-1.5",
-          mobile && "sticky top-0 z-10"
-        )}
-      >
-        {TABS.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setActiveTab(id)}
-            className={cn(
-              "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[11px] font-semibold transition",
-              activeTab === id
-                ? "bg-[#3B82F6]/15 text-white ring-1 ring-[#3B82F6]/25"
-                : "text-[var(--text-dim)] hover:bg-[var(--bg-surface)] hover:text-white"
-            )}
-          >
-            <Icon className="h-3 w-3" />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab content */}
-      <div className={cn(!mobile && "flex min-h-0 flex-1 flex-col overflow-hidden")}>
-        <AnimatePresence mode="wait">
-
-          {/* ── Intelligence Tab ── */}
-          {activeTab === "intelligence" && (
-            <motion.div
-              key="intel"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className={cn(
-                mobile ? "space-y-3 p-3" : "flex-1 space-y-4 overflow-y-auto p-4"
-              )}
-            >
-              {/* Score hero — compact on mobile */}
-              <div className={cn(mobile && "rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3")}>
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
-                  Safety Score
-                </p>
-                <div className="flex items-end gap-2">
-                  <span className={cn("font-bold tabular-nums text-white", mobile ? "text-3xl" : "text-4xl")}>
-                    {route.safety_score}
-                  </span>
-                  <span className="mb-0.5 text-base font-bold text-[var(--text-dim)]">/100</span>
-                  <span
-                    className="mb-1 ml-auto rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wider"
-                    style={{
-                      backgroundColor: `${scoreColor}18`,
-                      color: scoreColor,
-                    }}
-                  >
-                    {route.safety_score >= 80 ? "Safe" : route.safety_score >= 55 ? "Moderate" : "High Risk"}
-                  </span>
-                </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--border-subtle)]">
-                  <motion.div
-                    key={route.route_type}
-                    className="h-full rounded-full"
-                    style={{ backgroundColor: scoreColor }}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${route.safety_score}%` }}
-                    transition={{ duration: 0.6 }}
-                  />
-                </div>
-                {cp && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--border-subtle)]">
-                      <motion.div
-                        className="h-full rounded-full"
-                        style={{ backgroundColor: cp.confidenceScore >= 75 ? "#22C55E" : "#F59E0B" }}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${cp.confidenceScore}%` }}
-                        transition={{ duration: 0.7, delay: 0.2 }}
-                      />
-                    </div>
-                    <span
-                      className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
-                      style={{
-                        backgroundColor: cp.confidenceScore >= 75 ? "rgba(34,197,94,0.12)" : "rgba(245,158,11,0.12)",
-                        color: cp.confidenceScore >= 75 ? "#86EFAC" : "#FCD34D",
-                      }}
-                    >
-                      {cp.confidenceScore >= 75 ? (
-                        <CheckCircle2 className="mr-1 inline h-2.5 w-2.5" />
-                      ) : null}
-                      {cp.confidenceScore}% confidence
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Corridor metrics — 4-up grid, tighter on mobile */}
-              {cp && (
-                <div className={cn(mobile && "rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3")}>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
-                    Corridor Profile
-                  </p>
-                  <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-2 sm:gap-2">
-                    {[
-                      { icon: Shield, label: "Police", value: cp.policeCount, color: "#3B82F6" },
-                      { icon: Building2, label: "Hospitals", value: cp.hospitalCount, color: "#22C55E" },
-                      { icon: Users, label: "Reports", value: cp.reportCount, color: "#A78BFA" },
-                      { icon: AlertTriangle, label: "Hotspots", value: cp.hotspots.length, color: cp.hotspots.length > 0 ? "#EF4444" : "#22C55E" },
-                    ].map(({ icon: Icon, label, value, color }) => (
-                      <div key={label} className="flex flex-col items-center gap-0.5 rounded-lg bg-[var(--bg)] p-2 text-center sm:flex-row sm:items-center sm:gap-2 sm:p-2.5 sm:text-left">
-                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md sm:h-7 sm:w-7 sm:rounded-lg" style={{ backgroundColor: `${color}14` }}>
-                          <Icon className="h-3 w-3 sm:h-3.5 sm:w-3.5" style={{ color }} />
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-white">{value}</p>
-                          <p className="text-[9px] text-[var(--text-dim)] sm:text-[10px]">{label}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ── Real Route Quality Metrics ── */}
-              {cp && (() => {
-                const lightingScore = cp.confidenceScore >= 75 ? "High" : cp.confidenceScore >= 50 ? "Medium" : "Low";
-                const commercialTag = (cp.policeCount + cp.hospitalCount) >= 4 ? "Dense" : (cp.policeCount + cp.hospitalCount) >= 2 ? "Moderate" : "Sparse";
-                const avoided = Math.max(0, 5 - cp.hotspots.length);
-                const trafficLine = route.recommendations?.find((r) => r.startsWith("Traffic:"));
-                const trafficLabel = trafficLine?.replace("Traffic: ", "").replace(/\s*\(×[\d.]+\)/, "");
-
-                return (
-                  <div className={cn(mobile && "rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3")}>
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
-                      Route Quality
-                    </p>
-                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-                      {[
-                        {
-                          icon: XCircle,
-                          label: "Avoided",
-                          value: `✓ ${avoided} hotspot${avoided !== 1 ? "s" : ""}`,
-                          good: avoided > 0,
-                          color: avoided > 0 ? "#22C55E" : "#EF4444",
-                        },
-                        {
-                          icon: Shield,
-                          label: "Police Nearby",
-                          value: `✓ ${cp.policeCount} station${cp.policeCount !== 1 ? "s" : ""}`,
-                          good: cp.policeCount > 0,
-                          color: "#3B82F6",
-                        },
-                        {
-                          icon: Building2,
-                          label: "Hospitals",
-                          value: `✓ ${cp.hospitalCount} on route`,
-                          good: cp.hospitalCount > 0,
-                          color: "#22C55E",
-                        },
-                        {
-                          icon: Lightbulb,
-                          label: "Lighting",
-                          value: `✓ ${lightingScore}`,
-                          good: lightingScore === "High",
-                          color: lightingScore === "High" ? "#F59E0B" : lightingScore === "Medium" ? "#F59E0B" : "#EF4444",
-                        },
-                        {
-                          icon: ShoppingBag,
-                          label: "Commercial",
-                          value: `✓ ${commercialTag}`,
-                          good: commercialTag !== "Sparse",
-                          color: "#A78BFA",
-                        },
-                        {
-                          icon: TrendingUp,
-                          label: "Traffic",
-                          value: trafficLabel ?? "Normal",
-                          good: !trafficLabel?.includes("Rush"),
-                          color: trafficLabel?.includes("Rush") ? "#F59E0B" : "#22C55E",
-                        },
-                      ].map(({ icon: Icon, label, value, color }) => (
-                        <div
-                          key={label}
-                          className="flex items-start gap-2 rounded-lg p-2.5"
-                          style={{ backgroundColor: `${color}0A` }}
-                        >
-                          <div
-                            className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
-                            style={{ backgroundColor: `${color}18` }}
-                          >
-                            <Icon className="h-3 w-3" style={{ color }} />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[9px] font-semibold uppercase tracking-wide text-[var(--text-dim)]">
-                              {label}
-                            </p>
-                            <p className="text-[11px] font-bold leading-tight text-white">
-                              {value}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Why X? breakdown */}
-              {route.safety_breakdown?.length > 0 && (
-                <SafetyScoreBreakdown
-                  score={route.safety_score}
-                  breakdown={route.safety_breakdown}
-                />
-              )}
-
-              {/* Risk Timeline */}
-              {cp && cp.segments.length > 0 && (
-                <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg)] p-3">
-                  <RouteRiskTimeline profile={cp} />
-                </div>
-              )}
-
-              {/* Why this route? — judge-friendly comparison */}
-              {allRoutes.length > 1 && (
-                <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg)] p-3">
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
-                    Why This Route?
-                  </p>
-                  <ul className="space-y-1.5">
-                    {generateRouteComparison(route, allRoutes).map((line, i) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#3B82F6]" />
-                        <span className="text-[11px] leading-snug text-[var(--text-muted)]">{line}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Data sources */}
-              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg)] p-3">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
-                  Data Sources
-                </p>
-                <div className="space-y-1.5">
-                  {[
-                    { label: "NCRB Historical Crime Data", color: "#F59E0B" },
-                    { label: "Community Safety Reports", color: "#A78BFA" },
-                    { label: "OpenStreetMap Infrastructure", color: "#22C55E" },
-                    { label: "Police Station Locations", color: "#3B82F6" },
-                    { label: "Hospital Locations", color: "#22C55E" },
-                  ].map(({ label, color }) => (
-                    <div key={label} className="flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
-                      <span className="text-[10px] font-medium text-[var(--text-muted)]">✓ {label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* AI explanation */}
-              <SafarAIAnalysis route={route} compact={mobile} />
-            </motion.div>
-          )}
-
-          {/* ── Ask AI Tab ── */}
-          {activeTab === "ask" && (
-            <motion.div
-              key="ask"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="flex-1 overflow-hidden"
-            >
-              <RouteAssistant
-                route={route}
-                allRoutes={allRoutes}
-                cityId={city}
-                departureHour={departureHour}
-              />
-            </motion.div>
-          )}
-
-        </AnimatePresence>
-      </div>
-
-      {/* Start trip CTA */}
-      <div className={cn("shrink-0 border-t border-[var(--border-subtle)] p-4", mobile && "pb-[var(--bottom-safe)]")}>
-        <Button
-          className="w-full gap-2 py-3 text-sm font-bold shadow-lg shadow-[#3B82F6]/20"
-          onClick={onStart}
-          disabled={starting}
-        >
-          <Navigation className="h-4 w-4" />
-          {starting ? t("routes.starting") : t("routes.startTrip")}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 /** Structured map block — trip summary + map between A and B */
 function RouteMapPanel({
   route,
   className,
   mapClassName,
+  onOpenIntel,
+  onStart,
+  starting,
+  showMapActions = false,
 }: {
   route: PlannedRoute;
   className?: string;
   mapClassName?: string;
+  onOpenIntel?: () => void;
+  onStart?: () => void;
+  starting?: boolean;
+  showMapActions?: boolean;
 }) {
   const { t } = useI18n();
   const c = ROUTE_COLOR[route.route_type];
@@ -623,6 +281,23 @@ function RouteMapPanel({
             {t(routeTypeKey(route.route_type))}
           </span>
         </div>
+        {showMapActions && onOpenIntel && onStart && (
+          <div className="absolute bottom-3 right-3 z-[500] flex items-center gap-2 md:bottom-4 md:right-4">
+            <IntelligenceTrigger
+              compact
+              score={route.safety_score}
+              onClick={onOpenIntel}
+            />
+            <Button
+              className="gap-2 px-4 py-2.5 text-sm font-bold shadow-lg shadow-[#3B82F6]/25"
+              onClick={onStart}
+              disabled={starting}
+            >
+              <Navigation className="h-4 w-4" />
+              {starting ? t("routes.starting") : t("routes.startTrip")}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -641,7 +316,8 @@ export function RoutesPage() {
   } | null>(null);
   const [selected, setSelected] = useState<PlannedRoute | null>(null);
   const [starting, setStarting] = useState(false);
-  const [activeTab, setActiveTab] = useState<RightTab>("intelligence");
+  const [intelOpen, setIntelOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<IntelligenceTab>("intelligence");
   const [nearbyAlert, setNearbyAlert] = useState<SafetyReport | null>(null);
   const alertDismissed = useRef<Set<string>>(new Set());
 
@@ -655,6 +331,10 @@ export function RoutesPage() {
         : null,
     [routes, profile?.women_safety_mode, profile?.night_safe_preference]
   );
+
+  useEffect(() => {
+    setIntelOpen(false);
+  }, [selected?.route_type]);
 
   useEffect(() => {
     const parsed = loadRoutesSession(city);
@@ -822,29 +502,31 @@ export function RoutesPage() {
 
         {/* Map — structured panel */}
         {selected && (
-          <RouteMapPanel
-            route={selected}
-            mapClassName="h-[220px] sm:h-[260px]"
-          />
-        )}
-
-        {/* Intelligence — flows in page scroll */}
-        {selected && (
-          <IntelligencePanel
-            mobile
-            route={selected}
-            allRoutes={routes}
-            cityId={city}
-            departureHour={search?.departureHour}
-            starting={starting}
-            onStart={() => startTrip(selected)}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-          />
+          <>
+            <RouteMapPanel
+              route={selected}
+              mapClassName="h-[240px] sm:h-[300px]"
+            />
+            <div className="sticky bottom-0 z-20 flex items-center gap-2 border-t border-[var(--border-subtle)] bg-[var(--bg-panel)]/98 px-3 py-2.5 backdrop-blur-md pb-[var(--bottom-safe)]">
+              <IntelligenceTrigger
+                compact
+                score={selected.safety_score}
+                onClick={() => setIntelOpen(true)}
+              />
+              <Button
+                className="min-w-0 flex-1 gap-2 py-2.5 text-sm font-bold"
+                onClick={() => startTrip(selected)}
+                disabled={starting}
+              >
+                <Navigation className="h-4 w-4 shrink-0" />
+                {starting ? t("routes.starting") : t("routes.startTrip")}
+              </Button>
+            </div>
+          </>
         )}
       </div>
 
-      {/* ── DESKTOP: three-column layout ── */}
+      {/* ── DESKTOP: two-column layout ── */}
       <div className="desktop-3col hidden min-h-0 flex-1 lg:grid">
 
         {/* LEFT — Route list */}
@@ -906,45 +588,34 @@ export function RoutesPage() {
                 transition={{ duration: 0.25 }}
                 className="h-full min-h-0"
               >
-                <RouteMapPanel route={selected} className="h-full" />
+                <RouteMapPanel
+                  route={selected}
+                  className="h-full"
+                  showMapActions
+                  onOpenIntel={() => setIntelOpen(true)}
+                  onStart={() => startTrip(selected)}
+                  starting={starting}
+                />
               </motion.div>
             )}
           </AnimatePresence>
         </div>
-
-        {/* RIGHT — Tabbed intelligence panel (desktop only) */}
-        <aside className="intel-panel min-h-0 overflow-hidden">
-          <AnimatePresence mode="wait">
-            {selected ? (
-              <motion.div
-                key={selected.route_type}
-                initial={{ opacity: 0, x: 8 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="h-full"
-              >
-                <IntelligencePanel
-                  route={selected}
-                  allRoutes={routes}
-                  cityId={city}
-                  departureHour={search?.departureHour}
-                  starting={starting}
-                  onStart={() => startTrip(selected)}
-                  activeTab={activeTab}
-                  setActiveTab={setActiveTab}
-                />
-              </motion.div>
-            ) : (
-              <div className="flex h-full items-center justify-center p-8 text-center">
-                <p className="text-sm text-[var(--text-dim)]">
-                  Select a route to see safety intelligence
-                </p>
-              </div>
-            )}
-          </AnimatePresence>
-        </aside>
       </div>
+
+      {selected && (
+        <IntelligenceDrawer
+          open={intelOpen}
+          onClose={() => setIntelOpen(false)}
+          route={selected}
+          allRoutes={routes}
+          cityId={city}
+          departureHour={search?.departureHour}
+          starting={starting}
+          onStart={() => startTrip(selected)}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+        />
+      )}
     </div>
   );
 }

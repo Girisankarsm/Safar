@@ -4,6 +4,7 @@ import { useI18n } from "@/i18n/use-i18n";
 import { addLabeledMarker } from "@/components/map/map-markers";
 import { useSettingsStore } from "@/stores/settings.store";
 import type { CorridorProfile, CorridorSegment } from "@/lib/corridor-risk";
+import { haversineM } from "@/lib/geo";
 import { useCallback, useEffect, useRef } from "react";
 
 function isStraightLine(geometry?: GeoJSON.LineString): boolean {
@@ -57,20 +58,131 @@ function poiIcon(type: "hospital" | "police"): L.DivIcon {
   });
 }
 
+function decimateCoords<T>(coords: T[], maxPoints: number): T[] {
+  if (coords.length <= maxPoints) return coords;
+  const step = Math.ceil(coords.length / maxPoints);
+  const out: T[] = [];
+  for (let i = 0; i < coords.length; i += step) out.push(coords[i]);
+  const last = coords[coords.length - 1];
+  if (out[out.length - 1] !== last) out.push(last);
+  return out;
+}
+
+type RouteDisplayStyle = {
+  spanDeg: number;
+  distanceKm: number;
+  longRoute: boolean;
+  mainWeight: number;
+  segmentWeight: number;
+  glowWeight: number;
+  showGlow: boolean;
+  showCorridorPins: boolean;
+};
+
+function routeDisplayStyle(
+  source: { lat: number; lng: number },
+  destination: { lat: number; lng: number },
+  geometry?: GeoJSON.LineString
+): RouteDisplayStyle {
+  const bounds = buildRouteBounds(source, destination, geometry);
+  const sw = bounds.getSouthWest();
+  const ne = bounds.getNorthEast();
+  const spanDeg = Math.max(Math.abs(ne.lat - sw.lat), Math.abs(ne.lng - sw.lng));
+  const distanceKm = haversineM(source.lat, source.lng, destination.lat, destination.lng) / 1000;
+  const longRoute = spanDeg >= 0.9 || distanceKm >= 60;
+
+  if (spanDeg >= 3 || distanceKm >= 250) {
+    return {
+      spanDeg,
+      distanceKm,
+      longRoute: true,
+      mainWeight: 2,
+      segmentWeight: 2,
+      glowWeight: 0,
+      showGlow: false,
+      showCorridorPins: false,
+    };
+  }
+  if (spanDeg >= 1.5 || distanceKm >= 120) {
+    return {
+      spanDeg,
+      distanceKm,
+      longRoute: true,
+      mainWeight: 2.5,
+      segmentWeight: 2.5,
+      glowWeight: 0,
+      showGlow: false,
+      showCorridorPins: false,
+    };
+  }
+  if (longRoute) {
+    return {
+      spanDeg,
+      distanceKm,
+      longRoute: true,
+      mainWeight: 3,
+      segmentWeight: 3,
+      glowWeight: 5,
+      showGlow: false,
+      showCorridorPins: false,
+    };
+  }
+  if (spanDeg >= 0.35) {
+    return {
+      spanDeg,
+      distanceKm,
+      longRoute: false,
+      mainWeight: 4,
+      segmentWeight: 4,
+      glowWeight: 7,
+      showGlow: true,
+      showCorridorPins: true,
+    };
+  }
+  if (spanDeg >= 0.12) {
+    return {
+      spanDeg,
+      distanceKm,
+      longRoute: false,
+      mainWeight: 5,
+      segmentWeight: 5,
+      glowWeight: 9,
+      showGlow: true,
+      showCorridorPins: true,
+    };
+  }
+  return {
+    spanDeg,
+    distanceKm,
+    longRoute: false,
+    mainWeight: 6,
+    segmentWeight: 6,
+    glowWeight: 10,
+    showGlow: true,
+    showCorridorPins: true,
+  };
+}
+
 function drawSegmentedRoute(
   map: L.Map,
   geometry: GeoJSON.LineString,
   segments: CorridorSegment[],
-  fallbackColor: string
+  fallbackColor: string,
+  segmentWeight: number
 ): void {
   const coords = geometry.coordinates;
 
   if (!segments.length) {
-    L.polyline(coords.map(([lng, lat]) => [lat, lng] as [number, number]), {
-      color: fallbackColor,
-      weight: 6,
-      opacity: 0.95,
-    }).addTo(map);
+    L.polyline(
+      coords.map(([lng, lat]) => [lat, lng] as [number, number]),
+      {
+        color: fallbackColor,
+        weight: segmentWeight,
+        opacity: 0.92,
+        lineCap: "round",
+        lineJoin: "round",
+      }
+    ).addTo(map);
     return;
   }
 
@@ -84,8 +196,10 @@ function drawSegmentedRoute(
 
     L.polyline(latlngs, {
       color,
-      weight: 6,
+      weight: segmentWeight,
       opacity: 0.9,
+      lineCap: "round",
+      lineJoin: "round",
     })
       .bindPopup(
         `<b>${seg.riskLevel.charAt(0).toUpperCase() + seg.riskLevel.slice(1)} Risk Segment</b><br/>` +
@@ -123,7 +237,11 @@ function maxZoomForDistance(source: { lat: number; lng: number }, destination: {
   if (span < 0.04) return 15;
   if (span < 0.12) return 14;
   if (span < 0.35) return 13;
-  return 12;
+  if (span < 0.8) return 12;
+  if (span < 1.5) return 11;
+  if (span < 3) return 10;
+  if (span < 6) return 9;
+  return 8;
 }
 
 export function RouteMap({
@@ -163,20 +281,32 @@ export function RouteMap({
     const bounds = boundsRef.current;
     if (!map || !bounds?.isValid()) return;
 
+    const style = routeDisplayStyle(source, destination, geometry);
+    const padding: L.FitBoundsOptions["padding"] = style.longRoute
+      ? [72, 72]
+      : [56, 56];
+
     map.invalidateSize({ animate: false });
     map.fitBounds(bounds, {
-      padding: [56, 56],
+      padding,
       maxZoom: maxZoomForDistance(source, destination),
       animate: false,
     });
-  }, [source, destination]);
+  }, [source, destination, geometry]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
+    const style = routeDisplayStyle(source, destination, geometry);
     const midLat = (source.lat + destination.lat) / 2;
     const midLng = (source.lng + destination.lng) / 2;
-    const map = L.map(containerRef.current, { zoomControl: true }).setView([midLat, midLng], 13);
+    const initialZoom = style.longRoute
+      ? maxZoomForDistance(source, destination)
+      : 13;
+    const map = L.map(containerRef.current, { zoomControl: true }).setView(
+      [midLat, midLng],
+      initialZoom
+    );
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
       attribution: "&copy; OSM &copy; CARTO",
       maxZoom: maxTileZoom,
@@ -193,7 +323,7 @@ export function RouteMap({
       map.remove();
       mapRef.current = null;
     };
-  }, [source.lat, source.lng, destination.lat, destination.lng, maxTileZoom, fitToRoute]);
+  }, [source.lat, source.lng, destination.lat, destination.lng, maxTileZoom, fitToRoute, geometry]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -226,65 +356,98 @@ export function RouteMap({
     });
 
     if (geometry?.coordinates?.length) {
-      const latlngs = geometry.coordinates.map(([lng, lat]) => [lat, lng] as [number, number]);
+      const style = routeDisplayStyle(source, destination, geometry);
+      const maxPoints = style.longRoute ? 500 : 3000;
+      const coords = decimateCoords(geometry.coordinates, maxPoints);
+      const latlngs = coords.map(([lng, lat]) => [lat, lng] as [number, number]);
 
       if (estimate) {
         L.polyline(latlngs, {
           color: lineColor,
-          weight: 5,
+          weight: style.mainWeight,
           opacity: 0.85,
           dashArray: "10 8",
+          lineCap: "round",
+          lineJoin: "round",
         })
           .bindPopup("Estimated direct path — search again for road routing")
           .addTo(map);
       } else if (corridorProfile?.segments?.length) {
-        L.polyline(latlngs, {
-          color: lineColor,
-          weight: 10,
-          opacity: 0.18,
-        }).addTo(map);
-
-        drawSegmentedRoute(map, geometry, corridorProfile.segments, lineColor);
-
-        for (const hotspot of corridorProfile.hotspots) {
-          L.marker([hotspot.lat, hotspot.lng], { icon: hotspotIcon(hotspot.riskLevel) })
-            .bindPopup(
-              `<b>${hotspot.riskLevel.charAt(0).toUpperCase() + hotspot.riskLevel.slice(1)}-Risk Zone</b><br/>` +
-                `${hotspot.reportCount} community report${hotspot.reportCount > 1 ? "s" : ""}<br/>` +
-                `Types: ${hotspot.types.slice(0, 3).join(", ")}`
-            )
+        if (style.longRoute) {
+          L.polyline(latlngs, {
+            color: lineColor,
+            weight: style.mainWeight,
+            opacity: 0.88,
+            lineCap: "round",
+            lineJoin: "round",
+          })
+            .bindPopup("Road route")
             .addTo(map);
+        } else {
+          if (style.showGlow) {
+            L.polyline(latlngs, {
+              color: lineColor,
+              weight: style.glowWeight,
+              opacity: 0.18,
+              lineCap: "round",
+              lineJoin: "round",
+            }).addTo(map);
+          }
+
+          drawSegmentedRoute(
+            map,
+            geometry,
+            corridorProfile.segments,
+            lineColor,
+            style.segmentWeight
+          );
         }
 
-        for (const h of corridorProfile.hospitals ?? []) {
-          L.marker([h.lat, h.lng], { icon: poiIcon("hospital"), zIndexOffset: 200 })
-            .bindPopup(`<b>🏥 ${h.name}</b><br/><span style="color:#06B6D4">Hospital on corridor</span>`)
-            .addTo(map);
-        }
+        if (style.showCorridorPins) {
+          for (const hotspot of corridorProfile.hotspots) {
+            L.marker([hotspot.lat, hotspot.lng], { icon: hotspotIcon(hotspot.riskLevel) })
+              .bindPopup(
+                `<b>${hotspot.riskLevel.charAt(0).toUpperCase() + hotspot.riskLevel.slice(1)}-Risk Zone</b><br/>` +
+                  `${hotspot.reportCount} community report${hotspot.reportCount > 1 ? "s" : ""}<br/>` +
+                  `Types: ${hotspot.types.slice(0, 3).join(", ")}`
+              )
+              .addTo(map);
+          }
 
-        for (const p of corridorProfile.policeStations ?? []) {
-          L.marker([p.lat, p.lng], { icon: poiIcon("police"), zIndexOffset: 200 })
-            .bindPopup(`<b>🚔 ${p.name}</b><br/><span style="color:#3B82F6">Police station on corridor</span>`)
-            .addTo(map);
+          for (const h of corridorProfile.hospitals ?? []) {
+            L.marker([h.lat, h.lng], { icon: poiIcon("hospital"), zIndexOffset: 200 })
+              .bindPopup(`<b>🏥 ${h.name}</b><br/><span style="color:#06B6D4">Hospital on corridor</span>`)
+              .addTo(map);
+          }
+
+          for (const p of corridorProfile.policeStations ?? []) {
+            L.marker([p.lat, p.lng], { icon: poiIcon("police"), zIndexOffset: 200 })
+              .bindPopup(`<b>🚔 ${p.name}</b><br/><span style="color:#3B82F6">Police station on corridor</span>`)
+              .addTo(map);
+          }
         }
       } else {
         L.polyline(latlngs, {
           color: lineColor,
-          weight: 6,
-          opacity: 0.95,
+          weight: style.mainWeight,
+          opacity: 0.92,
+          lineCap: "round",
+          lineJoin: "round",
         })
           .bindPopup("Road route")
           .addTo(map);
 
-        for (const h of corridorProfile?.hospitals ?? []) {
-          L.marker([h.lat, h.lng], { icon: poiIcon("hospital"), zIndexOffset: 200 })
-            .bindPopup(`<b>🏥 ${h.name}</b><br/><span style="color:#06B6D4">Hospital on corridor</span>`)
-            .addTo(map);
-        }
-        for (const p of corridorProfile?.policeStations ?? []) {
-          L.marker([p.lat, p.lng], { icon: poiIcon("police"), zIndexOffset: 200 })
-            .bindPopup(`<b>🚔 ${p.name}</b><br/><span style="color:#3B82F6">Police station on corridor</span>`)
-            .addTo(map);
+        if (style.showCorridorPins) {
+          for (const h of corridorProfile?.hospitals ?? []) {
+            L.marker([h.lat, h.lng], { icon: poiIcon("hospital"), zIndexOffset: 200 })
+              .bindPopup(`<b>🏥 ${h.name}</b><br/><span style="color:#06B6D4">Hospital on corridor</span>`)
+              .addTo(map);
+          }
+          for (const p of corridorProfile?.policeStations ?? []) {
+            L.marker([p.lat, p.lng], { icon: poiIcon("police"), zIndexOffset: 200 })
+              .bindPopup(`<b>🚔 ${p.name}</b><br/><span style="color:#3B82F6">Police station on corridor</span>`)
+              .addTo(map);
+          }
         }
       }
     }
@@ -322,9 +485,11 @@ export function RouteMap({
   }, [focusSegmentIdx, corridorProfile]);
 
   const hasSegments = !estimate && corridorProfile?.segments?.length;
-  const hasHotspots = (corridorProfile?.hotspots?.length ?? 0) > 0;
-  const hasHospitals = (corridorProfile?.hospitals?.length ?? 0) > 0;
-  const hasPolice = (corridorProfile?.policeStations?.length ?? 0) > 0;
+  const displayStyle = routeDisplayStyle(source, destination, geometry);
+  const showSegmentLegend = hasSegments && !displayStyle.longRoute;
+  const hasHotspots = displayStyle.showCorridorPins && (corridorProfile?.hotspots?.length ?? 0) > 0;
+  const hasHospitals = displayStyle.showCorridorPins && (corridorProfile?.hospitals?.length ?? 0) > 0;
+  const hasPolice = displayStyle.showCorridorPins && (corridorProfile?.policeStations?.length ?? 0) > 0;
 
   return (
     <div className={`relative h-full min-h-0${className ? ` ${className}` : ""}`}>
@@ -338,7 +503,7 @@ export function RouteMap({
         <span className="rounded-md bg-black/80 px-2 py-1 text-[#EF4444]">{t("map.destination")}</span>
         {estimate ? (
           <span className="rounded-md bg-black/80 px-2 py-1 text-[#F59E0B]">Estimated path</span>
-        ) : hasSegments ? (
+        ) : showSegmentLegend ? (
           <>
             <span className="rounded-md bg-black/80 px-2 py-1 text-[#22C55E]">Safe</span>
             <span className="rounded-md bg-black/80 px-2 py-1 text-[#F59E0B]">Moderate</span>

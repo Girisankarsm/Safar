@@ -144,7 +144,7 @@ body {
     --shell-top: calc(var(--header-h) + var(--city-banner-h));
   }
   .desktop-3col {
-    grid-template-columns: 296px 1fr 368px;
+    grid-template-columns: 296px 1fr;
     height: calc(100vh - var(--shell-top));
     overflow: hidden;
   }
