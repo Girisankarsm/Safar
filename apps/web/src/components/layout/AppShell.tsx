@@ -177,15 +177,18 @@ export function AppShell() {
                 title={t("nav.community")}
                 aria-label={t("nav.community")}
                 className={cn(
-                  "relative flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] transition hover:border-[#3B82F6]/30 hover:bg-[#3B82F6]/10",
+                  "relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] transition hover:border-[#3B82F6]/30 hover:bg-[#3B82F6]/10",
                   path.startsWith("/community") && "border-[#3B82F6]/40 bg-[#3B82F6]/15"
                 )}
               >
                 <Activity className={cn("h-4 w-4", path.startsWith("/community") ? "text-[#3B82F6]" : "text-[#A1A1AA]")} />
                 <span className="status-live absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[#22C55E]" />
               </Link>
-              <LanguageSwitcher compact />
-              <PresentationDeckTag compact />
+              <div className="flex shrink-0 items-center gap-1">
+                <LanguageSwitcher compact />
+                <PresentationDeckTag iconOnly className="sm:hidden" />
+                <PresentationDeckTag compact className="hidden sm:inline-flex" />
+              </div>
               <div className="mx-0.5 h-4 w-px bg-[var(--border-subtle)]" />
               {/* Install button — right next to profile, hidden once installed */}
               <PWAInstallButton />

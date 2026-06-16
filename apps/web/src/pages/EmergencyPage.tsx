@@ -52,6 +52,32 @@ function buildWhatsAppLink(phone: string, lat: number, lng: number, name: string
   return `https://wa.me/${withCountry}?text=${msg}`;
 }
 
+function buildCallLink(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  const withCountry = digits.length === 10 ? `91${digits}` : digits;
+  return `tel:+${withCountry}`;
+}
+
+type SosContactAction = {
+  name: string;
+  phone: string;
+  callUrl: string;
+  whatsappUrl: string;
+};
+
+function toSosActions(
+  contacts: Pick<EmergencyContact, "name" | "phone">[],
+  lat: number,
+  lng: number
+): SosContactAction[] {
+  return contacts.map((c) => ({
+    name: c.name,
+    phone: c.phone,
+    callUrl: buildCallLink(c.phone),
+    whatsappUrl: buildWhatsAppLink(c.phone, lat, lng, c.name),
+  }));
+}
+
 export function EmergencyPage() {
   const { t } = useI18n();
   const { city } = useCityStore();
@@ -63,7 +89,7 @@ export function EmergencyPage() {
   const [searchRadiusM, setSearchRadiusM] = useState(0);
   const [spotSource, setSpotSource] = useState<SpotSource>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
-  const [sosLinks, setSosLinks] = useState<{ name: string; url: string }[]>([]);
+  const [sosActions, setSosActions] = useState<SosContactAction[]>([]);
   const [showAddContact, setShowAddContact] = useState(false);
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
@@ -207,7 +233,7 @@ export function EmergencyPage() {
   }
 
   async function sos() {
-    setSosLinks([]);
+    setSosActions([]);
     setStatus("");
 
     if (!contactList.length) {
@@ -228,31 +254,18 @@ export function EmergencyPage() {
         if (tripId) {
           try {
             const r = await tripsService.triggerSOS(tripId, lat, lng);
-            setStatus(`SOS logged on your active trip. Notify ${r.notified} contact(s) via WhatsApp below.`);
+            setStatus(
+              `SOS logged on your active trip. Call or WhatsApp ${r.notified} contact(s) below.`
+            );
             const contacts = r.contacts.length ? r.contacts : contactList;
-            setSosLinks(
-              contacts.map((c) => ({
-                name: c.name,
-                url: buildWhatsAppLink(c.phone, lat, lng, c.name),
-              }))
-            );
+            setSosActions(toSosActions(contacts, lat, lng));
           } catch (err) {
-            setStatus(err instanceof Error ? err.message : "SOS failed. Use WhatsApp links below.");
-            setSosLinks(
-              contactList.map((c) => ({
-                name: c.name,
-                url: buildWhatsAppLink(c.phone, lat, lng, c.name),
-              }))
-            );
+            setStatus(err instanceof Error ? err.message : "SOS failed. Call or WhatsApp contacts below.");
+            setSosActions(toSosActions(contactList, lat, lng));
           }
         } else {
-          setStatus("No active trip — open WhatsApp to alert your contacts with your live location.");
-          setSosLinks(
-            contactList.map((c) => ({
-              name: c.name,
-              url: buildWhatsAppLink(c.phone, lat, lng, c.name),
-            }))
-          );
+          setStatus("No active trip — call or WhatsApp your contacts with your live location.");
+          setSosActions(toSosActions(contactList, lat, lng));
         }
       },
       () => setStatus("Location permission denied. Enable GPS to share your position.")
@@ -280,19 +293,30 @@ export function EmergencyPage() {
         <p className="mt-4 font-bold text-white">{t("emergency.tapSos")}</p>
         <p className="text-sm text-[#A1A1AA]">{t("emergency.contacts", { n: contactList.length })}</p>
         {status && <p className="mt-2 text-sm text-[#22C55E]">{status}</p>}
-        {sosLinks.length > 0 && (
-          <div className="mt-4 space-y-2 text-left">
-            {sosLinks.map((link) => (
-              <a
-                key={link.url}
-                href={link.url}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-3 rounded-xl border border-[#22C55E]/30 bg-[#22C55E]/10 px-4 py-3 text-sm font-semibold text-[#22C55E] hover:bg-[#22C55E]/20"
-              >
-                <MessageCircle className="h-4 w-4 shrink-0" />
-                Alert {link.name} on WhatsApp
-              </a>
+        {sosActions.length > 0 && (
+          <div className="mt-4 space-y-3 text-left">
+            {sosActions.map((action) => (
+              <div key={action.phone} className="space-y-2">
+                <p className="text-xs font-semibold text-white">{action.name}</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <a
+                    href={action.callUrl}
+                    className="flex items-center justify-center gap-2 rounded-xl border border-[#EF4444]/40 bg-[#EF4444]/15 px-4 py-3 text-sm font-semibold text-[#FCA5A5] hover:bg-[#EF4444]/25"
+                  >
+                    <Phone className="h-4 w-4 shrink-0" />
+                    Call {action.name}
+                  </a>
+                  <a
+                    href={action.whatsappUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-center gap-2 rounded-xl border border-[#22C55E]/30 bg-[#22C55E]/10 px-4 py-3 text-sm font-semibold text-[#22C55E] hover:bg-[#22C55E]/20"
+                  >
+                    <MessageCircle className="h-4 w-4 shrink-0" />
+                    WhatsApp alert
+                  </a>
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -350,14 +374,24 @@ export function EmergencyPage() {
                     {c.relationship ? ` · ${c.relationship}` : ""}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => removeContact(c.id)}
-                  className="rounded-lg p-2 text-[#71717A] hover:bg-[#262626] hover:text-[#EF4444]"
-                  aria-label={`Remove ${c.name}`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={buildCallLink(c.phone)}
+                    className="rounded-lg border border-[#EF4444]/30 bg-[#EF4444]/10 p-2 text-[#FCA5A5] hover:bg-[#EF4444]/20"
+                    aria-label={`Call ${c.name}`}
+                    title={`Call ${c.name}`}
+                  >
+                    <Phone className="h-4 w-4" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => removeContact(c.id)}
+                    className="rounded-lg p-2 text-[#71717A] hover:bg-[#262626] hover:text-[#EF4444]"
+                    aria-label={`Remove ${c.name}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

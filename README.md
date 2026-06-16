@@ -9,11 +9,18 @@
   [![Live Demo](https://img.shields.io/badge/Live%20Demo-safar--travel--web.vercel.app-3B82F6?style=for-the-badge&logo=vercel)](https://safar-travel-web.vercel.app)
   [![GitHub](https://img.shields.io/badge/GitHub-Girisankarsm%2FSafar-181717?style=for-the-badge&logo=github)](https://github.com/Girisankarsm/Safar)
   [![Presentation Deck](https://img.shields.io/badge/Presentation%20Deck-Google%20Slides-F59E0B?style=for-the-badge&logo=googleslides)](https://docs.google.com/presentation/d/1XY18c7GKHgzhzwkFZOJvO7xIkPqXmeHL/edit?usp=sharing)
+  [![Demo Video](https://img.shields.io/badge/Demo%20Video-YouTube-FF0000?style=for-the-badge&logo=youtube)](https://youtu.be/PS1CElUsZkM)
   [![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](LICENSE)
 
 </div>
 
 ---
+
+## Demo Video
+
+Watch the 1–2 minute walkthrough on YouTube:
+
+[![Safar demo video](https://img.youtube.com/vi/PS1CElUsZkM/hqdefault.jpg)](https://youtu.be/PS1CElUsZkM)
 
 ## What is Safar?
 
