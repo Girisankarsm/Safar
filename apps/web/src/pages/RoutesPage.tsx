@@ -1,6 +1,5 @@
 import { RoutesSubNav } from "@/components/layout/RoutesSubNav";
 import { IntelligenceDrawer, IntelligenceTrigger } from "@/components/routes/IntelligenceDrawer";
-import type { IntelligenceTab } from "@/components/routes/intelligence-panel";
 import { RouteMap } from "@/components/map/RouteMap";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
@@ -317,7 +316,6 @@ export function RoutesPage() {
   const [selected, setSelected] = useState<PlannedRoute | null>(null);
   const [starting, setStarting] = useState(false);
   const [intelOpen, setIntelOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<IntelligenceTab>("intelligence");
   const [nearbyAlert, setNearbyAlert] = useState<SafetyReport | null>(null);
   const alertDismissed = useRef<Set<string>>(new Set());
 
@@ -607,13 +605,8 @@ export function RoutesPage() {
           open={intelOpen}
           onClose={() => setIntelOpen(false)}
           route={selected}
-          allRoutes={routes}
-          cityId={city}
-          departureHour={search?.departureHour}
           starting={starting}
           onStart={() => startTrip(selected)}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
         />
       )}
     </div>

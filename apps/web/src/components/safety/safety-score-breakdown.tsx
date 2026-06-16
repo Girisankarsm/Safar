@@ -15,11 +15,15 @@ export type BreakdownItem = {
 };
 
 const FACTOR_TOOLTIPS: Record<string, string> = {
+  "Historical Crime Index (NCRB)": "NCRB Crime in India city-level statistics (2022)",
   "Historical Crime (NCRB)": "NCRB Crime in India city-level statistics (2022)",
   "Community Reports": "Crowdsourced safety incidents within 500m of this corridor",
+  "Police Station Proximity": "Number of police stations within corridor buffer (OpenStreetMap)",
   "Police Access": "Number of police stations within corridor buffer (OpenStreetMap)",
+  "Hospital Proximity": "Number of hospitals reachable from the corridor (OpenStreetMap)",
   "Hospital Access": "Number of hospitals reachable from the corridor (OpenStreetMap)",
   "Night Travel Risk": "Estimated safety impact based on departure time and lighting",
+  "Lighting & Infrastructure": "Combined infrastructure score (lighting, road quality, OSM density)",
   "Infrastructure Quality": "Combined infrastructure score (lighting, road quality, OSM density)",
   "Lighting Quality": "Estimated lighting coverage along the corridor",
 };

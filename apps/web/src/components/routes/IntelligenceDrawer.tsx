@@ -1,5 +1,5 @@
-import { IntelligencePanel, type IntelligenceTab } from "@/components/routes/intelligence-panel";
-import type { CityId, PlannedRoute } from "@/types/database";
+import { IntelligencePanel } from "@/components/routes/intelligence-panel";
+import type { PlannedRoute } from "@/types/database";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { Shield, X } from "lucide-react";
@@ -9,13 +9,8 @@ type Props = {
   open: boolean;
   onClose: () => void;
   route: PlannedRoute;
-  allRoutes: PlannedRoute[];
-  cityId: CityId;
-  departureHour?: number;
   starting: boolean;
   onStart: () => void;
-  activeTab: IntelligenceTab;
-  setActiveTab: (t: IntelligenceTab) => void;
 };
 
 export function IntelligenceTrigger({
@@ -85,13 +80,8 @@ export function IntelligenceDrawer({
   open,
   onClose,
   route,
-  allRoutes,
-  cityId,
-  departureHour,
   starting,
   onStart,
-  activeTab,
-  setActiveTab,
 }: Props) {
   if (typeof document === "undefined") return null;
 
@@ -128,7 +118,7 @@ export function IntelligenceDrawer({
                   Route intelligence
                 </p>
                 <p className="text-sm font-semibold text-white">
-                  Safety score {route.safety_score}/100
+                  Why {route.safety_score}?
                 </p>
               </div>
               <button
@@ -142,13 +132,8 @@ export function IntelligenceDrawer({
 
             <IntelligencePanel
               route={route}
-              allRoutes={allRoutes}
-              cityId={cityId}
-              departureHour={departureHour}
               starting={starting}
               onStart={onStart}
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
               drawer
             />
           </motion.div>

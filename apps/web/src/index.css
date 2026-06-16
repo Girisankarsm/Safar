@@ -283,3 +283,8 @@ body {
 .leaflet-tooltip.safar-map-label::before {
   border-top-color: #262626;
 }
+
+/* Hide Leaflet attribution bar on all maps */
+.leaflet-control-attribution {
+  display: none !important;
+}

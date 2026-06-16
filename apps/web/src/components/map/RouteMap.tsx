@@ -353,7 +353,7 @@ export function RouteMap({
     const initialZoom = style.longRoute
       ? maxZoomForDistance(source, destination)
       : 13;
-    const map = L.map(containerRef.current, { zoomControl: true }).setView(
+    const map = L.map(containerRef.current, { zoomControl: true, attributionControl: false }).setView(
       [midLat, midLng],
       initialZoom
     );

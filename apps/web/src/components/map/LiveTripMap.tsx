@@ -32,7 +32,7 @@ export function LiveTripMap({
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    const map = L.map(containerRef.current, { zoomControl: true }).setView(
+    const map = L.map(containerRef.current, { zoomControl: true, attributionControl: false }).setView(
       [source?.lat ?? 13.08, source?.lng ?? 80.27],
       14
     );

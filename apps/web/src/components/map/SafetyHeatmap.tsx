@@ -329,6 +329,7 @@ export function SafetyHeatmap({
   height = "100%",
   layers = DEFAULT_LAYERS,
   recenterSignal = 0,
+  resizeSignal = 0,
   recenterToUser = false,
   className = "",
   fitOnLoad = true,
@@ -344,6 +345,7 @@ export function SafetyHeatmap({
   height?: string;
   layers?: HeatmapLayers;
   recenterSignal?: number;
+  resizeSignal?: number;
   recenterToUser?: boolean;
   className?: string;
   fitOnLoad?: boolean;
@@ -374,7 +376,7 @@ export function SafetyHeatmap({
       container.ownerDocument.head.appendChild(styleEl);
     }
 
-    const map = L.map(container, { zoomControl: true }).setView(
+    const map = L.map(container, { zoomControl: true, attributionControl: false }).setView(
       [center.lat, center.lng],
       12
     );
@@ -610,6 +612,14 @@ export function SafetyHeatmap({
     const c = centerRef.current;
     map.setView([c.lat, c.lng], 12, { animate: true });
   }, [recenterSignal, recenterToUser, userLat, userLng]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || resizeSignal === 0) return;
+    requestAnimationFrame(() => {
+      map.invalidateSize({ animate: false });
+    });
+  }, [resizeSignal]);
 
   return (
     <div

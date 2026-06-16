@@ -19,7 +19,7 @@ import type { CommunityComment, ReportType, SafetyReport } from "@/types/databas
 import { FALLBACK_CRIME_SCORES } from "@/lib/crime-data";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, Crosshair, Filter, Flame, MapPin, Plus, X } from "lucide-react";
+import { ChevronDown, Crosshair, Filter, Flame, MapPin, Maximize2, Minimize2, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const REPORT_TYPES: { id: ReportType; label: string }[] = [
@@ -78,6 +78,8 @@ export function SafetyPage() {
   const [recenterSignal, setRecenterSignal] = useState(0);
   const [filterOpen, setFilterOpen] = useState(false);
   const [mapViewMode, setMapViewMode] = useState<MapViewMode>("reports");
+  const [mapFullscreen, setMapFullscreen] = useState(false);
+  const [mapResizeSignal, setMapResizeSignal] = useState(0);
   const [loadError, setLoadError] = useState("");
   const [commentReport, setCommentReport] = useState<SafetyReport | null>(null);
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
@@ -95,6 +97,27 @@ export function SafetyPage() {
 
   const activeFilterCount =
     (categoryFilter !== "all" ? 1 : 0) + (mapViewMode === "heatmap" ? 1 : 0);
+
+  useEffect(() => {
+    if (!mapFullscreen) {
+      document.body.style.overflow = "";
+      return;
+    }
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMapFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [mapFullscreen]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setMapResizeSignal((n) => n + 1), 150);
+    return () => window.clearTimeout(t);
+  }, [mapFullscreen]);
 
   const load = useCallback(async () => {
     try {
@@ -338,9 +361,16 @@ export function SafetyPage() {
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:grid lg:min-h-0 lg:grid-cols-[1fr_380px] lg:overflow-hidden">
 
         {/* LEFT — Heatmap */}
-        <div className="relative flex h-[200px] shrink-0 flex-col sm:h-[240px] lg:min-h-0 lg:flex-1 lg:h-auto">
+        <div
+          className={cn(
+            "relative flex flex-col bg-[var(--bg)]",
+            mapFullscreen
+              ? "fixed inset-0 z-[100000] h-[100dvh] w-full"
+              : "h-[200px] shrink-0 sm:h-[240px] lg:min-h-0 lg:flex-1 lg:h-auto"
+          )}
+        >
           <SafetyMapLegend heatmapMode={mapViewMode === "heatmap"} />
-          <div className="relative flex-1">
+          <div className="relative min-h-0 flex-1">
             <SafetyHeatmap
               key={city}
               center={center}
@@ -353,9 +383,24 @@ export function SafetyPage() {
               onMapClick={handleMapClick}
               layers={heatmapLayers}
               recenterSignal={recenterSignal}
+              resizeSignal={mapResizeSignal}
               recenterToUser={!!userCoords}
               className="rounded-none"
             />
+            {/* Fullscreen toggle */}
+            <button
+              type="button"
+              onClick={() => setMapFullscreen((v) => !v)}
+              className="absolute right-4 top-4 z-[1000] flex h-10 w-10 items-center justify-center rounded-xl border border-[#262626] bg-[#111111]/95 text-white shadow-lg backdrop-blur-md transition hover:border-[#3B82F6]/50 hover:text-[#3B82F6]"
+              aria-label={mapFullscreen ? "Exit full screen map" : "Full screen map"}
+              title={mapFullscreen ? "Exit full screen" : "Full screen"}
+            >
+              {mapFullscreen ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
+            </button>
             {/* Re-center button */}
             <button
               type="button"
