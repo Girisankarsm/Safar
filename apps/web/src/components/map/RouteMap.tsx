@@ -4,7 +4,7 @@ import { useI18n } from "@/i18n/use-i18n";
 import { addLabeledMarker } from "@/components/map/map-markers";
 import { useSettingsStore } from "@/stores/settings.store";
 import type { CorridorProfile, CorridorSegment } from "@/lib/corridor-risk";
-import { haversineM } from "@/lib/geo";
+import { haversineM, ensureRouteGeometryEndpoints } from "@/lib/geo";
 import { useCallback, useEffect, useRef } from "react";
 
 function isStraightLine(geometry?: GeoJSON.LineString): boolean {
@@ -161,6 +161,56 @@ function routeDisplayStyle(
     showGlow: true,
     showCorridorPins: true,
   };
+}
+
+const LONG_ROUTE_LINE = "#F59E0B";
+
+function prepareDisplayCoords(
+  geometry: GeoJSON.LineString,
+  source: { lat: number; lng: number },
+  destination: { lat: number; lng: number },
+  maxPoints: number
+): [number, number][] {
+  const pinned = ensureRouteGeometryEndpoints(geometry, source, destination);
+  const decimated = decimateCoords(pinned.coordinates, maxPoints);
+  return decimated.map(([lng, lat]) => [lat, lng] as [number, number]);
+}
+
+function drawCasedPolyline(
+  map: L.Map,
+  latlngs: [number, number][],
+  color: string,
+  weight: number,
+  options?: { dashArray?: string; opacity?: number; popup?: string }
+) {
+  if (latlngs.length < 2) return;
+
+  L.polyline(latlngs, {
+    color: "#050505",
+    weight: weight + 4,
+    opacity: 0.9,
+    lineCap: "round",
+    lineJoin: "round",
+  }).addTo(map);
+
+  L.polyline(latlngs, {
+    color: "#262626",
+    weight: weight + 2,
+    opacity: 0.85,
+    lineCap: "round",
+    lineJoin: "round",
+  }).addTo(map);
+
+  const line = L.polyline(latlngs, {
+    color,
+    weight,
+    opacity: options?.opacity ?? 0.95,
+    dashArray: options?.dashArray,
+    lineCap: "round",
+    lineJoin: "round",
+  }).addTo(map);
+
+  if (options?.popup) line.bindPopup(options.popup);
 }
 
 function drawSegmentedRoute(
@@ -357,35 +407,25 @@ export function RouteMap({
 
     if (geometry?.coordinates?.length) {
       const style = routeDisplayStyle(source, destination, geometry);
-      const maxPoints = style.longRoute ? 500 : 3000;
-      const coords = decimateCoords(geometry.coordinates, maxPoints);
-      const latlngs = coords.map(([lng, lat]) => [lat, lng] as [number, number]);
+      const maxPoints = style.longRoute ? 900 : 3000;
+      const latlngs = prepareDisplayCoords(geometry, source, destination, maxPoints);
+      const routeLineColor = style.longRoute ? LONG_ROUTE_LINE : lineColor;
 
       if (estimate) {
-        L.polyline(latlngs, {
-          color: lineColor,
-          weight: style.mainWeight,
+        drawCasedPolyline(map, latlngs, routeLineColor, style.mainWeight, {
           opacity: 0.85,
           dashArray: "10 8",
-          lineCap: "round",
-          lineJoin: "round",
-        })
-          .bindPopup("Estimated direct path — search again for road routing")
-          .addTo(map);
+          popup: "Estimated direct path — search again for road routing",
+        });
       } else if (corridorProfile?.segments?.length) {
         if (style.longRoute) {
-          L.polyline(latlngs, {
-            color: lineColor,
-            weight: style.mainWeight,
-            opacity: 0.88,
-            lineCap: "round",
-            lineJoin: "round",
-          })
-            .bindPopup("Road route")
-            .addTo(map);
+          drawCasedPolyline(map, latlngs, routeLineColor, style.mainWeight, {
+            opacity: 0.92,
+          });
         } else {
+          const fullLatLngs = prepareDisplayCoords(geometry, source, destination, 3000);
           if (style.showGlow) {
-            L.polyline(latlngs, {
+            L.polyline(fullLatLngs, {
               color: lineColor,
               weight: style.glowWeight,
               opacity: 0.18,
@@ -393,6 +433,10 @@ export function RouteMap({
               lineJoin: "round",
             }).addTo(map);
           }
+
+          drawCasedPolyline(map, fullLatLngs, lineColor, Math.max(2, style.mainWeight - 1), {
+            opacity: 0.35,
+          });
 
           drawSegmentedRoute(
             map,
@@ -427,15 +471,9 @@ export function RouteMap({
           }
         }
       } else {
-        L.polyline(latlngs, {
-          color: lineColor,
-          weight: style.mainWeight,
+        drawCasedPolyline(map, latlngs, routeLineColor, style.mainWeight, {
           opacity: 0.92,
-          lineCap: "round",
-          lineJoin: "round",
-        })
-          .bindPopup("Road route")
-          .addTo(map);
+        });
 
         if (style.showCorridorPins) {
           for (const h of corridorProfile?.hospitals ?? []) {
@@ -452,7 +490,13 @@ export function RouteMap({
       }
     }
 
-    boundsRef.current = buildRouteBounds(source, destination, geometry);
+    boundsRef.current = buildRouteBounds(
+      source,
+      destination,
+      geometry?.coordinates?.length
+        ? ensureRouteGeometryEndpoints(geometry, source, destination)
+        : geometry
+    );
 
     const runFit = () => fitToRoute();
     map.whenReady(runFit);
@@ -518,6 +562,8 @@ export function RouteMap({
               <span className="rounded-md bg-black/80 px-2 py-1 text-[#3B82F6]">P Police</span>
             )}
           </>
+        ) : displayStyle.longRoute ? (
+          <span className="rounded-md bg-black/80 px-2 py-1 text-[#F59E0B]">Road route</span>
         ) : (
           <span className="rounded-md bg-black/80 px-2 py-1 text-[#3B82F6]">Road route</span>
         )}

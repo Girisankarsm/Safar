@@ -23,6 +23,52 @@ export function cacheKey(parts: (string | number)[]): string {
   return parts.map(String).join("|").toLowerCase();
 }
 
+/** Pin route geometry to exact start/end so map lines reach both markers. */
+export function ensureRouteGeometryEndpoints(
+  geometry: GeoJSON.LineString,
+  source: { lat: number; lng: number },
+  destination: { lat: number; lng: number },
+  snapThresholdM = 800
+): GeoJSON.LineString {
+  const coords =
+    geometry.coordinates?.filter(
+      ([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat)
+    ) ?? [];
+
+  if (!coords.length) {
+    return {
+      type: "LineString",
+      coordinates: [
+        [source.lng, source.lat],
+        [destination.lng, destination.lat],
+      ],
+    };
+  }
+
+  const next = [...coords];
+  const startGap = haversineM(next[0][1], next[0][0], source.lat, source.lng);
+  const endGap = haversineM(
+    next[next.length - 1][1],
+    next[next.length - 1][0],
+    destination.lat,
+    destination.lng
+  );
+
+  if (startGap > snapThresholdM) {
+    next.unshift([source.lng, source.lat]);
+  } else {
+    next[0] = [source.lng, source.lat];
+  }
+
+  if (endGap > snapThresholdM) {
+    next.push([destination.lng, destination.lat]);
+  } else {
+    next[next.length - 1] = [destination.lng, destination.lat];
+  }
+
+  return { type: "LineString", coordinates: next };
+}
+
 /** Sample points along a GeoJSON LineString */
 export function sampleLineString(
   geometry: GeoJSON.LineString,

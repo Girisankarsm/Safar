@@ -1,7 +1,7 @@
 import { ORS_API_KEY, ORS_PROXY_URL } from "@/lib/config";
 import { estimateRouteFare } from "@/lib/fare-estimates";
 import { fetchWithTimeout } from "@/lib/fetch-timeout";
-import { cacheKey, haversineM, sampleLineString } from "@/lib/geo";
+import { cacheKey, ensureRouteGeometryEndpoints, haversineM, sampleLineString } from "@/lib/geo";
 import { buildMultimodalLegs } from "@/lib/multimodal-legs";
 import { timeSafetyLabel, timeSafetyModifier } from "@/lib/time-safety";
 import { buildCorridorProfile } from "@/lib/corridor-risk";
@@ -1248,7 +1248,7 @@ function buildPlannedRoute(
       legs.filter((l) => l.mode === "walk").reduce((s, l) => s + l.distance_km, 0) * 100
     ) / 100,
     transfer_count: Math.max(0, legs.length - 1),
-    geometry: ors.geometry,
+    geometry: ensureRouteGeometryEndpoints(ors.geometry, { lat: src.lat, lng: src.lng }, { lat: dst.lat, lng: dst.lng }),
     recommendations,
     corridor_profile: profile,
     confidence,

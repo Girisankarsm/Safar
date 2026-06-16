@@ -24,6 +24,56 @@ const HEAT_GRADIENT = {
   1.0: "#ef4444",
 };
 
+/** Neon glow heatmap — green → yellow → orange → red (reference UI) */
+const HEAT_GRADIENT_GLOW = {
+  0.0: "rgba(34,197,94,0.15)",
+  0.2: "#22c55e",
+  0.35: "#84cc16",
+  0.5: "#eab308",
+  0.62: "#f59e0b",
+  0.75: "#f97316",
+  0.88: "#ef4444",
+  1.0: "#dc2626",
+};
+
+const HEAT_GRADIENT_GLOW_HALO = {
+  0.0: "rgba(34,197,94,0)",
+  0.3: "rgba(34,197,94,0.25)",
+  0.55: "rgba(245,158,11,0.35)",
+  0.75: "rgba(249,115,22,0.45)",
+  1.0: "rgba(239,68,68,0.55)",
+};
+
+function reportHeatIntensity(r: SafetyReport): number {
+  const highRisk = new Set([
+    "harassment",
+    "unsafe_area",
+    "suspicious_activity",
+    "poor_lighting",
+    "unsafe_bus_stop",
+    "dangerous_crossing",
+  ]);
+  let w = highRisk.has(r.report_type) ? 0.72 : 0.48;
+  w += Math.min(0.18, (r.upvotes ?? 0) * 0.025);
+  if (r.is_verified) w += 0.12;
+  return Math.min(1, w);
+}
+
+function buildHeatData(
+  heatPoints: HeatmapPoint[],
+  reports: SafetyReport[],
+  glowMode: boolean
+): [number, number, number][] {
+  const cap = glowMode ? 140 : MAX_HEAT_POINTS;
+  const fromPoints = heatPoints.map(
+    (p) => [p.lat, p.lng, Math.max(0.28, p.weight)] as [number, number, number]
+  );
+  const fromReports = reports.map(
+    (r) => [r.latitude, r.longitude, reportHeatIntensity(r)] as [number, number, number]
+  );
+  return [...fromPoints, ...fromReports].slice(0, cap);
+}
+
 // ─── Report type → visual metadata ────────────────────────────────────────────
 
 const REPORT_META: Record<
@@ -371,31 +421,56 @@ export function SafetyHeatmap({
     const bounds: L.LatLngExpression[] = [];
     const cappedHeat = heatPoints.slice(0, MAX_HEAT_POINTS);
     const cappedReports = reports.slice(0, MAX_MAP_REPORTS);
+    const glowHeatmap = layers.heatmap && !layers.reports;
     const zonePoints = layers.safeZones
-      ? cappedHeat.filter((p) => p.source === "ncrb")
+      ? cappedHeat.slice(0, MAX_HEAT_POINTS).filter((p) => p.source === "ncrb")
       : [];
     const clusterPoints = cappedHeat.filter((p) => p.source !== "ncrb");
 
-    // Heatmap layer
-    if (layers.heatmap && cappedHeat.length > 0) {
-      const heatData: [number, number, number][] = cappedHeat.map((p) => [
-        p.lat,
-        p.lng,
-        Math.max(0.25, p.weight),
-      ]);
-      const heat = (
-        L as unknown as {
+    // Heatmap layer — neon glow when reports markers are off
+    if (layers.heatmap) {
+      const heatData = buildHeatData(heatPoints, reports, glowHeatmap);
+      if (heatData.length > 0) {
+        const heatLib = L as unknown as {
           heatLayer: (d: [number, number, number][], o?: object) => L.Layer;
+        };
+
+        if (glowHeatmap) {
+          overlay.addLayer(
+            heatLib.heatLayer(heatData, {
+              radius: lowDataMode ? 44 : 56,
+              blur: lowDataMode ? 32 : 42,
+              maxZoom: 17,
+              max: 1,
+              minOpacity: 0.22,
+              gradient: HEAT_GRADIENT_GLOW_HALO,
+            })
+          );
+          overlay.addLayer(
+            heatLib.heatLayer(heatData, {
+              radius: lowDataMode ? 32 : 40,
+              blur: lowDataMode ? 22 : 28,
+              maxZoom: 17,
+              max: 1,
+              minOpacity: 0.58,
+              gradient: HEAT_GRADIENT_GLOW,
+            })
+          );
+        } else {
+          overlay.addLayer(
+            heatLib.heatLayer(heatData, {
+              radius: lowDataMode ? 28 : 36,
+              blur: lowDataMode ? 18 : 24,
+              maxZoom: 15,
+              max: 1,
+              minOpacity: 0.3,
+              gradient: HEAT_GRADIENT,
+            })
+          );
         }
-      ).heatLayer(heatData, {
-        radius: lowDataMode ? 28 : 36,
-        blur: lowDataMode ? 18 : 24,
-        maxZoom: 15,
-        max: 1,
-        minOpacity: 0.3,
-        gradient: HEAT_GRADIENT,
-      });
-      overlay.addLayer(heat);
+
+        heatData.forEach(([lat, lng]) => bounds.push([lat, lng]));
+      }
     }
 
     // Zone circles (NCRB baseline + cluster)

@@ -1,5 +1,4 @@
 import { RouteAssistant } from "@/components/routes/RouteAssistant";
-import { RouteRiskTimeline } from "@/components/routes/RouteRiskTimeline";
 import { SafarAIAnalysis } from "@/components/safety/safar-ai-analysis";
 import { SafetyScoreBreakdown } from "@/components/safety/safety-score-breakdown";
 import { Button } from "@/components/ui/button";
@@ -237,12 +236,6 @@ export function IntelligencePanel({
                     score={route.safety_score}
                     breakdown={route.safety_breakdown}
                   />
-                </CollapsibleBlock>
-              )}
-
-              {cp && cp.segments.length > 0 && (
-                <CollapsibleBlock title="Risk along route">
-                  <RouteRiskTimeline profile={cp} />
                 </CollapsibleBlock>
               )}
 

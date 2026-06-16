@@ -19,7 +19,7 @@ import type { CommunityComment, ReportType, SafetyReport } from "@/types/databas
 import { FALLBACK_CRIME_SCORES } from "@/lib/crime-data";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, Crosshair, Filter, MapPin, Plus, X } from "lucide-react";
+import { ChevronDown, Crosshair, Filter, Flame, MapPin, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const REPORT_TYPES: { id: ReportType; label: string }[] = [
@@ -51,6 +51,8 @@ function filterByTime(reports: SafetyReport[], time: TimeFilter) {
   return reports.filter((r) => now - new Date(r.created_at).getTime() <= ms);
 }
 
+type MapViewMode = "reports" | "heatmap";
+
 export function SafetyPage() {
   const { t } = useI18n();
   const { city } = useCityStore();
@@ -75,12 +77,24 @@ export function SafetyPage() {
   const timeFilter: TimeFilter = "all";
   const [recenterSignal, setRecenterSignal] = useState(0);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [mapViewMode, setMapViewMode] = useState<MapViewMode>("reports");
   const [loadError, setLoadError] = useState("");
   const [commentReport, setCommentReport] = useState<SafetyReport | null>(null);
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const [demoExtraComments, setDemoExtraComments] = useState<Record<string, CommunityComment[]>>({});
 
-  const heatmapLayers = { heatmap: false, reports: true, safeZones: false, userLocation: true };
+  const heatmapLayers = useMemo(
+    () => ({
+      heatmap: mapViewMode === "heatmap",
+      reports: mapViewMode === "reports",
+      safeZones: false,
+      userLocation: true,
+    }),
+    [mapViewMode]
+  );
+
+  const activeFilterCount =
+    (categoryFilter !== "all" ? 1 : 0) + (mapViewMode === "heatmap" ? 1 : 0);
 
   const load = useCallback(async () => {
     try {
@@ -325,7 +339,7 @@ export function SafetyPage() {
 
         {/* LEFT — Heatmap */}
         <div className="relative flex h-[200px] shrink-0 flex-col sm:h-[240px] lg:min-h-0 lg:flex-1 lg:h-auto">
-          <SafetyMapLegend />
+          <SafetyMapLegend heatmapMode={mapViewMode === "heatmap"} />
           <div className="relative flex-1">
             <SafetyHeatmap
               key={city}
@@ -363,13 +377,15 @@ export function SafetyPage() {
               >
                 <Filter className="h-3.5 w-3.5 text-[#3B82F6]" />
                 <span>
-                  {categoryFilter === "all"
-                    ? "Filter"
-                    : REPORT_TYPES.find((r) => r.id === categoryFilter)?.label ?? "Filter"}
+                  {mapViewMode === "heatmap"
+                    ? "Heatmap"
+                    : categoryFilter === "all"
+                      ? "Filter"
+                      : REPORT_TYPES.find((r) => r.id === categoryFilter)?.label ?? "Filter"}
                 </span>
-                {categoryFilter !== "all" && (
+                {activeFilterCount > 0 && (
                   <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#3B82F6] text-[9px] font-bold text-white">
-                    1
+                    {activeFilterCount}
                   </span>
                 )}
               </button>
@@ -385,6 +401,45 @@ export function SafetyPage() {
                     transition={{ duration: 0.18 }}
                     className="mt-2 w-56 overflow-hidden rounded-xl border border-[#262626] bg-[#111111]/97 shadow-2xl backdrop-blur-xl"
                   >
+                    <div className="border-b border-[#262626] px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
+                        Map view
+                      </p>
+                    </div>
+                    <div className="space-y-0.5 border-b border-[#262626] p-2">
+                      {(
+                        [
+                          { id: "reports" as const, label: "Report markers", icon: MapPin },
+                          { id: "heatmap" as const, label: "Heatmap", icon: Flame },
+                        ] as const
+                      ).map(({ id, label, icon: Icon }) => {
+                        const active = mapViewMode === id;
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => {
+                              setMapViewMode(id);
+                              setFilterOpen(false);
+                            }}
+                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition"
+                            style={{
+                              backgroundColor: active ? "rgba(249,115,22,0.12)" : "transparent",
+                              color: active ? "white" : "#A1A1AA",
+                            }}
+                          >
+                            <Icon
+                              className="h-3.5 w-3.5 shrink-0"
+                              style={{ color: active ? "#F97316" : "#71717A" }}
+                            />
+                            <span className="font-medium">{label}</span>
+                            {active && (
+                              <span className="ml-auto text-[10px] font-bold text-[#F97316]">✓</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                     <div className="border-b border-[#262626] px-3 py-2">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
                         Filter by type
@@ -421,14 +476,18 @@ export function SafetyPage() {
                         );
                       })}
                     </div>
-                    {categoryFilter !== "all" && (
+                    {(categoryFilter !== "all" || mapViewMode === "heatmap") && (
                       <div className="border-t border-[#262626] p-2">
                         <button
                           type="button"
-                          onClick={() => { setCategoryFilter("all"); setFilterOpen(false); }}
+                          onClick={() => {
+                            setCategoryFilter("all");
+                            setMapViewMode("reports");
+                            setFilterOpen(false);
+                          }}
                           className="w-full rounded-lg py-1.5 text-[11px] font-semibold text-[#EF4444] transition hover:bg-[#EF4444]/10"
                         >
-                          Clear filter
+                          Clear filters
                         </button>
                       </div>
                     )}
