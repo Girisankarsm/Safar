@@ -46,9 +46,9 @@ html, body, #root {
   color: var(--text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-  /* Prevent iOS Safari bounce scroll from moving fixed elements */
   overscroll-behavior: none;
-  -webkit-overflow-scrolling: touch;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.025em; }

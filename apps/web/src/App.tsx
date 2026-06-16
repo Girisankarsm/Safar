@@ -1,3 +1,4 @@
+import { SafarSplash } from "@/components/layout/SafarSplash";
 import { AuthProvider, ProtectedRoute } from "@/features/auth";
 import { I18nBootstrap } from "@/components/I18nBootstrap";
 import { CrimeDataBootstrap } from "@/components/CrimeDataBootstrap";
@@ -21,11 +22,7 @@ const CrimeDataAdminPage = lazy(() =>
 );
 
 function PageLoader() {
-  return (
-    <div className="flex min-h-[40vh] items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#3B82F6] border-t-transparent" />
-    </div>
-  );
+  return <SafarSplash mode="inline" duration={1800} />;
 }
 
 export default function App() {
