@@ -191,7 +191,11 @@ export function AppShell() {
 
       {/* ── Mobile bottom nav — permanently fixed, never scrolls ── */}
       <nav className="fixed inset-x-0 bottom-0 z-[9999] flex border-t border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-[0_-4px_24px_rgba(0,0,0,0.6)] pb-[env(safe-area-inset-bottom,0px)] lg:hidden"
-        style={{ WebkitBackdropFilter: "none", backdropFilter: "none" }}
+        style={{
+          transform: "translate3d(0,0,0)",
+          WebkitTransform: "translate3d(0,0,0)",
+          willChange: "transform",
+        }}
       >
         {NAV_ITEMS.map(({ to, key, icon: Icon }) => {
           const active =
