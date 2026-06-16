@@ -31,12 +31,12 @@ function Root() {
   const [booting, setBooting] = useState(true);
 
   return (
-    <>
+    <div id="app-root" className="h-full min-h-0">
       <App />
       {booting && (
         <SafarSplash mode="fullscreen" duration={2600} onFinish={() => setBooting(false)} />
       )}
-    </>
+    </div>
   );
 }
 

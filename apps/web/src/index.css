@@ -46,28 +46,34 @@ html, body, #root {
   color: var(--text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-  overscroll-behavior: none;
   overflow-x: hidden;
   max-width: 100vw;
 }
 
-/* Mobile: full-height app shell */
-@media (max-width: 1023px) {
-  html, body, #root {
-    height: 100%;
-  }
-
-  html.app-shell-active,
-  html.app-shell-active body {
-    overflow: hidden;
-    height: 100%;
-  }
+/* App shell active — lock document scroll; scroll inside shell panels */
+html.app-shell-active,
+html.app-shell-active body {
+  height: 100%;
+  overflow: hidden;
 }
 
-/* Desktop: natural document scroll */
-@media (min-width: 1024px) {
-  html, body {
-    overflow-y: auto;
+html.app-shell-active #root,
+html.app-shell-active #app-root {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+html.app-shell-active .app-shell {
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+@media (max-width: 1023px) {
+  html, body, #root, #app-root {
+    height: 100%;
   }
 }
 
@@ -174,17 +180,29 @@ body {
   overflow-y: auto;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
 }
 
-/* Standard scrollable page */
+/* Desktop: this region scrolls with mouse wheel / trackpad */
+@media (min-width: 1024px) {
+  .app-scroll-region {
+    display: flex;
+    flex: 1 1 0%;
+    min-height: 0;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Standard scrollable page — mobile only (desktop uses .app-scroll-region) */
 .app-page-scroll {
   flex: 1 1 0%;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
   padding-bottom: var(--bottom-safe);
 }
 @media (min-width: 1024px) {
@@ -196,7 +214,7 @@ body {
   }
 }
 
-/* Full-height pages (Safety, Routes) — internal panels scroll */
+/* Full-height pages (Safety, Routes) — fill region, internal panels scroll */
 .app-page-fill {
   display: flex;
   flex: 1 1 0%;
@@ -206,9 +224,9 @@ body {
 }
 @media (min-width: 1024px) {
   .app-page-fill {
-    flex: none;
-    height: calc(100dvh - var(--shell-top));
-    max-height: calc(100dvh - var(--shell-top));
+    flex: 1 1 0%;
+    height: auto;
+    min-height: 0;
   }
 }
 

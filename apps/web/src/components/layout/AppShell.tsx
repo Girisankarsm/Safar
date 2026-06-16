@@ -59,7 +59,7 @@ export function AppShell() {
   }
 
   return (
-    <div className="bg-[var(--bg)] max-lg:flex max-lg:h-[100dvh] max-lg:flex-col max-lg:overflow-hidden lg:min-h-screen">
+    <div className="app-shell bg-[var(--bg)] max-lg:flex max-lg:h-[100dvh] max-lg:flex-col max-lg:overflow-hidden lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden">
 
       {/* ── Desktop sidebar ── */}
       <aside className="panel-glass fixed inset-y-0 left-0 z-50 hidden w-[var(--sidebar-w)] flex-col lg:flex">
@@ -140,7 +140,7 @@ export function AppShell() {
       </aside>
 
       {/* ── Main content area ── */}
-      <div className="max-lg:flex max-lg:h-full max-lg:min-h-0 max-lg:flex-col max-lg:overflow-hidden lg:pl-[var(--sidebar-w)]">
+      <div className="max-lg:flex max-lg:h-full max-lg:min-h-0 max-lg:flex-col max-lg:overflow-hidden lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden lg:pl-[var(--sidebar-w)]">
 
         {/* Header — single compact bar (combines brand + city + controls) */}
         <header className="sticky top-0 z-40 shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg)]/92 backdrop-blur-xl"
@@ -190,9 +190,11 @@ export function AppShell() {
           </p>
         </div>
 
-        {/* Page content — mobile: flex child scrolls; desktop: flows in document */}
-        <main className="max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:overflow-hidden">
-          <Outlet key={revision} />
+        {/* Page content — desktop scroll region wraps all routes */}
+        <main className="max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:overflow-hidden lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden">
+          <div className="app-scroll-region max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:overflow-hidden">
+            <Outlet key={revision} />
+          </div>
         </main>
       </div>
 
