@@ -1005,13 +1005,13 @@ export function LandingPage() {
       >
         <div className="flex h-14 items-center justify-between px-5">
           <Link to="/" className="flex items-center gap-2.5">
-            <motion.div
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#3B82F6]/14"
+            <motion.img
+              src="/safar-logo.png"
+              alt="Safar"
+              className="h-8 w-8 rounded-lg object-cover"
               whileHover={reduced ? {} : { scale: 1.08 }}
               transition={{ type: "spring", stiffness: 500, damping: 24 }}
-            >
-              <Shield className="h-4 w-4 text-[#3B82F6]" />
-            </motion.div>
+            />
             <span className="text-[15px] font-bold tracking-tight">Safar</span>
           </Link>
 
@@ -1301,7 +1301,7 @@ export function LandingPage() {
           className="mx-auto flex max-w-5xl flex-col items-center gap-3 px-6 text-center"
         >
           <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-[#3B82F6]" />
+            <img src="/safar-logo.png" alt="Safar" className="h-5 w-5 rounded object-cover" />
             <span className="text-sm font-bold text-white">Safar</span>
           </div>
           <p className="text-xs text-[#71717A]">

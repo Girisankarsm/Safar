@@ -25,7 +25,7 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       devOptions: { enabled: false },
-      includeAssets: ["shield.svg"],
+      includeAssets: ["safar-logo.png"],
       manifest: {
         name: "Safar — Travel Smarter. Travel Safer.",
         short_name: "Safar",
@@ -36,10 +36,16 @@ export default defineConfig({
         start_url: "/",
         icons: [
           {
-            src: "shield.svg",
-            sizes: "any",
-            type: "image/svg+xml",
-            purpose: "any maskable",
+            src: "safar-logo.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "safar-logo.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
           },
         ],
       },

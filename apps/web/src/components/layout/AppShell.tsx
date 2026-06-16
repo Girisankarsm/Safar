@@ -58,9 +58,7 @@ export function AppShell() {
       <aside className="panel-glass fixed inset-y-0 left-0 z-50 hidden w-[var(--sidebar-w)] flex-col lg:flex">
         {/* Logo — click goes to landing page */}
         <Link to="/" className="flex items-center gap-3 border-b border-[var(--border-subtle)] px-6 py-5 transition hover:opacity-80">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#3B82F6]/15 ring-1 ring-[#3B82F6]/20">
-            <Shield className="h-4 w-4 text-[#3B82F6]" />
-          </div>
+          <img src="/safar-logo.png" alt="Safar" className="h-9 w-9 rounded-xl object-cover" />
           <div>
             <p className="text-[15px] font-bold tracking-tight text-white">Safar</p>
             <p className="text-[10px] font-medium text-[var(--text-dim)]">{t("app.tagline")}</p>
@@ -144,9 +142,7 @@ export function AppShell() {
 
             {/* Mobile: brand + city inline — click goes to landing page */}
             <Link to="/" className="flex shrink-0 items-center gap-2 lg:hidden">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#3B82F6]/15">
-                <Shield className="h-3.5 w-3.5 text-[#3B82F6]" />
-              </div>
+              <img src="/safar-logo.png" alt="Safar" className="h-7 w-7 rounded-lg object-cover" />
               <div className="leading-tight">
                 <p className="text-[13px] font-bold text-white">Safar</p>
                 <p className="text-[9px] font-medium text-[var(--text-dim)]">
