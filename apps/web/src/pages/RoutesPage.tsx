@@ -1,7 +1,6 @@
 import { RoutesSubNav } from "@/components/layout/RoutesSubNav";
 import { RouteMap } from "@/components/map/RouteMap";
 import { RouteAssistant } from "@/components/routes/RouteAssistant";
-import { RouteRadarChart } from "@/components/routes/RouteRadarChart";
 import { RouteRiskTimeline } from "@/components/routes/RouteRiskTimeline";
 import { SafarAIAnalysis } from "@/components/safety/safar-ai-analysis";
 import { SafetyScoreBreakdown } from "@/components/safety/safety-score-breakdown";
