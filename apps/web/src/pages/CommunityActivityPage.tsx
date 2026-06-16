@@ -1,5 +1,4 @@
 import { CommunityActivityFeed } from "@/components/dashboard/community-activity-feed";
-import { SafetyStatisticsPanel } from "@/components/dashboard/safety-statistics-panel";
 import { useCommunityActivity } from "@/hooks/use-community-activity";
 import { useI18n } from "@/i18n/use-i18n";
 import { getCityConfig } from "@/config/cities";
@@ -8,7 +7,7 @@ import { useCityStore } from "@/stores/city.store";
 export function CommunityActivityPage() {
   const { city } = useCityStore();
   const { t } = useI18n();
-  const { activity, stats, loading } = useCommunityActivity(80);
+  const { activity, loading } = useCommunityActivity(80);
 
   return (
     <div className="app-page-scroll mx-auto max-w-3xl px-4 py-4 md:px-8 md:py-6 lg:pb-8">
@@ -32,9 +31,7 @@ export function CommunityActivityPage() {
         </div>
       </div>
 
-      <SafetyStatisticsPanel stats={stats} />
-
-      <div className="mt-6">
+      <div className="mt-2">
         <CommunityActivityFeed items={activity} loading={loading} variant="full" />
       </div>
     </div>

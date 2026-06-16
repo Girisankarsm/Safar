@@ -1,8 +1,6 @@
-import { SafetyStatisticsPanel } from "@/components/dashboard/safety-statistics-panel";
 import { LocationAutocomplete, type SelectedPlace } from "@/components/location/LocationAutocomplete";
 import { RouteSearchProgress } from "@/components/routes/RouteSearchProgress";
 import { Button } from "@/components/ui/button";
-import { useCommunityActivity } from "@/hooks/use-community-activity";
 import { offlineCache } from "@/lib/offline-cache";
 import { formatDepartureLabel } from "@/lib/time-safety";
 import { useI18n } from "@/i18n/use-i18n";
@@ -18,7 +16,6 @@ import { Link, useNavigate } from "react-router-dom";
 
 export function HomePage() {
   const { city } = useCityStore();
-  const { stats } = useCommunityActivity(10);
   const { departureHour, departureHourCustom, setDepartureHour, lowDataMode } = useSettingsStore();
   const [liveHour, setLiveHour] = useState(() => new Date().getHours());
 
@@ -189,11 +186,6 @@ export function HomePage() {
           <span className="hidden sm:inline">{t("home.emergencyShield")}</span>
           <span className="sm:hidden">SOS</span>
         </Link>
-      </div>
-
-      {/* Stats — compact 2-col on mobile */}
-      <div className="mt-3 md:mt-0">
-        <SafetyStatisticsPanel stats={stats} />
       </div>
 
       {/* Search card */}
