@@ -7,7 +7,7 @@ import { UserMenu } from "@/features/auth";
 import { useI18n } from "@/i18n/use-i18n";
 import { useCityStore } from "@/stores/city.store";
 import { cn } from "@/lib/utils";
-import { ArrowDownUp, Home, Map, Route, Shield, Siren } from "lucide-react";
+import { Activity, ArrowDownUp, Home, Map, Route, Shield, Siren } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
@@ -170,6 +170,18 @@ export function AppShell() {
               <div className="lg:hidden">
                 <CitySwitcher compact />
               </div>
+              <Link
+                to="/community"
+                title={t("nav.community")}
+                aria-label={t("nav.community")}
+                className={cn(
+                  "relative flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] transition hover:border-[#3B82F6]/30 hover:bg-[#3B82F6]/10",
+                  path.startsWith("/community") && "border-[#3B82F6]/40 bg-[#3B82F6]/15"
+                )}
+              >
+                <Activity className={cn("h-4 w-4", path.startsWith("/community") ? "text-[#3B82F6]" : "text-[#A1A1AA]")} />
+                <span className="status-live absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[#22C55E]" />
+              </Link>
               <LanguageSwitcher compact />
               <div className="mx-0.5 h-4 w-px bg-[var(--border-subtle)]" />
               {/* Install button — right next to profile, hidden once installed */}

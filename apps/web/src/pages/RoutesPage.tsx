@@ -216,6 +216,7 @@ function IntelligencePanel({
   onStart,
   activeTab,
   setActiveTab,
+  mobile = false,
 }: {
   route: PlannedRoute;
   allRoutes: PlannedRoute[];
@@ -225,6 +226,8 @@ function IntelligencePanel({
   onStart: () => void;
   activeTab: RightTab;
   setActiveTab: (t: RightTab) => void;
+  /** Mobile: flows in page scroll — no nested scroll trap */
+  mobile?: boolean;
 }) {
   const { t } = useI18n();
   const cp = route.corridor_profile;
@@ -236,9 +239,14 @@ function IntelligencePanel({
   ];
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Tab bar */}
-      <div className="flex shrink-0 gap-0.5 border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] p-1.5">
+    <div className={cn("flex flex-col", !mobile && "h-full")}>
+      {/* Tab bar — sticky on mobile while scrolling page */}
+      <div
+        className={cn(
+          "flex shrink-0 gap-0.5 border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] p-1.5",
+          mobile && "sticky top-0 z-10"
+        )}
+      >
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -258,7 +266,7 @@ function IntelligencePanel({
       </div>
 
       {/* Tab content */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className={cn(!mobile && "flex min-h-0 flex-1 flex-col overflow-hidden")}>
         <AnimatePresence mode="wait">
 
           {/* ── Intelligence Tab ── */}
@@ -269,18 +277,20 @@ function IntelligencePanel({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="flex-1 overflow-y-auto p-4 space-y-4"
+              className={cn(
+                mobile ? "space-y-3 p-3" : "flex-1 space-y-4 overflow-y-auto p-4"
+              )}
             >
-              {/* Score hero */}
-              <div>
+              {/* Score hero — compact on mobile */}
+              <div className={cn(mobile && "rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3")}>
                 <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
                   Safety Score
                 </p>
                 <div className="flex items-end gap-2">
-                  <span className="text-4xl font-bold tabular-nums text-white">
+                  <span className={cn("font-bold tabular-nums text-white", mobile ? "text-3xl" : "text-4xl")}>
                     {route.safety_score}
                   </span>
-                  <span className="mb-1 text-lg font-bold text-[var(--text-dim)]">/100</span>
+                  <span className="mb-0.5 text-base font-bold text-[var(--text-dim)]">/100</span>
                   <span
                     className="mb-1 ml-auto rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wider"
                     style={{
@@ -328,26 +338,26 @@ function IntelligencePanel({
                 )}
               </div>
 
-              {/* Corridor metrics */}
+              {/* Corridor metrics — 4-up grid, tighter on mobile */}
               {cp && (
-                <div>
+                <div className={cn(mobile && "rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3")}>
                   <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
                     Corridor Profile
                   </p>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-2 sm:gap-2">
                     {[
                       { icon: Shield, label: "Police", value: cp.policeCount, color: "#3B82F6" },
                       { icon: Building2, label: "Hospitals", value: cp.hospitalCount, color: "#22C55E" },
                       { icon: Users, label: "Reports", value: cp.reportCount, color: "#A78BFA" },
                       { icon: AlertTriangle, label: "Hotspots", value: cp.hotspots.length, color: cp.hotspots.length > 0 ? "#EF4444" : "#22C55E" },
                     ].map(({ icon: Icon, label, value, color }) => (
-                      <div key={label} className="flex items-center gap-2 rounded-lg bg-[var(--bg)] p-2.5">
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${color}14` }}>
-                          <Icon className="h-3.5 w-3.5" style={{ color }} />
+                      <div key={label} className="flex flex-col items-center gap-0.5 rounded-lg bg-[var(--bg)] p-2 text-center sm:flex-row sm:items-center sm:gap-2 sm:p-2.5 sm:text-left">
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md sm:h-7 sm:w-7 sm:rounded-lg" style={{ backgroundColor: `${color}14` }}>
+                          <Icon className="h-3 w-3 sm:h-3.5 sm:w-3.5" style={{ color }} />
                         </div>
                         <div>
                           <p className="text-sm font-bold text-white">{value}</p>
-                          <p className="text-[10px] text-[var(--text-dim)]">{label}</p>
+                          <p className="text-[9px] text-[var(--text-dim)] sm:text-[10px]">{label}</p>
                         </div>
                       </div>
                     ))}
@@ -364,11 +374,11 @@ function IntelligencePanel({
                 const trafficLabel = trafficLine?.replace("Traffic: ", "").replace(/\s*\(×[\d.]+\)/, "");
 
                 return (
-                  <div>
+                  <div className={cn(mobile && "rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3")}>
                     <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
                       Route Quality
                     </p>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                       {[
                         {
                           icon: XCircle,
@@ -439,9 +449,11 @@ function IntelligencePanel({
                 );
               })()}
 
-              {/* ── Radar Chart ── */}
+              {/* ── Radar Chart — hide on small mobile to save space ── */}
               {allRoutes.length > 1 && (
-                <RouteRadarChart routes={allRoutes} selected={route} />
+                <div className={mobile ? "hidden sm:block" : undefined}>
+                  <RouteRadarChart routes={allRoutes} selected={route} />
+                </div>
               )}
 
               {/* Why X? breakdown */}
@@ -498,7 +510,7 @@ function IntelligencePanel({
               </div>
 
               {/* AI explanation */}
-              <SafarAIAnalysis route={route} compact />
+              <SafarAIAnalysis route={route} compact={mobile} />
             </motion.div>
           )}
 
@@ -525,7 +537,7 @@ function IntelligencePanel({
       </div>
 
       {/* Start trip CTA */}
-      <div className="shrink-0 border-t border-[var(--border-subtle)] p-4">
+      <div className={cn("shrink-0 border-t border-[var(--border-subtle)] p-4", mobile && "pb-[var(--bottom-safe)]")}>
         <Button
           className="w-full gap-2 py-3 text-sm font-bold shadow-lg shadow-[#3B82F6]/20"
           onClick={onStart}
@@ -661,14 +673,14 @@ export function RoutesPage() {
   }
 
   return (
-    <div className="app-page-fill max-lg:overflow-y-auto max-lg:pb-[var(--bottom-safe)] lg:overflow-hidden lg:pb-0">
+    <div className="app-page-scroll flex flex-col lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:pb-0">
 
       {/* Sub-nav strip */}
-      <div className="shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg)] px-5 py-2 md:px-6">
-        <div className="flex items-center justify-between gap-4">
+      <div className="shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg)] px-4 py-2 md:px-6">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <RoutesSubNav />
           {search && (
-            <p className="hidden truncate text-xs text-[var(--text-dim)] lg:block">
+            <p className="truncate text-[11px] text-[var(--text-dim)] lg:text-xs">
               <MapPin className="mr-1 inline h-3 w-3" />
               {search.source} → {search.destination}
             </p>
@@ -699,8 +711,82 @@ export function RoutesPage() {
         )}
       </AnimatePresence>
 
-      {/* ── Three-column layout ── */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:grid lg:min-h-0 lg:grid-cols-[296px_1fr_368px] lg:overflow-hidden">
+      {/* ── MOBILE: single scroll column ── */}
+      <div className="flex flex-col lg:hidden">
+        {/* Route picker — horizontal pills */}
+        <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] px-3 py-2.5">
+          {recommendation && (
+            <button
+              type="button"
+              onClick={() => {
+                const rec = routes.find((r) => r.route_type === recommendation.route.route_type);
+                if (rec) setSelected(rec);
+              }}
+              className="mb-2 flex w-full items-center gap-2 rounded-lg border border-[#3B82F6]/25 bg-[#3B82F6]/08 px-2.5 py-1.5 text-left"
+            >
+              <Sparkles className="h-3.5 w-3.5 shrink-0 text-[#3B82F6]" />
+              <p className="truncate text-[10px] font-semibold text-[#93C5FD]">
+                Safar recommends {t(routeTypeKey(recommendation.route.route_type))}
+              </p>
+            </button>
+          )}
+          <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {routes.map((r) => (
+              <div key={r.route_type} className="w-[220px] shrink-0">
+                <RouteListCard
+                  route={r}
+                  allRoutes={routes}
+                  isSelected={selected?.route_type === r.route_type}
+                  isRecommended={recommendation?.route.route_type === r.route_type}
+                  onClick={() => setSelected(r)}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Map — compact */}
+        {selected && (
+          <div className="relative h-[180px] shrink-0 border-b border-[var(--border-subtle)]">
+            <RouteMap
+              geometry={selected.geometry}
+              routeType={selected.route_type}
+              source={{ lat: selected.source_lat, lng: selected.source_lng }}
+              destination={{ lat: selected.dest_lat, lng: selected.dest_lng }}
+              sourceName={selected.source_name}
+              destinationName={selected.destination_name}
+              corridorProfile={selected.corridor_profile}
+              height="100%"
+              className="h-full rounded-none"
+              focusSegmentIdx={null}
+            />
+            <div className="absolute left-2 top-2 z-[500] flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg)]/92 px-2 py-1 backdrop-blur-md">
+              <Shield className={cn("h-3 w-3", ROUTE_COLOR[selected.route_type].text)} />
+              <span className="text-[10px] font-bold text-white">
+                {t(routeTypeKey(selected.route_type))}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Intelligence — flows in page scroll */}
+        {selected && (
+          <IntelligencePanel
+            mobile
+            route={selected}
+            allRoutes={routes}
+            cityId={city}
+            departureHour={search?.departureHour}
+            starting={starting}
+            onStart={() => startTrip(selected)}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+          />
+        )}
+      </div>
+
+      {/* ── DESKTOP: three-column layout ── */}
+      <div className="hidden min-h-0 flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[296px_1fr_368px]">
 
         {/* LEFT — Route list */}
         <aside className="overflow-y-auto border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] lg:border-b-0 lg:border-r lg:border-[var(--border-subtle)]">
@@ -789,8 +875,8 @@ export function RoutesPage() {
 
         </div>
 
-        {/* RIGHT — Tabbed intelligence panel */}
-        <aside className="intel-panel overflow-hidden">
+        {/* RIGHT — Tabbed intelligence panel (desktop only) */}
+        <aside className="intel-panel overflow-hidden lg:block">
           <AnimatePresence mode="wait">
             {selected ? (
               <motion.div
@@ -822,57 +908,6 @@ export function RoutesPage() {
           </AnimatePresence>
         </aside>
       </div>
-
-      {/* Mobile bottom panel — compact safety summary + CTA */}
-      {selected && (
-        <div className="border-t border-[var(--border-subtle)] px-4 pt-3 lg:hidden">
-          {/* Score strip */}
-          <div className="mb-3 flex items-center gap-3 rounded-xl bg-[var(--bg-surface)] p-3">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">Safety</p>
-              <p className="text-2xl font-bold text-white">{selected.safety_score}<span className="text-sm text-[var(--text-dim)]">/100</span></p>
-            </div>
-            {selected.corridor_profile && (
-              <>
-                <div className="h-8 w-px bg-[var(--border-subtle)]" />
-                <div>
-                  <p className="text-[10px] text-[var(--text-dim)]">Police</p>
-                  <p className="text-sm font-bold text-white">{selected.corridor_profile.policeCount}</p>
-                </div>
-                <div className="h-8 w-px bg-[var(--border-subtle)]" />
-                <div>
-                  <p className="text-[10px] text-[var(--text-dim)]">Confidence</p>
-                  <p className="text-sm font-bold text-white">{selected.corridor_profile.confidenceScore}%</p>
-                </div>
-                {selected.corridor_profile.hotspots.length === 0 ? (
-                  <>
-                    <div className="h-8 w-px bg-[var(--border-subtle)]" />
-                    <span className="rounded-full bg-[#22C55E]/10 px-2 py-0.5 text-[10px] font-bold text-[#86EFAC]">Clear</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="h-8 w-px bg-[var(--border-subtle)]" />
-                    <span className="rounded-full bg-[#EF4444]/10 px-2 py-0.5 text-[10px] font-bold text-[#FCA5A5]">{selected.corridor_profile.hotspots.length} risk</span>
-                  </>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* AI explanation — compact */}
-          <SafarAIAnalysis route={selected} compact />
-
-          {/* CTA */}
-          <Button
-            className="mt-3 w-full gap-2 py-2.5 text-[13px] font-bold"
-            onClick={() => startTrip(selected)}
-            disabled={starting}
-          >
-            <Navigation className="h-4 w-4" />
-            {starting ? t("routes.starting") : t("routes.startTrip")}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

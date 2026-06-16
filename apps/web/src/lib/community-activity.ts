@@ -28,7 +28,7 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export function buildActivityFromReports(reports: SafetyReport[]): ActivityItem[] {
+export function buildActivityFromReports(reports: SafetyReport[], maxItems = 10): ActivityItem[] {
   const items: ActivityItem[] = [];
 
   for (const r of reports.slice(0, 8)) {
@@ -75,7 +75,7 @@ export function buildActivityFromReports(reports: SafetyReport[]): ActivityItem[
     });
   }
 
-  return items.slice(0, 10);
+  return items.slice(0, maxItems);
 }
 
 export type PlatformStats = {

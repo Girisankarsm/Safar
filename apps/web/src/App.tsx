@@ -17,6 +17,9 @@ const SafetyPage = lazy(() => import("@/pages/SafetyPage").then((m) => ({ defaul
 const EmergencyPage = lazy(() => import("@/pages/EmergencyPage").then((m) => ({ default: m.EmergencyPage })));
 const TripPage = lazy(() => import("@/pages/TripPage").then((m) => ({ default: m.TripPage })));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage").then((m) => ({ default: m.ProfilePage })));
+const CommunityActivityPage = lazy(() =>
+  import("@/pages/CommunityActivityPage").then((m) => ({ default: m.CommunityActivityPage }))
+);
 const CrimeDataAdminPage = lazy(() =>
   import("@/pages/admin/CrimeDataAdminPage").then((m) => ({ default: m.CrimeDataAdminPage }))
 );
@@ -96,6 +99,14 @@ export default function App() {
               element={
                 <Suspense fallback={<PageLoader />}>
                   <TripPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/community"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <CommunityActivityPage />
                 </Suspense>
               }
             />

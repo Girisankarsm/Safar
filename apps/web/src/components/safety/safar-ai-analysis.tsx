@@ -1,4 +1,5 @@
 import { generateAIInsights } from "@/lib/ai-insights";
+import { cn } from "@/lib/utils";
 import type { PlannedRoute } from "@/types/database";
 import { motion } from "framer-motion";
 import {
@@ -194,20 +195,25 @@ export function SafarAIAnalysis({ route, compact = false }: { route: PlannedRout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
-      className={compact ? "space-y-0" : "surface-card overflow-hidden rounded-2xl border border-[#3B82F6]/20"}
+      className={compact ? "rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]" : "surface-card overflow-hidden rounded-2xl border border-[#3B82F6]/20"}
     >
-      <div className="border-b border-[var(--border-subtle)] bg-gradient-to-r from-[#3B82F6]/10 to-transparent px-5 py-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#3B82F6]/20">
-            <Sparkles className="h-4 w-4 text-[#3B82F6]" />
+      <div className={cn(
+        "border-b border-[var(--border-subtle)] bg-gradient-to-r from-[#3B82F6]/10 to-transparent",
+        compact ? "px-3 py-3" : "px-5 py-4"
+      )}>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className={cn("flex items-center justify-center rounded-xl bg-[#3B82F6]/20", compact ? "h-8 w-8" : "h-9 w-9")}>
+            <Sparkles className={cn("text-[#3B82F6]", compact ? "h-3.5 w-3.5" : "h-4 w-4")} />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-widest text-[#3B82F6]">
               Safety Analysis
             </p>
-            <p className="text-sm font-semibold text-white">Corridor intelligence summary</p>
+            <p className={cn("font-semibold text-white", compact ? "text-xs" : "text-sm")}>
+              Corridor intelligence summary
+            </p>
           </div>
-          {/* Data source badges */}
+          {!compact && (
           <div className="flex flex-wrap gap-1.5">
             <span className="rounded-full bg-[#F59E0B]/10 px-2 py-0.5 text-[9px] font-bold text-[#FCD34D]">
               NCRB baseline
@@ -219,10 +225,20 @@ export function SafarAIAnalysis({ route, compact = false }: { route: PlannedRout
               Community reports
             </span>
           </div>
+          )}
         </div>
+        {compact && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {["NCRB", "OSM", "Reports"].map((tag) => (
+              <span key={tag} className="rounded bg-[#141418] px-1.5 py-0.5 text-[9px] font-medium text-[#71717a]">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="space-y-5 p-5">
+      <div className={cn("space-y-4", compact ? "p-3" : "space-y-5 p-5")}>
         {/* Confidence score bar */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
@@ -254,8 +270,8 @@ export function SafarAIAnalysis({ route, compact = false }: { route: PlannedRout
           <p className="text-sm leading-relaxed text-[#A1A1AA]">{insights.summary}</p>
         )}
 
-        {/* Corridor intelligence panel */}
-        <CorridorPanel route={route} />
+        {/* Corridor intelligence panel — skip duplicate grid in compact (shown above on routes mobile) */}
+        {!compact && <CorridorPanel route={route} />}
 
         {/* Generic crime narrative */}
         <p className="rounded-xl border border-[#3B82F6]/20 bg-[#3B82F6]/8 px-3 py-2 text-xs leading-relaxed text-[#93C5FD]">
@@ -263,7 +279,7 @@ export function SafarAIAnalysis({ route, compact = false }: { route: PlannedRout
         </p>
 
         {/* Safety factor grid */}
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className={cn("grid gap-2", compact ? "grid-cols-2" : "gap-3 sm:grid-cols-2")}>
           {rows.map((row, i) => (
             <motion.div
               key={row.label}
@@ -308,13 +324,14 @@ export function SafarAIAnalysis({ route, compact = false }: { route: PlannedRout
           </ul>
         </div>
 
-        {/* Data source footer */}
+        {!compact && (
         <div className="border-t border-[var(--border-subtle)] pt-3 text-[10px] text-[#52525B] space-y-0.5">
           <p>⚡ NCRB 2022 city-level crime index — baseline risk for corridor</p>
           <p>🗺 OSM police + hospital infrastructure — queried along route buffer</p>
           <p>👥 Community reports — real-time from Supabase, filtered to corridor</p>
           <p>🔍 Hotspot clusters — density analysis across {route.corridor_profile?.segments.length ?? 0} sampled corridor segments</p>
         </div>
+        )}
       </div>
     </motion.div>
   );

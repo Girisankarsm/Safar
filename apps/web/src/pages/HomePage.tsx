@@ -1,31 +1,24 @@
-import { CommunityActivityFeed } from "@/components/dashboard/community-activity-feed";
 import { SafetyStatisticsPanel } from "@/components/dashboard/safety-statistics-panel";
 import { LocationAutocomplete, type SelectedPlace } from "@/components/location/LocationAutocomplete";
 import { RouteSearchProgress } from "@/components/routes/RouteSearchProgress";
 import { Button } from "@/components/ui/button";
-import { buildActivityFromReports, computePlatformStats } from "@/lib/community-activity";
-import {
-  DEMO_PLATFORM_STATS,
-  demoActivityFeed,
-} from "@/lib/demo-hackathon";
-import { IS_DEMO_MODE } from "@/lib/config";
+import { useCommunityActivity } from "@/hooks/use-community-activity";
 import { offlineCache } from "@/lib/offline-cache";
 import { formatDepartureLabel } from "@/lib/time-safety";
-import { debounce } from "@/lib/debounce-callback";
 import { useI18n } from "@/i18n/use-i18n";
-import { getCityConfig, CITY_LIST } from "@/config/cities";
-import { reportsService } from "@/services/supabase/reports.service";
+import { getCityConfig } from "@/config/cities";
 import { nominatimService } from "@/services/osm/nominatim.service";
 import { routesService } from "@/services/supabase/routes.service";
 import { useCityStore } from "@/stores/city.store";
 import { useSettingsStore } from "@/stores/settings.store";
 import { AnimatePresence, motion } from "framer-motion";
 import { Crosshair, Map, Shield, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 export function HomePage() {
   const { city } = useCityStore();
+  const { stats } = useCommunityActivity(10);
   const { departureHour, departureHourCustom, setDepartureHour, lowDataMode } = useSettingsStore();
   const [liveHour, setLiveHour] = useState(() => new Date().getHours());
 
@@ -47,37 +40,6 @@ export function HomePage() {
   const [loading, setLoading] = useState(false);
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState("");
-  const [activity, setActivity] = useState<ReturnType<typeof buildActivityFromReports>>([]);
-  const [stats, setStats] = useState(computePlatformStats([], CITY_LIST.length));
-  const [feedLoading, setFeedLoading] = useState(true);
-
-  const loadCommunityData = useCallback(async () => {
-    setFeedLoading(true);
-    try {
-      if (IS_DEMO_MODE) {
-        setActivity(demoActivityFeed(city));
-        setStats(DEMO_PLATFORM_STATS);
-        return;
-      }
-      const reports = await reportsService.listByCity(city, 50);
-      setActivity(buildActivityFromReports(reports));
-      const allReports = reports.length ? reports : [];
-      setStats(computePlatformStats(allReports, CITY_LIST.length));
-    } catch {
-      if (IS_DEMO_MODE) {
-        setActivity(demoActivityFeed(city));
-        setStats(DEMO_PLATFORM_STATS);
-      }
-    } finally {
-      setFeedLoading(false);
-    }
-  }, [city]);
-
-  const debouncedLoadRef = useRef<ReturnType<typeof debounce<() => void>> | null>(null);
-  useEffect(() => {
-    debouncedLoadRef.current = debounce(() => void loadCommunityData(), 900);
-    return () => debouncedLoadRef.current?.cancel();
-  }, [loadCommunityData]);
 
   useEffect(() => {
     setSource("");
@@ -85,15 +47,7 @@ export function HomePage() {
     setSourcePlace(null);
     setDestinationPlace(null);
     setError("");
-    loadCommunityData();
-    const channel = reportsService.subscribe(city, () => {
-      debouncedLoadRef.current?.();
-    });
-    return () => {
-      debouncedLoadRef.current?.cancel();
-      channel.unsubscribe();
-    };
-  }, [city, loadCommunityData]);
+  }, [city]);
 
   async function search() {
     if (!source.trim() || !destination.trim()) {
@@ -330,7 +284,7 @@ export function HomePage() {
       </div>
 
       {/* Quick links — horizontal 2-col on mobile */}
-      <div className="mt-3 grid grid-cols-2 gap-2.5 md:mt-0 md:hidden">
+      <div className="mt-3 grid grid-cols-2 gap-2.5 md:mt-0">
         <Link
           to="/safety"
           className="group mobile-card flex items-center gap-2.5 transition hover:border-[#3B82F6]/30"
@@ -349,42 +303,6 @@ export function HomePage() {
           </div>
           <p className="text-[12px] font-bold leading-tight text-white">{t("home.safeWaiting")}</p>
         </Link>
-      </div>
-
-      {/* Community feed + quick links — desktop layout */}
-      <div className="hidden gap-6 md:grid lg:grid-cols-2">
-        <CommunityActivityFeed items={activity} loading={feedLoading} />
-        <div className="grid gap-4">
-          <Link
-            to="/safety"
-            className="group surface-card flex gap-4 rounded-2xl p-5 transition hover:border-[#3B82F6]/30"
-          >
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#3B82F6]/15 transition group-hover:bg-[#3B82F6]/25">
-              <Map className="h-5 w-5 text-[#3B82F6]" />
-            </div>
-            <div>
-              <p className="font-bold text-white">{t("home.safetyHeatmap")}</p>
-              <p className="mt-1 text-sm text-[#A1A1AA]">{t("home.safetyHeatmapDesc")}</p>
-            </div>
-          </Link>
-          <Link
-            to="/emergency"
-            className="group surface-card flex gap-4 rounded-2xl p-5 transition hover:border-[#EF4444]/30"
-          >
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EF4444]/15 transition group-hover:bg-[#EF4444]/25">
-              <Shield className="h-5 w-5 text-[#EF4444]" />
-            </div>
-            <div>
-              <p className="font-bold text-white">{t("home.safeWaiting")}</p>
-              <p className="mt-1 text-sm text-[#A1A1AA]">{t("home.safeWaitingDesc")}</p>
-            </div>
-          </Link>
-        </div>
-      </div>
-
-      {/* Community feed — mobile only */}
-      <div className="mt-3 md:hidden">
-        <CommunityActivityFeed items={activity} loading={feedLoading} />
       </div>
     </div>
   );
