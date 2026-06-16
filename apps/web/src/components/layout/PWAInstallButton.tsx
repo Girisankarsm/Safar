@@ -7,9 +7,36 @@ interface BeforeInstallPromptEvent extends Event {
   readonly userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+/* ── Capture the prompt at module level so we never miss the early event ── */
+let _deferredPrompt: BeforeInstallPromptEvent | null = null;
+let _listeners: Array<(e: BeforeInstallPromptEvent | null) => void> = [];
+
+function subscribe(fn: (e: BeforeInstallPromptEvent | null) => void) {
+  _listeners.push(fn);
+  return () => { _listeners = _listeners.filter((l) => l !== fn); };
+}
+
+function notifyAll(e: BeforeInstallPromptEvent | null) {
+  _deferredPrompt = e;
+  _listeners.forEach((fn) => fn(e));
+}
+
+// Attach once at module-load time — fires before React mounts
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    notifyAll(e as BeforeInstallPromptEvent);
+  });
+  window.addEventListener("appinstalled", () => {
+    markInstalled();
+    notifyAll(null);
+  });
+}
+
 const INSTALLED_KEY = "safar-pwa-installed";
 
 function isStandalone() {
+  if (typeof window === "undefined") return false;
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
     ("standalone" in window.navigator &&
@@ -18,46 +45,26 @@ function isStandalone() {
 }
 
 function wasInstalled() {
-  try {
-    return localStorage.getItem(INSTALLED_KEY) === "1";
-  } catch {
-    return false;
-  }
+  try { return localStorage.getItem(INSTALLED_KEY) === "1"; } catch { return false; }
 }
 
 function markInstalled() {
-  try {
-    localStorage.setItem(INSTALLED_KEY, "1");
-  } catch { /* ignore */ }
+  try { localStorage.setItem(INSTALLED_KEY, "1"); } catch { /* ignore */ }
 }
 
 export function PWAInstallButton() {
-  const [prompt, setPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [hidden, setHidden] = useState(() => isStandalone() || wasInstalled());
+  const alreadyDone = isStandalone() || wasInstalled();
+  const [prompt, setPrompt] = useState<BeforeInstallPromptEvent | null>(
+    alreadyDone ? null : _deferredPrompt
+  );
+  const [hidden, setHidden] = useState(alreadyDone);
 
   useEffect(() => {
-    // Already installed — never show again
-    if (isStandalone() || wasInstalled()) return;
-
-    function onBefore(e: Event) {
-      e.preventDefault();
-      setPrompt(e as BeforeInstallPromptEvent);
-    }
-
-    function onInstalled() {
-      markInstalled();
-      setHidden(true);
-      setPrompt(null);
-    }
-
-    window.addEventListener("beforeinstallprompt", onBefore);
-    window.addEventListener("appinstalled", onInstalled);
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", onBefore);
-      window.removeEventListener("appinstalled", onInstalled);
-    };
-  }, []);
+    if (alreadyDone) return;
+    // In case the event fires after mount, or we missed it — pick up current value
+    if (_deferredPrompt) setPrompt(_deferredPrompt);
+    return subscribe((e) => setPrompt(e));
+  }, [alreadyDone]);
 
   async function handleInstall() {
     if (!prompt) return;
@@ -67,10 +74,10 @@ export function PWAInstallButton() {
       markInstalled();
       setHidden(true);
       setPrompt(null);
+      notifyAll(null);
     }
   }
 
-  // Hide if already installed or no browser install prompt available
   if (hidden || !prompt) return null;
 
   return (
