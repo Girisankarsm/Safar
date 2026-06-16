@@ -11,6 +11,7 @@ import { recommendRoute, routeTrustTagline, generateRouteComparison } from "@/li
 import { sampleRoutePoints, isNearRoute } from "@/lib/route-assistant";
 import { useI18n } from "@/i18n/use-i18n";
 import { routeTypeKey } from "@/i18n/translations";
+import { modeLabel, primaryTransitMode } from "@/lib/multimodal-legs";
 import { getCityConfig } from "@/config/cities";
 import { useAuth } from "@/features/auth";
 import { IS_DEMO_MODE } from "@/lib/config";
@@ -72,6 +73,14 @@ function RouteListCard({
 
   const tagline = routeTrustTagline(route, allRoutes);
   const profile = route.corridor_profile;
+  const transitMode = primaryTransitMode(route.legs ?? []);
+  const otherCosts = allRoutes
+    .filter((r) => r.route_type !== "cheapest")
+    .map((r) => r.estimated_cost_inr);
+  const costSave =
+    route.route_type === "cheapest" && otherCosts.length
+      ? Math.max(0, Math.min(...otherCosts) - route.estimated_cost_inr)
+      : 0;
 
   return (
     <button
@@ -102,6 +111,12 @@ function RouteListCard({
           <span className={cn("text-[10px] font-medium leading-tight", c.text)}>
             {tagline}
           </span>
+          {route.route_type === "cheapest" && transitMode && (
+            <span className="inline-flex w-fit items-center gap-1 rounded-full bg-[#F59E0B]/12 px-2 py-0.5 text-[10px] font-bold text-[#FCD34D]">
+              {modeLabel(transitMode)}
+              {costSave > 0 ? ` · saves ₹${costSave}` : " · lowest fare"}
+            </span>
+          )}
         </div>
         <span
           className="shrink-0 rounded-lg px-2 py-1 text-sm font-bold tabular-nums"

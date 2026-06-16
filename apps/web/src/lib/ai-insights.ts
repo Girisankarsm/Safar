@@ -1,3 +1,4 @@
+import { modeLabel, primaryTransitMode } from "@/lib/multimodal-legs";
 import type { PlannedRoute, RouteType } from "@/types/database";
 import type { CorridorProfile } from "@/lib/corridor-risk";
 import { crimeExplanation, crimeRiskLabelHuman } from "@/lib/crime-data";
@@ -296,15 +297,21 @@ function routeLabel(type: RouteType): string {
  */
 export function routeTrustTagline(route: PlannedRoute, allRoutes: PlannedRoute[]): string {
   const profile = route.corridor_profile;
-  const avgCost = allRoutes.reduce((s, r) => s + r.estimated_cost_inr, 0) / Math.max(allRoutes.length, 1);
 
   switch (route.route_type) {
     case "balanced":
       return "Best overall route";
 
     case "cheapest": {
-      const saving = Math.round(avgCost - route.estimated_cost_inr);
-      return saving > 5 ? `₹${saving} cheaper than average` : "Most affordable option";
+      const mode = primaryTransitMode(route.legs ?? []);
+      const label = mode ? modeLabel(mode) : "Transit";
+      const others = allRoutes.filter((r) => r.route_type !== "cheapest");
+      const minOther = others.length
+        ? Math.min(...others.map((r) => r.estimated_cost_inr))
+        : route.estimated_cost_inr;
+      const saving = Math.round(minOther - route.estimated_cost_inr);
+      if (saving > 0) return `${label} · saves ₹${saving} vs other routes`;
+      return `${label} · lowest fare on shortest path`;
     }
 
     case "safest": {

@@ -1,34 +1,20 @@
 /**
  * Distance-Aware Mode Assignment Engine
  *
- * Replaces hardcoded per-type mode logic with a two-axis model:
- *   Axis 1 — Travel distance (determines which mode band applies)
- *   Axis 2 — Route type (picks the best mode within that band)
- *
- * Distance bands:
- *   ≤ 1.5 km   → walk only (any type)
- *   ≤ 5 km     → auto (safest/balanced/women) | walk (cheapest)
- *   ≤ 15 km    → metro (cheapest/balanced/women) | auto (safest)
- *   ≤ 30 km    → metro (cheapest) | cab (safest/balanced/women)
- *   30+ km     → cab (safest/balanced/women) | bus (cheapest)
- *
- * Rules enforced:
- *   - Never auto for 30+ km routes
- *   - Never metro for routes where distances exceed realistic metro range (30 km)
- *   - Cab used for long-distance safest/women to ensure door-to-door safety
- *   - Women-friendly uses metro with "Women's Coach" label when metro is selected
+ * Assigns walk / bus / metro / auto / cab per route type and distance band.
+ * ETA for ride legs is derived from the road-routing duration (OSRM/ORS),
+ * scaled by realistic public-transit vs driving factors.
  */
 
 import type { GeocodedPlace } from "@/services/osm/nominatim.service";
 import type { RouteLeg, RouteType } from "@/types/database";
 
-// Realistic average speeds in Indian urban conditions (km/h)
-const MODE_SPEEDS_KPH: Record<string, number> = {
-  walk:  5,
-  auto:  22,
-  bus:   18,
-  metro: 35,
-  cab:   28,
+const MODE_ETA_FACTOR: Record<string, number> = {
+  walk: 2.8,
+  bus: 1.25,
+  metro: 0.9,
+  auto: 1.15,
+  cab: 1.05,
 };
 
 function leg(
@@ -47,25 +33,34 @@ function leg(
   };
 }
 
-function dmin(km: number, mode: string): number {
-  return (km / (MODE_SPEEDS_KPH[mode] ?? 20)) * 60;
+function rideDurationMin(
+  totalKm: number,
+  rideKm: number,
+  mode: string,
+  orsDurationMin: number
+): number {
+  if (totalKm <= 0) return 1;
+  const share = rideKm / totalKm;
+  const base = orsDurationMin * share * (MODE_ETA_FACTOR[mode] ?? 1.1);
+  return Math.max(1, Math.round(base));
 }
 
 /**
- * Distance-aware transit mode selection.
- *
- *   0–2 km:    walk  (all types)
- *   2–8 km:    bus   (cheapest) | auto (others)
- *   8–20 km:   metro (cheapest/balanced/women) | cab (safest — door-to-door safety)
- *   20+ km:    bus   (cheapest) | cab  (safest/balanced/women)
- *
- * Constraint: auto is NEVER assigned for routes > 8 km.
- *             metro is NEVER assigned for routes > 20 km.
+ * Cheapest: bus/walk for urban hops; metro only when distance makes bus impractical.
+ * Others: auto (short), metro/cab by distance band.
  */
 function selectMode(distKm: number, routeType: RouteType): string {
-  if (distKm <= 2)  return "walk";
-  if (distKm <= 8)  return routeType === "cheapest" ? "bus" : "auto";
-  if (distKm <= 20) return routeType === "safest" ? "cab" : "metro";
+  if (distKm <= 2) return "walk";
+  if (distKm <= 8) return routeType === "cheapest" ? "bus" : "auto";
+  if (distKm <= 15) {
+    if (routeType === "safest") return "cab";
+    if (routeType === "cheapest") return "bus";
+    return "metro";
+  }
+  if (distKm <= 25) {
+    if (routeType === "cheapest") return "metro";
+    return routeType === "safest" ? "cab" : "metro";
+  }
   return routeType === "cheapest" ? "bus" : "cab";
 }
 
@@ -76,66 +71,64 @@ export function buildMultimodalLegs(
   ors: { distance_km: number; duration_min: number }
 ): RouteLeg[] {
   const from = src.display_name ?? src.name;
-  const to   = dst.display_name ?? dst.name;
-  const d    = ors.distance_km;
+  const to = dst.display_name ?? dst.name;
+  const d = ors.distance_km;
   const mode = selectMode(d, routeType);
 
-  // ── Walk only ──────────────────────────────────────────────────────────────
   if (mode === "walk") {
-    return [leg("walk", from, to, d, dmin(d, "walk"))];
+    return [leg("walk", from, to, d, rideDurationMin(d, d, "walk", ors.duration_min))];
   }
 
-  // ── Auto (short urban hop) ─────────────────────────────────────────────────
   if (mode === "auto") {
     const walkKm = Math.min(0.3, d * 0.05);
     const rideKm = Math.max(0.3, d - walkKm);
     return [
-      leg("walk", from, "Auto stand", walkKm, dmin(walkKm, "walk")),
-      leg("auto", "Auto stand", to, rideKm, dmin(rideKm, "auto")),
+      leg("walk", from, "Auto stand", walkKm, rideDurationMin(d, walkKm, "walk", ors.duration_min)),
+      leg("auto", "Auto stand", to, rideKm, rideDurationMin(d, rideKm, "auto", ors.duration_min)),
     ];
   }
 
-  // ── Cab (cross-city, long-distance) ───────────────────────────────────────
   if (mode === "cab") {
     const walkKm = Math.min(0.2, d * 0.03);
     const rideKm = Math.max(0.5, d - walkKm);
     return [
-      leg("walk", from, "Cab pickup", walkKm, dmin(walkKm, "walk")),
-      leg("cab", "Cab pickup", to, rideKm, dmin(rideKm, "cab")),
+      leg("walk", from, "Cab pickup", walkKm, rideDurationMin(d, walkKm, "walk", ors.duration_min)),
+      leg("cab", "Cab pickup", to, rideKm, rideDurationMin(d, rideKm, "cab", ors.duration_min)),
     ];
   }
 
-  // ── Metro (city transit zone, 5–30 km) ────────────────────────────────────
   if (mode === "metro") {
     const walkKm = Math.min(0.5, d * 0.08);
     const rideKm = Math.max(0.8, d - walkKm * 2);
-    // Women-friendly gets explicit women's coach label
     const rideLabel =
       routeType === "women_friendly" ? "Metro (Women's Coach)" : "Metro";
     return [
-      leg("walk", from, "Metro entrance", walkKm, dmin(walkKm, "walk")),
-      leg("metro", rideLabel, "Metro station", rideKm, dmin(rideKm, "metro")),
-      leg("walk", "Station exit", to, walkKm, dmin(walkKm, "walk")),
+      leg("walk", from, "Metro entrance", walkKm, rideDurationMin(d, walkKm, "walk", ors.duration_min)),
+      leg("metro", rideLabel, "Metro station", rideKm, rideDurationMin(d, rideKm, "metro", ors.duration_min)),
+      leg("walk", "Station exit", to, walkKm, rideDurationMin(d, walkKm, "walk", ors.duration_min)),
     ];
   }
 
-  // ── Bus (cheapest 30+ km — transit corridor) ───────────────────────────────
   const walkKm = Math.min(0.4, d * 0.05);
   const rideKm = Math.max(0.5, d - walkKm * 2);
   return [
-    leg("walk", from, "Bus stop", walkKm, dmin(walkKm, "walk")),
-    leg("bus", "Bus corridor", "Drop point", rideKm, dmin(rideKm, "bus")),
-    leg("walk", "Drop point", to, walkKm, dmin(walkKm, "walk")),
+    leg("walk", from, "Bus stop", walkKm, rideDurationMin(d, walkKm, "walk", ors.duration_min)),
+    leg("bus", "Bus corridor", "Drop point", rideKm, rideDurationMin(d, rideKm, "bus", ors.duration_min)),
+    leg("walk", "Drop point", to, walkKm, rideDurationMin(d, walkKm, "walk", ors.duration_min)),
   ];
 }
 
 export function modeLabel(mode: string): string {
   const labels: Record<string, string> = {
-    walk:  "Walk",
-    bus:   "Bus",
+    walk: "Walk",
+    bus: "Bus",
     metro: "Metro",
-    auto:  "Auto",
-    cab:   "Cab",
+    auto: "Auto",
+    cab: "Cab",
   };
   return labels[mode] ?? mode;
+}
+
+export function primaryTransitMode(legs: RouteLeg[]): string | null {
+  return legs.find((l) => l.mode !== "walk")?.mode ?? null;
 }

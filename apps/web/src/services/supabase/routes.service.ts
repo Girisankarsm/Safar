@@ -481,6 +481,28 @@ function computeCommercialDensity(
  * Each corridor route is an OSRM via-waypoint call through the nearest
  * real anchor point for that corridor type in the city profile.
  */
+/** Pick a corridor waypoint that does not add excessive detour vs direct O-D. */
+function waypointWithMaxDetour(
+  pts: [number, number][],
+  src: GeocodedPlace,
+  dst: GeocodedPlace,
+  maxDetourRatio: number
+): [number, number] | null {
+  const directM = haversineM(src.lat, src.lng, dst.lat, dst.lng);
+  let best: [number, number] | null = null;
+  let bestViaM = Infinity;
+
+  for (const p of pts) {
+    const viaM =
+      haversineM(src.lat, src.lng, p[0], p[1]) + haversineM(p[0], p[1], dst.lat, dst.lng);
+    if (viaM <= directM * maxDetourRatio && viaM < bestViaM) {
+      bestViaM = viaM;
+      best = p;
+    }
+  }
+  return best;
+}
+
 async function generateCandidatePool(
   src: GeocodedPlace,
   dst: GeocodedPlace,
@@ -493,16 +515,19 @@ async function generateCandidatePool(
   const midLng = (src.lng + dst.lng) / 2;
 
   const wCommercial = nearestOf(cityProfile.waypoints.commercial, midLat, midLng);
-  const wTransit    = nearestOf(cityProfile.waypoints.transit,    midLat, midLng);
+  const wTransit =
+    waypointWithMaxDetour(cityProfile.waypoints.transit, src, dst, 1.32) ??
+    nearestOf(cityProfile.waypoints.transit, midLat, midLng);
   const wPolice     = nearestOf(cityProfile.waypoints.police,     midLat, midLng);
   const wHospital   = nearestOf(cityProfile.waypoints.hospital,   midLat, midLng);
   const wNightSafe  = nearestOf(cityProfile.waypoints.nightSafe,  midLat, midLng);
+  const directKm = haversineM(src.lat, src.lng, dst.lat, dst.lng) / 1000;
 
   const [
     osrmAlts,
     orsShortestResult,
     commercialRoute,
-    transitRoute,
+    transitRouteRaw,
     policeRoute,
     hospitalRoute,
     nightSafeRoute,
@@ -515,6 +540,11 @@ async function generateCandidatePool(
     fetchOSRMViaCoord(src, dst, wHospital[0],   wHospital[1]),
     fetchOSRMViaCoord(src, dst, wNightSafe[0],  wNightSafe[1]),
   ]);
+
+  const transitRoute =
+    transitRouteRaw && transitRouteRaw.distance_km <= directKm * 1.45
+      ? transitRouteRaw
+      : null;
 
   // Corridor routes first — they survive dedup to preserve semantic labels
   const tagged: Array<{ ors: OrsResult; corridorType: CorridorType }> = [
@@ -909,9 +939,8 @@ function generateRouteExplanations(
     }
 
     case "cheapest": {
-      // WHY
       out.push(
-        `Transit-optimised route via ${corridorType === "transit" ? "transit hub corridor" : "shortest path"} — ₹${costInr} using ${primaryMode}. Cost carries 70% selection weight.`
+        `Lowest-fare route via ${primaryMode} on the shortest practical path — ₹${costInr}. Public transit preferred over cab when viable.`
       );
       // RISKS AVOIDED
       out.push(
@@ -996,21 +1025,30 @@ function generateRouteExplanations(
  *
  *   balanced:       dist ≤ fastest + 5%   (ensures it stays near the main corridor)
  *   safest:         dist ≤ fastest + 20%  (allow meaningful detours for safety)
- *   cheapest:       no constraint          (pure cost optimisation)
+ *   cheapest:       dist ≤ fastest + 18%  AND ETA ≤ fastest + 35%
  *   women_friendly: dist ≤ fastest + 10%  AND ETA ≤ fastest + 15%  (never the longest)
  */
 const ROUTE_DIST_LIMIT: Record<RouteType, number> = {
   balanced:       1.05,
   safest:         1.20,
-  cheapest:       999,
+  cheapest:       1.18,
   women_friendly: 1.10,
 };
 const ROUTE_ETA_LIMIT: Record<RouteType, number> = {
   balanced:       999,
   safest:         999,
-  cheapest:       999,
+  cheapest:       1.35,
   women_friendly: 1.15,
 };
+
+function estimateCandidateCost(
+  routeType: RouteType,
+  src: GeocodedPlace,
+  dst: GeocodedPlace,
+  ors: OrsResult
+): number {
+  return estimateRouteFare(buildMultimodalLegs(routeType, src, dst, ors), routeType);
+}
 
 function bestByScore(
   pool: ScoredCandidate[],
@@ -1018,12 +1056,25 @@ function bestByScore(
   src: GeocodedPlace,
   dst: GeocodedPlace
 ): ScoredCandidate {
+  if (routeType === "cheapest") {
+    return pool.reduce((best, c) => {
+      const costC = estimateCandidateCost("cheapest", src, dst, c.ors);
+      const costB = estimateCandidateCost("cheapest", src, dst, best.ors);
+      if (costC !== costB) return costC < costB ? c : best;
+      if (c.ors.duration_min !== best.ors.duration_min) {
+        return c.ors.duration_min < best.ors.duration_min ? c : best;
+      }
+      if (c.ors.distance_km !== best.ors.distance_km) {
+        return c.ors.distance_km < best.ors.distance_km ? c : best;
+      }
+      return c.safetyScore > best.safetyScore ? c : best;
+    });
+  }
+
   return pool.reduce((best, c) => {
-    const legsC  = buildMultimodalLegs(routeType, src, dst, c.ors);
-    const legsB  = buildMultimodalLegs(routeType, src, dst, best.ors);
-    const costC  = estimateRouteFare(legsC, routeType);
-    const costB  = estimateRouteFare(legsB, routeType);
-    const scoreC = computeOptimizationScore(c.safetyScore,    c.ors.duration_min, costC, routeType, c.womenScore);
+    const costC = estimateCandidateCost(routeType, src, dst, c.ors);
+    const costB = estimateCandidateCost(routeType, src, dst, best.ors);
+    const scoreC = computeOptimizationScore(c.safetyScore, c.ors.duration_min, costC, routeType, c.womenScore);
     const scoreB = computeOptimizationScore(best.safetyScore, best.ors.duration_min, costB, routeType, best.womenScore);
     return scoreC > scoreB ? c : best;
   });
@@ -1034,13 +1085,13 @@ function bestByScore(
  * selectBestGeometry tries preferred corridors first; falls back to full pool.
  *
  *   balanced        → commercial > general > transit  (everyday commute via main road)
- *   cheapest        → transit > shortest > general    (bus/metro terminal routes)
+ *   cheapest        → shortest > general > transit  (practical low-cost path, not hub detours)
  *   safest          → police > nightSafe > general    (police-dense outer corridors)
  *   women_friendly  → hospital > commercial > nightSafe > general (lit, safe, commercial)
  */
 const CORRIDOR_PREFERENCE: Record<RouteType, CorridorType[]> = {
-  balanced:       ["commercial", "general", "transit"],
-  cheapest:       ["transit", "shortest", "general"],
+  balanced:       ["commercial", "general", "shortest"],
+  cheapest:       ["shortest", "general", "transit"],
   safest:         ["police", "nightSafe", "general"],
   women_friendly: ["hospital", "commercial", "nightSafe", "general"],
 };
