@@ -4,8 +4,6 @@ import { useCommunityActivity } from "@/hooks/use-community-activity";
 import { useI18n } from "@/i18n/use-i18n";
 import { getCityConfig } from "@/config/cities";
 import { useCityStore } from "@/stores/city.store";
-import { Map } from "lucide-react";
-import { Link } from "react-router-dom";
 
 export function CommunityActivityPage() {
   const { city } = useCityStore();
@@ -38,21 +36,6 @@ export function CommunityActivityPage() {
 
       <div className="mt-6">
         <CommunityActivityFeed items={activity} loading={loading} variant="full" />
-      </div>
-
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-        <Link
-          to="/safety"
-          className="surface-card flex flex-1 items-center gap-3 rounded-2xl p-4 transition hover:border-[#3B82F6]/30"
-        >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#3B82F6]/15">
-            <Map className="h-5 w-5 text-[#3B82F6]" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-white">{t("community.viewHeatmap")}</p>
-            <p className="text-xs text-[#A1A1AA]">{t("community.viewHeatmapDesc")}</p>
-          </div>
-        </Link>
       </div>
     </div>
   );
