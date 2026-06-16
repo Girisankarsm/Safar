@@ -4,7 +4,7 @@ import { useI18n } from "@/i18n/use-i18n";
 import { addLabeledMarker } from "@/components/map/map-markers";
 import { useSettingsStore } from "@/stores/settings.store";
 import type { CorridorProfile, CorridorSegment } from "@/lib/corridor-risk";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 function isStraightLine(geometry?: GeoJSON.LineString): boolean {
   return !geometry?.coordinates?.length || geometry.coordinates.length <= 2;
@@ -16,12 +16,11 @@ const SEGMENT_COLORS: Record<string, string> = {
   risk: "#EF4444",
 };
 
-// Primary line color per route type — makes it instantly obvious which route is active
 const ROUTE_TYPE_COLOR: Record<string, string> = {
-  balanced:       "#3B82F6",   // blue
-  safest:         "#22C55E",   // green
-  cheapest:       "#F59E0B",   // amber
-  women_friendly: "#A855F7",   // purple
+  balanced: "#3B82F6",
+  safest: "#22C55E",
+  cheapest: "#F59E0B",
+  women_friendly: "#A855F7",
 };
 
 function hotspotIcon(riskLevel: string): L.DivIcon {
@@ -41,7 +40,7 @@ function hotspotIcon(riskLevel: string): L.DivIcon {
 
 function poiIcon(type: "hospital" | "police"): L.DivIcon {
   const isHospital = type === "hospital";
-  const bg    = isHospital ? "#06B6D4" : "#3B82F6";   // cyan for hospital, blue for police
+  const bg = isHospital ? "#06B6D4" : "#3B82F6";
   const label = isHospital ? "H" : "P";
   return L.divIcon({
     className: "",
@@ -97,6 +96,36 @@ function drawSegmentedRoute(
   }
 }
 
+function buildRouteBounds(
+  source: { lat: number; lng: number },
+  destination: { lat: number; lng: number },
+  geometry?: GeoJSON.LineString
+): L.LatLngBounds {
+  const points: L.LatLngExpression[] = [
+    [source.lat, source.lng],
+    [destination.lat, destination.lng],
+  ];
+  if (geometry?.coordinates?.length) {
+    for (const [lng, lat] of geometry.coordinates) {
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        points.push([lat, lng]);
+      }
+    }
+  }
+  return L.latLngBounds(points);
+}
+
+function maxZoomForDistance(source: { lat: number; lng: number }, destination: { lat: number; lng: number }): number {
+  const latDiff = Math.abs(source.lat - destination.lat);
+  const lngDiff = Math.abs(source.lng - destination.lng);
+  const span = Math.max(latDiff, lngDiff);
+  if (span < 0.015) return 16;
+  if (span < 0.04) return 15;
+  if (span < 0.12) return 14;
+  if (span < 0.35) return 13;
+  return 12;
+}
+
 export function RouteMap({
   geometry,
   source,
@@ -114,39 +143,57 @@ export function RouteMap({
   destination: { lat: number; lng: number };
   sourceName?: string;
   destinationName?: string;
-  /** Optional corridor profile for segment coloring and hotspot markers */
   corridorProfile?: CorridorProfile;
-  /** Route type — controls the line color so switching routes is visually obvious */
   routeType?: string;
-  /** Height in px (number) or any CSS string like "100%" / "calc(...)" */
   height?: number | string;
   className?: string;
-  /** When set, zooms the map to this corridor segment index */
   focusSegmentIdx?: number | null;
 }) {
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const boundsRef = useRef<L.LatLngBounds | null>(null);
   const estimate = isStraightLine(geometry);
   const lowDataMode = useSettingsStore((s) => s.lowDataMode);
-  const maxZoom = lowDataMode ? 14 : 19;
+  const maxTileZoom = lowDataMode ? 14 : 19;
   const lineColor = (routeType && ROUTE_TYPE_COLOR[routeType]) ?? "#3B82F6";
+
+  const fitToRoute = useCallback(() => {
+    const map = mapRef.current;
+    const bounds = boundsRef.current;
+    if (!map || !bounds?.isValid()) return;
+
+    map.invalidateSize({ animate: false });
+    map.fitBounds(bounds, {
+      padding: [56, 56],
+      maxZoom: maxZoomForDistance(source, destination),
+      animate: false,
+    });
+  }, [source, destination]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    const map = L.map(containerRef.current).setView([source.lat, source.lng], 13);
+    const midLat = (source.lat + destination.lat) / 2;
+    const midLng = (source.lng + destination.lng) / 2;
+    const map = L.map(containerRef.current, { zoomControl: true }).setView([midLat, midLng], 13);
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-      attribution: '&copy; OSM &copy; CARTO',
-      maxZoom,
+      attribution: "&copy; OSM &copy; CARTO",
+      maxZoom: maxTileZoom,
     }).addTo(map);
     mapRef.current = map;
 
+    const ro = new ResizeObserver(() => {
+      fitToRoute();
+    });
+    ro.observe(containerRef.current);
+
     return () => {
+      ro.disconnect();
       map.remove();
       mapRef.current = null;
     };
-  }, [source.lat, source.lng, maxZoom]);
+  }, [source.lat, source.lng, destination.lat, destination.lng, maxTileZoom, fitToRoute]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -178,17 +225,10 @@ export function RouteMap({
       subtitle: "End of route",
     });
 
-    const bounds: L.LatLngExpression[] = [
-      [source.lat, source.lng],
-      [destination.lat, destination.lng],
-    ];
-
     if (geometry?.coordinates?.length) {
       const latlngs = geometry.coordinates.map(([lng, lat]) => [lat, lng] as [number, number]);
-      latlngs.forEach((ll) => bounds.push(ll));
 
       if (estimate) {
-        // Straight-line fallback — dashed in route-type color
         L.polyline(latlngs, {
           color: lineColor,
           weight: 5,
@@ -198,12 +238,11 @@ export function RouteMap({
           .bindPopup("Estimated direct path — search again for road routing")
           .addTo(map);
       } else if (corridorProfile?.segments?.length) {
-        // Segmented route with risk coloring; outer glow in route-type color
         L.polyline(latlngs, {
           color: lineColor,
           weight: 10,
           opacity: 0.18,
-        }).addTo(map);   // soft glow underlay
+        }).addTo(map);
 
         drawSegmentedRoute(map, geometry, corridorProfile.segments, lineColor);
 
@@ -217,21 +256,18 @@ export function RouteMap({
             .addTo(map);
         }
 
-        // ── Hospital pins (cyan H) ──────────────────────────────────────
         for (const h of corridorProfile.hospitals ?? []) {
           L.marker([h.lat, h.lng], { icon: poiIcon("hospital"), zIndexOffset: 200 })
             .bindPopup(`<b>🏥 ${h.name}</b><br/><span style="color:#06B6D4">Hospital on corridor</span>`)
             .addTo(map);
         }
 
-        // ── Police station pins (blue P) ────────────────────────────────
         for (const p of corridorProfile.policeStations ?? []) {
           L.marker([p.lat, p.lng], { icon: poiIcon("police"), zIndexOffset: 200 })
             .bindPopup(`<b>🚔 ${p.name}</b><br/><span style="color:#3B82F6">Police station on corridor</span>`)
             .addTo(map);
         }
       } else {
-        // Plain road route — colored by route type
         L.polyline(latlngs, {
           color: lineColor,
           weight: 6,
@@ -240,7 +276,6 @@ export function RouteMap({
           .bindPopup("Road route")
           .addTo(map);
 
-        // Still render POI pins even without corridor segments
         for (const h of corridorProfile?.hospitals ?? []) {
           L.marker([h.lat, h.lng], { icon: poiIcon("hospital"), zIndexOffset: 200 })
             .bindPopup(`<b>🏥 ${h.name}</b><br/><span style="color:#06B6D4">Hospital on corridor</span>`)
@@ -254,10 +289,30 @@ export function RouteMap({
       }
     }
 
-    map.fitBounds(L.latLngBounds(bounds), { padding: [48, 48], maxZoom: 15 });
-  }, [geometry, source, destination, estimate, sourceName, destinationName, corridorProfile, lineColor]);
+    boundsRef.current = buildRouteBounds(source, destination, geometry);
 
-  // Zoom to a specific corridor segment when focusSegmentIdx changes
+    const runFit = () => fitToRoute();
+    map.whenReady(runFit);
+    requestAnimationFrame(runFit);
+    const t1 = window.setTimeout(runFit, 120);
+    const t2 = window.setTimeout(runFit, 400);
+
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [
+    geometry,
+    source,
+    destination,
+    estimate,
+    sourceName,
+    destinationName,
+    corridorProfile,
+    lineColor,
+    fitToRoute,
+  ]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (map == null || focusSegmentIdx == null || !corridorProfile?.segments) return;
@@ -266,17 +321,17 @@ export function RouteMap({
     map.setView([seg.lat, seg.lng], 16, { animate: true });
   }, [focusSegmentIdx, corridorProfile]);
 
-  const hasSegments   = !estimate && corridorProfile?.segments?.length;
-  const hasHotspots   = (corridorProfile?.hotspots?.length ?? 0) > 0;
-  const hasHospitals  = (corridorProfile?.hospitals?.length ?? 0) > 0;
-  const hasPolice     = (corridorProfile?.policeStations?.length ?? 0) > 0;
+  const hasSegments = !estimate && corridorProfile?.segments?.length;
+  const hasHotspots = (corridorProfile?.hotspots?.length ?? 0) > 0;
+  const hasHospitals = (corridorProfile?.hospitals?.length ?? 0) > 0;
+  const hasPolice = (corridorProfile?.policeStations?.length ?? 0) > 0;
 
   return (
-    <div className={`relative${className ? ` ${className}` : ""}`}>
+    <div className={`relative h-full min-h-0${className ? ` ${className}` : ""}`}>
       <div
         ref={containerRef}
         style={{ height: typeof height === "number" ? height : height, width: "100%" }}
-        className={`overflow-hidden border border-[#262626]${className?.includes("rounded-none") ? "" : " rounded-2xl"}`}
+        className={`h-full min-h-0 overflow-hidden border border-[#262626]${className?.includes("rounded-none") ? "" : " rounded-2xl"}`}
       />
       <div className="pointer-events-none absolute bottom-3 left-3 z-[500] flex flex-wrap gap-1.5 text-[10px] font-semibold">
         <span className="rounded-md bg-black/80 px-2 py-1 text-[#22C55E]">{t("map.start")}</span>
@@ -289,19 +344,13 @@ export function RouteMap({
             <span className="rounded-md bg-black/80 px-2 py-1 text-[#F59E0B]">Moderate</span>
             <span className="rounded-md bg-black/80 px-2 py-1 text-[#EF4444]">Risk</span>
             {hasHotspots && (
-              <span className="rounded-md bg-black/80 px-2 py-1 text-[#FBBF24]">
-                ! Hotspot
-              </span>
+              <span className="rounded-md bg-black/80 px-2 py-1 text-[#FBBF24]">! Hotspot</span>
             )}
             {hasHospitals && (
-              <span className="rounded-md bg-black/80 px-2 py-1 text-[#06B6D4]">
-                H Hospital
-              </span>
+              <span className="rounded-md bg-black/80 px-2 py-1 text-[#06B6D4]">H Hospital</span>
             )}
             {hasPolice && (
-              <span className="rounded-md bg-black/80 px-2 py-1 text-[#3B82F6]">
-                P Police
-              </span>
+              <span className="rounded-md bg-black/80 px-2 py-1 text-[#3B82F6]">P Police</span>
             )}
           </>
         ) : (

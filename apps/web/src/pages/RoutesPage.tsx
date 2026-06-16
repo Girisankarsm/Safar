@@ -551,6 +551,75 @@ function IntelligencePanel({
   );
 }
 
+/** Structured map block — trip summary + map between A and B */
+function RouteMapPanel({
+  route,
+  className,
+  mapClassName,
+}: {
+  route: PlannedRoute;
+  className?: string;
+  mapClassName?: string;
+}) {
+  const { t } = useI18n();
+  const c = ROUTE_COLOR[route.route_type];
+
+  return (
+    <div className={cn("flex min-h-0 flex-col bg-[var(--bg)]", className)}>
+      <div className="shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] px-3 py-2.5 md:px-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
+              {t("routes.mapRoute")}
+            </p>
+            <p className="mt-0.5 truncate text-[11px] font-semibold text-white md:text-xs">
+              <span className="text-[#22C55E]">A</span>{" "}
+              {route.source_name}
+              <span className="mx-1.5 text-[var(--text-dim)]">→</span>
+              <span className="text-[#EF4444]">B</span>{" "}
+              {route.destination_name}
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] font-medium text-[var(--text-muted)] md:text-[11px]">
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {route.eta_minutes} min
+            </span>
+            <span className="flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              {route.distance_km} km
+            </span>
+            <span className="flex items-center gap-1">
+              <IndianRupee className="h-3 w-3" />₹{route.estimated_cost_inr}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className={cn("relative min-h-0 flex-1", mapClassName)}>
+        <RouteMap
+          geometry={route.geometry}
+          routeType={route.route_type}
+          source={{ lat: route.source_lat, lng: route.source_lng }}
+          destination={{ lat: route.dest_lat, lng: route.dest_lng }}
+          sourceName={route.source_name}
+          destinationName={route.destination_name}
+          corridorProfile={route.corridor_profile}
+          height="100%"
+          className="absolute inset-0 h-full w-full rounded-none"
+          focusSegmentIdx={null}
+        />
+        <div className="absolute left-2 top-2 z-[500] flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg)]/92 px-2 py-1 backdrop-blur-md md:left-3 md:top-3 md:rounded-xl md:px-3 md:py-2">
+          <Shield className={cn("h-3 w-3 md:h-3.5 md:w-3.5", c.text)} />
+          <span className="text-[10px] font-bold text-white md:text-xs">
+            {t(routeTypeKey(route.route_type))}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function RoutesPage() {
   const { t } = useI18n();
   const { city } = useCityStore();
@@ -673,7 +742,7 @@ export function RoutesPage() {
   }
 
   return (
-    <div className="app-page-scroll flex flex-col lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:pb-0">
+    <div className="app-page-fill">
 
       {/* Sub-nav strip */}
       <div className="shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg)] px-4 py-2 md:px-6">
@@ -712,7 +781,7 @@ export function RoutesPage() {
       </AnimatePresence>
 
       {/* ── MOBILE: single scroll column ── */}
-      <div className="flex flex-col lg:hidden">
+      <div className="safar-scroll-y flex min-h-0 flex-1 flex-col overflow-y-auto lg:hidden">
         {/* Route picker — horizontal pills */}
         <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] px-3 py-2.5">
           {recommendation && (
@@ -745,28 +814,12 @@ export function RoutesPage() {
           </div>
         </div>
 
-        {/* Map — compact */}
+        {/* Map — structured panel */}
         {selected && (
-          <div className="relative h-[180px] shrink-0 border-b border-[var(--border-subtle)]">
-            <RouteMap
-              geometry={selected.geometry}
-              routeType={selected.route_type}
-              source={{ lat: selected.source_lat, lng: selected.source_lng }}
-              destination={{ lat: selected.dest_lat, lng: selected.dest_lng }}
-              sourceName={selected.source_name}
-              destinationName={selected.destination_name}
-              corridorProfile={selected.corridor_profile}
-              height="100%"
-              className="h-full rounded-none"
-              focusSegmentIdx={null}
-            />
-            <div className="absolute left-2 top-2 z-[500] flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg)]/92 px-2 py-1 backdrop-blur-md">
-              <Shield className={cn("h-3 w-3", ROUTE_COLOR[selected.route_type].text)} />
-              <span className="text-[10px] font-bold text-white">
-                {t(routeTypeKey(selected.route_type))}
-              </span>
-            </div>
-          </div>
+          <RouteMapPanel
+            route={selected}
+            mapClassName="h-[220px] sm:h-[260px]"
+          />
         )}
 
         {/* Intelligence — flows in page scroll */}
@@ -786,10 +839,10 @@ export function RoutesPage() {
       </div>
 
       {/* ── DESKTOP: three-column layout ── */}
-      <div className="hidden min-h-0 flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[296px_1fr_368px]">
+      <div className="desktop-3col hidden min-h-0 flex-1 lg:grid">
 
         {/* LEFT — Route list */}
-        <aside className="overflow-y-auto border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] lg:border-b-0 lg:border-r lg:border-[var(--border-subtle)]">
+        <aside className="overflow-y-auto border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] lg:border-b-0 lg:border-r">
           <div className="flex gap-2 overflow-x-auto px-3 py-2 lg:flex-col lg:gap-3 lg:overflow-x-visible lg:px-3 lg:py-4">
             <div className="hidden lg:block lg:px-1 lg:pb-3">
               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
@@ -836,7 +889,7 @@ export function RoutesPage() {
         </aside>
 
         {/* CENTER — Map hero */}
-        <div className="relative flex-1 lg:flex-none">
+        <div className="routes-map-column relative min-h-0 overflow-hidden">
           <AnimatePresence mode="wait">
             {selected && (
               <motion.div
@@ -845,38 +898,16 @@ export function RoutesPage() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.25 }}
-                className="h-[260px] sm:h-[300px] lg:h-full"
+                className="h-full min-h-0"
               >
-                <RouteMap
-                  geometry={selected.geometry}
-                  routeType={selected.route_type}
-                  source={{ lat: selected.source_lat, lng: selected.source_lng }}
-                  destination={{ lat: selected.dest_lat, lng: selected.dest_lng }}
-                  sourceName={selected.source_name}
-                  destinationName={selected.destination_name}
-                  corridorProfile={selected.corridor_profile}
-                  height="100%"
-                  className="h-full rounded-none"
-                  focusSegmentIdx={null}
-                />
+                <RouteMapPanel route={selected} className="h-full" />
               </motion.div>
             )}
           </AnimatePresence>
-
-          {/* Route type overlay */}
-          {selected && (
-            <div className="absolute left-3 top-3 z-[500] flex items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg)]/90 px-3 py-2 backdrop-blur-md">
-              <Shield className={cn("h-3.5 w-3.5", ROUTE_COLOR[selected.route_type].text)} />
-              <span className="text-xs font-bold text-white">
-                {t(routeTypeKey(selected.route_type))}
-              </span>
-            </div>
-          )}
-
         </div>
 
         {/* RIGHT — Tabbed intelligence panel (desktop only) */}
-        <aside className="intel-panel overflow-hidden lg:block">
+        <aside className="intel-panel min-h-0 overflow-hidden">
           <AnimatePresence mode="wait">
             {selected ? (
               <motion.div
