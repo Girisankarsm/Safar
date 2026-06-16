@@ -7,20 +7,37 @@ interface BeforeInstallPromptEvent extends Event {
   readonly userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+const INSTALLED_KEY = "safar-pwa-installed";
+
 function isStandalone() {
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
-    // iOS Safari PWA
-    ("standalone" in window.navigator && (window.navigator as { standalone?: boolean }).standalone === true)
+    ("standalone" in window.navigator &&
+      (window.navigator as { standalone?: boolean }).standalone === true)
   );
 }
 
-export function PWAInstallButton({ compact }: { compact?: boolean }) {
+function wasInstalled() {
+  try {
+    return localStorage.getItem(INSTALLED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markInstalled() {
+  try {
+    localStorage.setItem(INSTALLED_KEY, "1");
+  } catch { /* ignore */ }
+}
+
+export function PWAInstallButton() {
   const [prompt, setPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [installed, setInstalled] = useState(() => isStandalone());
+  const [hidden, setHidden] = useState(() => isStandalone() || wasInstalled());
 
   useEffect(() => {
-    if (isStandalone()) return; // already running as installed app
+    // Already installed — never show again
+    if (isStandalone() || wasInstalled()) return;
 
     function onBefore(e: Event) {
       e.preventDefault();
@@ -28,7 +45,8 @@ export function PWAInstallButton({ compact }: { compact?: boolean }) {
     }
 
     function onInstalled() {
-      setInstalled(true);
+      markInstalled();
+      setHidden(true);
       setPrompt(null);
     }
 
@@ -46,13 +64,14 @@ export function PWAInstallButton({ compact }: { compact?: boolean }) {
     await prompt.prompt();
     const { outcome } = await prompt.userChoice;
     if (outcome === "accepted") {
-      setInstalled(true);
+      markInstalled();
+      setHidden(true);
       setPrompt(null);
     }
   }
 
-  // Don't render if already installed or no prompt available
-  if (installed || !prompt) return null;
+  // Hide if already installed or no browser install prompt available
+  if (hidden || !prompt) return null;
 
   return (
     <AnimatePresence>
@@ -60,15 +79,15 @@ export function PWAInstallButton({ compact }: { compact?: boolean }) {
         key="pwa-install"
         type="button"
         onClick={handleInstall}
-        initial={{ opacity: 0, scale: 0.85 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.85 }}
-        transition={{ duration: 0.25 }}
-        title="Install Safar app"
-        className="flex items-center gap-1.5 rounded-lg border border-[#3B82F6]/30 bg-[#3B82F6]/10 px-2 py-1.5 text-[11px] font-semibold text-[#93C5FD] transition hover:bg-[#3B82F6]/20 hover:text-white active:scale-95"
+        initial={{ opacity: 0, scale: 0.88, x: 6 }}
+        animate={{ opacity: 1, scale: 1, x: 0 }}
+        exit={{ opacity: 0, scale: 0.88, x: 6 }}
+        transition={{ duration: 0.22 }}
+        title="Install Safar on your device"
+        className="flex items-center gap-1.5 rounded-lg border border-[#3B82F6]/35 bg-[#3B82F6]/12 px-2.5 py-1.5 text-[11px] font-bold text-[#93C5FD] shadow-sm shadow-[#3B82F6]/10 transition hover:bg-[#3B82F6]/22 hover:text-white active:scale-95"
       >
         <Download className="h-3.5 w-3.5 shrink-0" />
-        {!compact && <span>Install</span>}
+        <span className="hidden sm:inline">Install</span>
       </motion.button>
     </AnimatePresence>
   );

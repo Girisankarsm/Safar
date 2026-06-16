@@ -168,8 +168,9 @@ export function AppShell() {
                 <CitySwitcher compact />
               </div>
               <LanguageSwitcher compact />
-              <PWAInstallButton compact />
               <div className="mx-0.5 h-4 w-px bg-[var(--border-subtle)]" />
+              {/* Install button — right next to profile, hidden once installed */}
+              <PWAInstallButton />
               <UserMenu />
             </div>
           </div>
