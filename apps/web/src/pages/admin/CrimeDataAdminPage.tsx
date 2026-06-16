@@ -30,7 +30,7 @@ export function CrimeDataAdminPage() {
   }, [load]);
 
   return (
-    <div className="space-y-8">
+    <div className="app-page-scroll space-y-8 px-5 py-6 md:px-8 lg:py-8">
       <PageHeader
         eyebrow="Data engineering"
         title="Crime Data Pipeline"

@@ -260,7 +260,7 @@ export function EmergencyPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 px-5 py-6 md:px-8">
+    <div className="app-page-scroll mx-auto max-w-[1400px] space-y-6 px-5 py-6 md:px-8 lg:py-8">
       <PageHeader
         eyebrow={t("emergency.eyebrow")}
         title={t("emergency.title")}

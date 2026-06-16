@@ -20,7 +20,7 @@ export function ComparePage() {
 
   if (!routes.length || !selected) {
     return (
-      <div className="px-5 py-8 md:px-8">
+      <div className="app-page-scroll px-5 py-8 md:px-8">
         <RoutesSubNav />
         <div className="mt-6">
           <EmptyState
@@ -36,7 +36,7 @@ export function ComparePage() {
   }
 
   return (
-    <div className="flex flex-col lg:h-[calc(100vh-var(--shell-top))] lg:overflow-hidden">
+    <div className="app-page-fill max-lg:overflow-y-auto max-lg:pb-[var(--bottom-safe)] lg:overflow-hidden lg:pb-0">
 
       {/* Sub-nav + header strip */}
       <div className="shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] px-5 py-2.5 md:px-6">

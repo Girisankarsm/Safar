@@ -645,7 +645,7 @@ export function RoutesPage() {
 
   if (!routes.length) {
     return (
-      <div className="px-5 py-8 md:px-8">
+      <div className="app-page-scroll px-5 py-8 md:px-8">
         <RoutesSubNav />
         <div className="mt-6">
           <EmptyState
@@ -661,7 +661,7 @@ export function RoutesPage() {
   }
 
   return (
-    <div className="flex flex-col lg:h-[calc(100vh-var(--shell-top))] lg:overflow-hidden">
+    <div className="app-page-fill max-lg:overflow-y-auto max-lg:pb-[var(--bottom-safe)] lg:overflow-hidden lg:pb-0">
 
       {/* Sub-nav strip */}
       <div className="shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg)] px-5 py-2 md:px-6">
@@ -700,7 +700,7 @@ export function RoutesPage() {
       </AnimatePresence>
 
       {/* ── Three-column layout ── */}
-      <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[296px_1fr_368px]">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:grid lg:min-h-0 lg:grid-cols-[296px_1fr_368px] lg:overflow-hidden">
 
         {/* LEFT — Route list */}
         <aside className="overflow-y-auto border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] lg:border-b-0 lg:border-r lg:border-[var(--border-subtle)]">

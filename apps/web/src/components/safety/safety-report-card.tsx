@@ -1,12 +1,33 @@
-import type { SafetyReport } from "@/types/database";
-import { CheckCircle2, MessageCircle, ThumbsUp, Trash2 } from "lucide-react";
+import type { SafetyReport, ReportType } from "@/types/database";
+import { CheckCircle2, MapPin, MessageCircle, ThumbsUp, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
+/** Reliable per-type placeholder images (Unsplash CDN) */
 const PLACEHOLDER_IMAGES: Record<string, string> = {
-  poor_lighting: "https://images.unsplash.com/photo-1519501025264-65ba15a35c6b?w=400&h=240&fit=crop",
-  unsafe_bus_stop: "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400&h=240&fit=crop",
-  harassment: "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=400&h=240&fit=crop",
-  default: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=400&h=240&fit=crop",
+  poor_lighting: "https://images.unsplash.com/photo-1519501025264-65ba15a35c6b?w=200&h=200&fit=crop&q=80",
+  broken_light: "https://images.unsplash.com/photo-1519501025264-65ba15a35c6b?w=200&h=200&fit=crop&q=80",
+  unsafe_bus_stop: "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=200&h=200&fit=crop&q=80",
+  harassment: "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=200&h=200&fit=crop&q=80",
+  suspicious_activity: "https://images.unsplash.com/photo-1514565131-fce0801ecfcd?w=200&h=200&fit=crop&q=80",
+  unsafe_area: "https://images.unsplash.com/photo-1514565131-fce0801ecfcd?w=200&h=200&fit=crop&q=80",
+  road_damage: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=200&h=200&fit=crop&q=80",
+  dangerous_crossing: "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=200&h=200&fit=crop&q=80",
+  construction: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=200&h=200&fit=crop&q=80",
+  flooded_area: "https://images.unsplash.com/photo-1527482795447-5a25756e5a55?w=200&h=200&fit=crop&q=80",
+  stray_animal: "https://images.unsplash.com/photo-1450778869180-41d0601e046e?w=200&h=200&fit=crop&q=80",
+  default: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=200&h=200&fit=crop&q=80",
 };
+
+function placeholderFor(type: ReportType, id: string): string {
+  if (PLACEHOLDER_IMAGES[type]) return PLACEHOLDER_IMAGES[type];
+  return `https://picsum.photos/seed/${encodeURIComponent(`${type}-${id}`)}/200/200`;
+}
+
+function resolveImageUrl(report: SafetyReport): string {
+  const url = report.image_url?.trim();
+  if (url && url.startsWith("http")) return url;
+  return placeholderFor(report.report_type, report.id);
+}
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -37,20 +58,50 @@ export function SafetyReportCard({
   onDelete?: () => void;
   deleting?: boolean;
 }) {
-  const img =
-    report.image_url ??
-    PLACEHOLDER_IMAGES[report.report_type] ??
-    PLACEHOLDER_IMAGES.default;
+  const fallback = useMemo(
+    () => placeholderFor(report.report_type, report.id),
+    [report.report_type, report.id]
+  );
+  const [imgSrc, setImgSrc] = useState(() => resolveImageUrl(report));
+  const [imgFailed, setImgFailed] = useState(false);
+
+  useEffect(() => {
+    setImgSrc(resolveImageUrl(report));
+    setImgFailed(false);
+  }, [report.id, report.image_url, report.report_type]);
+
   const title =
     report.description?.split(".")[0] ??
     `${report.report_type.replace(/_/g, " ")} reported`;
   const typeLabel = report.report_type.replace(/_/g, " ");
 
+  function handleImgError() {
+    if (imgSrc !== fallback) {
+      setImgSrc(fallback);
+      return;
+    }
+    setImgFailed(true);
+  }
+
   return (
     <article className="flex w-full overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] transition hover:border-[#3B82F6]/30 lg:flex-col lg:rounded-2xl">
       {/* Mobile: compact horizontal row · Desktop sidebar: stacked card */}
-      <div className="relative h-[68px] w-[68px] shrink-0 overflow-hidden sm:h-[76px] sm:w-[76px] lg:h-32 lg:w-full">
-        <img src={img} alt="" className="h-full w-full object-cover opacity-90" />
+      <div className="relative h-[68px] w-[68px] shrink-0 overflow-hidden bg-[#1a1a1f] sm:h-[76px] sm:w-[76px] lg:h-32 lg:w-full">
+        {!imgFailed ? (
+          <img
+            src={imgSrc}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+            onError={handleImgError}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#1e293b] to-[#0f172a]">
+            <MapPin className="h-5 w-5 text-[#3B82F6]/60 lg:h-8 lg:w-8" />
+          </div>
+        )}
         <span className="absolute left-1 top-1 max-w-[calc(100%-8px)] truncate rounded bg-[#EF4444]/90 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white lg:left-3 lg:top-3 lg:px-2 lg:text-[10px]">
           {typeLabel}
         </span>
@@ -68,7 +119,9 @@ export function SafetyReportCard({
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col justify-center p-2.5 lg:p-4">
-        <h3 className="line-clamp-1 text-[12px] font-bold text-white sm:text-sm">{title}</h3>
+        <h3 className="line-clamp-2 text-[12px] font-bold leading-snug text-white sm:line-clamp-1 sm:text-sm">
+          {title}
+        </h3>
         <p className="mt-0.5 text-[10px] text-[var(--text-dim)] sm:text-xs">
           {cityName} · {timeAgo(report.created_at)}
         </p>

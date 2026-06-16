@@ -17,7 +17,7 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto max-w-[900px] space-y-6 px-5 py-6 md:px-8">
+    <div className="app-page-scroll mx-auto max-w-[900px] space-y-6 px-5 py-6 md:px-8 lg:py-8">
       <PageHeader title="Profile" subtitle="Your Safar account, trust score, and safety contributions." />
 
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>

@@ -46,6 +46,12 @@ export function AppShell() {
     if (parent) setOpenNav(parent.to);
   }, [path]);
 
+  // Mobile: lock document scroll while in app shell (landing page stays scrollable)
+  useEffect(() => {
+    document.documentElement.classList.add("app-shell-active");
+    return () => document.documentElement.classList.remove("app-shell-active");
+  }, []);
+
   function isNavActive(to: string, hasChildren?: boolean) {
     // Parents with children: only highlight when on the exact parent route
     if (hasChildren) return path === to;
@@ -53,7 +59,7 @@ export function AppShell() {
   }
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-[var(--bg)] lg:min-h-screen lg:h-auto lg:overflow-visible">
+    <div className="bg-[var(--bg)] max-lg:flex max-lg:h-[100dvh] max-lg:flex-col max-lg:overflow-hidden lg:min-h-screen">
 
       {/* ── Desktop sidebar ── */}
       <aside className="panel-glass fixed inset-y-0 left-0 z-50 hidden w-[var(--sidebar-w)] flex-col lg:flex">
@@ -133,8 +139,8 @@ export function AppShell() {
         </div>
       </aside>
 
-      {/* ── Main content area — mobile: 100dvh flex column, nav pinned in flow ── */}
-      <div className="flex h-[100dvh] flex-col overflow-hidden lg:min-h-screen lg:h-auto lg:overflow-visible lg:pl-[var(--sidebar-w)]">
+      {/* ── Main content area ── */}
+      <div className="max-lg:flex max-lg:h-full max-lg:min-h-0 max-lg:flex-col max-lg:overflow-hidden lg:pl-[var(--sidebar-w)]">
 
         {/* Header — single compact bar (combines brand + city + controls) */}
         <header className="sticky top-0 z-40 shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg)]/92 backdrop-blur-xl"
@@ -184,8 +190,8 @@ export function AppShell() {
           </p>
         </div>
 
-        {/* Page content — scrolls inside shell; padding clears fixed bottom nav */}
-        <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain pb-[var(--bottom-safe)] lg:overflow-visible lg:pb-0">
+        {/* Page content — mobile: flex child scrolls; desktop: flows in document */}
+        <main className="max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:overflow-hidden">
           <Outlet key={revision} />
         </main>
       </div>

@@ -51,6 +51,26 @@ html, body, #root {
   max-width: 100vw;
 }
 
+/* Mobile: full-height app shell */
+@media (max-width: 1023px) {
+  html, body, #root {
+    height: 100%;
+  }
+
+  html.app-shell-active,
+  html.app-shell-active body {
+    overflow: hidden;
+    height: 100%;
+  }
+}
+
+/* Desktop: natural document scroll */
+@media (min-width: 1024px) {
+  html, body {
+    overflow-y: auto;
+  }
+}
+
 h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.025em; }
 
 body {
@@ -147,6 +167,49 @@ body {
 }
 @media (min-width: 1024px) {
   .main-mobile-safe { padding-bottom: 0; }
+}
+
+/* Reliable touch/wheel scroll containers */
+.safar-scroll-y {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+/* Standard scrollable page */
+.app-page-scroll {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  padding-bottom: var(--bottom-safe);
+}
+@media (min-width: 1024px) {
+  .app-page-scroll {
+    flex: none;
+    min-height: auto;
+    overflow-y: visible;
+    padding-bottom: 0;
+  }
+}
+
+/* Full-height pages (Safety, Routes) — internal panels scroll */
+.app-page-fill {
+  display: flex;
+  flex: 1 1 0%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+@media (min-width: 1024px) {
+  .app-page-fill {
+    flex: none;
+    height: calc(100dvh - var(--shell-top));
+    max-height: calc(100dvh - var(--shell-top));
+  }
 }
 
 /* Keyboard focus ring */

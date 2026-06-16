@@ -254,7 +254,7 @@ export function SafetyPage() {
   const cityNCRB = FALLBACK_CRIME_SCORES[city as keyof typeof FALLBACK_CRIME_SCORES];
 
   return (
-    <div className="flex flex-col lg:h-[calc(100vh-var(--shell-top))] lg:overflow-hidden">
+    <div className="app-page-fill">
 
       {/* ── Stats row — compact on mobile ── */}
       <div className="shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] px-3 py-2 md:px-6 md:py-3">
@@ -320,8 +320,8 @@ export function SafetyPage() {
         </div>
       )}
 
-      {/* ── Two-column body ── */}
-      <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[1fr_380px]">
+      {/* ── Two-column body — mobile: map fixed, feed scrolls independently ── */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:grid lg:min-h-0 lg:grid-cols-[1fr_380px] lg:overflow-hidden">
 
         {/* LEFT — Heatmap */}
         <div className="relative flex h-[200px] shrink-0 flex-col sm:h-[240px] lg:min-h-0 lg:flex-1 lg:h-auto">
@@ -506,8 +506,8 @@ export function SafetyPage() {
           </div>
         </div>
 
-        {/* RIGHT — Intelligence feed */}
-        <div className="intel-panel flex flex-col border-t border-[var(--border-subtle)] lg:overflow-hidden lg:border-l lg:border-t-0">
+        {/* RIGHT — Intelligence feed (only this section scrolls on mobile) */}
+        <div className="intel-panel flex min-h-0 flex-1 flex-col overflow-hidden border-t border-[var(--border-subtle)] lg:min-h-0 lg:h-full lg:flex-none lg:border-l lg:border-t-0">
           {/* Feed header */}
           <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-3 py-2 lg:px-4 lg:py-3">
             <div>
@@ -536,8 +536,8 @@ export function SafetyPage() {
             </div>
           </div>
 
-          {/* Report cards — compact list, no extra bottom gap */}
-          <div className="p-2 lg:flex-1 lg:overflow-y-auto lg:p-3">
+          {/* Report cards — scrollable feed only */}
+          <div className="safar-scroll-y min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain p-2 pb-[var(--bottom-safe)] lg:p-3 lg:pb-3">
             {filteredReports.length === 0 ? (
               <div className="flex flex-col items-center justify-center px-3 py-8 text-center lg:px-4 lg:py-12">
                 <p className="text-sm font-semibold text-white">

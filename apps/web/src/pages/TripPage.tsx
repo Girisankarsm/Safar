@@ -122,7 +122,7 @@ export function TripPage() {
 
   if (!id) {
     return (
-      <div className="px-5 py-8 md:px-8">
+      <div className="app-page-scroll px-5 py-8 md:px-8">
         <EmptyState
           icon={Navigation}
           title={t("trip.noTrip")}
@@ -137,7 +137,7 @@ export function TripPage() {
   const isActive = trip?.status === "active";
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 px-5 py-6 md:px-8">
+    <div className="app-page-scroll mx-auto max-w-[1400px] space-y-6 px-5 py-6 md:px-8 lg:py-8">
       <PageHeader
         eyebrow={t("trip.eyebrow")}
         title={t("trip.title")}
