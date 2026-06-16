@@ -1,5 +1,6 @@
 import { CitySwitcher } from "@/components/layout/CitySwitcher";
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
+import { PWAInstallButton } from "@/components/layout/PWAInstallButton";
 import { getCityConfig } from "@/config/cities";
 import { UserMenu } from "@/features/auth";
 import { useI18n } from "@/i18n/use-i18n";
@@ -167,6 +168,7 @@ export function AppShell() {
                 <CitySwitcher compact />
               </div>
               <LanguageSwitcher compact />
+              <PWAInstallButton compact />
               <div className="mx-0.5 h-4 w-px bg-[var(--border-subtle)]" />
               <UserMenu />
             </div>
