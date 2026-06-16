@@ -94,58 +94,6 @@ async function fetchORS(
  *
  * Returns [primary, alt1, alt2] — fewer entries if ORS can't find alternatives.
  */
-async function fetchORSAlternatives(
-  start: [number, number],
-  end: [number, number],
-  profile = "driving-car"
-): Promise<OrsResult[]> {
-  const body = JSON.stringify({
-    coordinates: [start, end],
-    preference: "recommended",
-    units: "km",
-    alternative_routes: {
-      target_count: 3,     // request up to 3 distinct routes
-      weight_factor: 1.6,  // alternatives may be up to 60% longer
-      share_factor: 0.6,   // routes share at most 60% of their path
-    },
-  });
-
-  try {
-    let res: Response | null = null;
-    if (ORS_PROXY_URL) {
-      res = await fetchWithTimeout(
-        `${ORS_PROXY_URL}?path=/v2/directions/${profile}/geojson`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body, timeoutMs: 18_000 }
-      );
-    } else if (ORS_API_KEY) {
-      res = await fetchWithTimeout(
-        `https://api.openrouteservice.org/v2/directions/${profile}/geojson`,
-        {
-          method: "POST",
-          headers: { Authorization: ORS_API_KEY, "Content-Type": "application/json" },
-          body,
-          timeoutMs: 16_000,
-        }
-      );
-    }
-    if (!res?.ok) return [];
-    const json = await res.json();
-    const features: unknown[] = json.features ?? [];
-    return features
-      .map((f: unknown) => {
-        const feat = f as { geometry: GeoJSON.LineString; properties: { summary: { distance: number; duration: number } } };
-        if (!feat?.geometry?.coordinates?.length) return null;
-        return {
-          distance_km: Math.round(feat.properties.summary.distance * 100) / 100,
-          duration_min: Math.round(feat.properties.summary.duration / 60),
-          geometry: feat.geometry,
-        };
-      })
-      .filter((r): r is OrsResult => r !== null);
-  } catch {
-    return [];
-  }
-}
 
 /** Single OSRM route — used for straight-line fallback detection */
 async function fetchOSRM(
@@ -214,26 +162,28 @@ async function fetchOSRMAlternatives(
  * toward the nearest city centre (lat/lng bias), producing a route that
  * curves through denser, better-lit urban areas.
  */
-async function fetchOSRMViaWaypoint(
+/**
+ * Known city-centre reference coordinates (transit hubs, commercial cores, police density).
+ * Used as anchor points for typed waypoint routing.
+ */
+const CITY_CENTRES: Record<string, [number, number]> = {
+  chennai:    [13.0827, 80.2707],   // Chennai Central / Anna Salai
+  bangalore:  [12.9716, 77.5946],   // MG Road / Brigade Road
+  trivandrum: [8.5241,  76.9366],   // East Fort / Palayam
+  hyderabad:  [17.3850, 78.4867],   // Charminar / Abids
+};
+
+/**
+ * Generic OSRM routing via an explicit intermediate coordinate.
+ * OSRM snaps the waypoint to the nearest road automatically.
+ */
+async function fetchOSRMViaCoord(
   src: GeocodedPlace,
   dst: GeocodedPlace,
-  cityId: CityId
+  viaLat: number,
+  viaLng: number
 ): Promise<OrsResult | null> {
-  // City-centre reference points (well-lit, high-police-density areas)
-  const CITY_CENTRES: Record<CityId, [number, number]> = {
-    chennai:    [13.0827, 80.2707],   // Chennai Central / Anna Salai
-    bangalore:  [12.9716, 77.5946],   // MG Road / Brigade Road
-    trivandrum: [8.5241,  76.9366],   // East Fort / Palayam
-    hyderabad:  [17.3850, 78.4867],   // Charminar / Abids
-  };
-
-  const centre = CITY_CENTRES[cityId] ?? CITY_CENTRES.chennai;
-
-  // Waypoint = weighted midpoint shifted 35% toward city centre
-  const wLat = (src.lat + dst.lat) / 2 * 0.65 + centre[0] * 0.35;
-  const wLng = (src.lng + dst.lng) / 2 * 0.65 + centre[1] * 0.35;
-
-  const coords = `${src.lng},${src.lat};${wLng},${wLat};${dst.lng},${dst.lat}`;
+  const coords = `${src.lng},${src.lat};${viaLng},${viaLat};${dst.lng},${dst.lat}`;
   try {
     const res = await fetchWithTimeout(
       `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false`,
@@ -250,6 +200,70 @@ async function fetchOSRMViaWaypoint(
     };
   } catch {
     return null;
+  }
+}
+
+/**
+ * Compute a type-specific intermediate waypoint using perpendicular offsets.
+ *
+ * Each route type gets a geometrically distinct waypoint, guaranteed to force
+ * the OSRM router onto a different road corridor:
+ *
+ *   balanced        → slight city-centre pull  (main arterial / commercial road)
+ *   cheapest        → strong city-centre pull  (bus terminus / railway station corridor)
+ *   safest          → perpendicular RIGHT       (outer ring road, lower report density)
+ *   women_friendly  → perpendicular LEFT + centre pull (lit commercial corridor, hospitals)
+ *
+ * Offset size scales with route distance: 25% of trip length, capped at 4 km.
+ */
+function computeTypedWaypoint(
+  src: GeocodedPlace,
+  dst: GeocodedPlace,
+  routeType: RouteType,
+  cityId: string
+): [number, number] {
+  const midLat = (src.lat + dst.lat) / 2;
+  const midLng = (src.lng + dst.lng) / 2;
+  const distKm = haversineM(src.lat, src.lng, dst.lat, dst.lng) / 1000;
+
+  // Perpendicular direction (90° rotation of the route direction vector)
+  const dLat = dst.lat - src.lat;
+  const dLng = dst.lng - src.lng;
+  const vecLen = Math.sqrt(dLat * dLat + dLng * dLng);
+  const perpLat = vecLen > 0 ? -dLng / vecLen : 0;
+  const perpLng = vecLen > 0 ?  dLat / vecLen : 1;
+
+  // Toward city-centre direction (normalised)
+  const centre = CITY_CENTRES[cityId] ?? [midLat, midLng];
+  const toCLat = centre[0] - midLat;
+  const toCLng = centre[1] - midLng;
+  const cLen  = Math.sqrt(toCLat * toCLat + toCLng * toCLng);
+  const normCLat = cLen > 0 ? toCLat / cLen : 0;
+  const normCLng = cLen > 0 ? toCLng / cLen : 0;
+
+  // Offset in degrees (1 degree lat ≈ 111 km)
+  const offsetKm  = Math.min(Math.max(distKm * 0.25, 0.8), 4.0);
+  const offsetDeg = offsetKm / 111;
+
+  switch (routeType) {
+    case "balanced":
+      // Nudge toward city centre — main arterials, standard commute corridor
+      return [midLat + normCLat * offsetDeg * 0.5, midLng + normCLng * offsetDeg * 0.5];
+
+    case "cheapest":
+      // Strong city-centre pull — bus terminuses, metro stations, trunk roads
+      return [midLat + normCLat * offsetDeg * 1.3, midLng + normCLng * offsetDeg * 1.3];
+
+    case "safest":
+      // Perpendicular RIGHT — outer roads, lower congestion, police posts
+      return [midLat + perpLat * offsetDeg, midLng + perpLng * offsetDeg];
+
+    case "women_friendly":
+      // Perpendicular LEFT + centre pull — lit commercial corridor, hospital clusters
+      return [
+        midLat - perpLat * offsetDeg * 0.65 + normCLat * offsetDeg * 0.35,
+        midLng - perpLng * offsetDeg * 0.65 + normCLng * offsetDeg * 0.35,
+      ];
   }
 }
 
@@ -337,6 +351,8 @@ type ScoredCandidate = {
   safetyScore: number;
   safetyBreakdown: SafetyBreakdownItem[];
   womenScore: number;
+  /** Route type this geometry was specifically generated for (via typed waypoint). */
+  typedFor?: RouteType;
 };
 
 /**
@@ -659,6 +675,23 @@ const ROUTE_ETA_LIMIT: Record<RouteType, number> = {
   women_friendly: 1.15,
 };
 
+function bestByScore(
+  pool: ScoredCandidate[],
+  routeType: RouteType,
+  src: GeocodedPlace,
+  dst: GeocodedPlace
+): ScoredCandidate {
+  return pool.reduce((best, c) => {
+    const legsC  = buildMultimodalLegs(routeType, src, dst, c.ors);
+    const legsB  = buildMultimodalLegs(routeType, src, dst, best.ors);
+    const costC  = estimateRouteFare(legsC, routeType);
+    const costB  = estimateRouteFare(legsB, routeType);
+    const scoreC = computeOptimizationScore(c.safetyScore,    c.ors.duration_min, costC, routeType, c.womenScore);
+    const scoreB = computeOptimizationScore(best.safetyScore, best.ors.duration_min, costB, routeType, best.womenScore);
+    return scoreC > scoreB ? c : best;
+  });
+}
+
 function selectBestGeometry(
   routeType: RouteType,
   candidates: ScoredCandidate[],
@@ -670,21 +703,20 @@ function selectBestGeometry(
   const fastestDuration = Math.min(...candidates.map((c) => c.ors.duration_min));
   const maxEta  = fastestDuration * ROUTE_ETA_LIMIT[routeType];
 
+  // 1st priority: candidate specifically generated for this route type, within constraints
+  const typedValid = candidates.filter(
+    (c) => c.typedFor === routeType &&
+           c.ors.distance_km <= maxDist &&
+           c.ors.duration_min <= maxEta
+  );
+  if (typedValid.length > 0) return bestByScore(typedValid, routeType, src, dst);
+
+  // 2nd priority: any candidate within constraints
   const constrained = candidates.filter(
     (c) => c.ors.distance_km <= maxDist && c.ors.duration_min <= maxEta
   );
-  // Fallback: if all candidates violate constraints, pick the one closest to limits
   const pool = constrained.length > 0 ? constrained : candidates;
-
-  return pool.reduce((best, c) => {
-    const legsC  = buildMultimodalLegs(routeType, src, dst, c.ors);
-    const legsB  = buildMultimodalLegs(routeType, src, dst, best.ors);
-    const costC  = estimateRouteFare(legsC, routeType);
-    const costB  = estimateRouteFare(legsB, routeType);
-    const scoreC = computeOptimizationScore(c.safetyScore,    c.ors.duration_min, costC, routeType, c.womenScore);
-    const scoreB = computeOptimizationScore(best.safetyScore, best.ors.duration_min, costB, routeType, best.womenScore);
-    return scoreC > scoreB ? c : best;
-  });
+  return bestByScore(pool, routeType, src, dst);
 }
 
 /**
@@ -839,37 +871,50 @@ export const routesService = {
     const end:   [number, number] = [dst.lng, dst.lat];
 
     // ── Step 2: Fetch all geometries in parallel ───────────────────────────
-    // a) ORS alternatives (up to 3, road-class-aware)
-    // b) OSRM alternatives (up to 3, always available)
-    // c) ORS shortest path (minimum km — cheapest)
-    // d) OSRM via city-centre waypoint (urban-lit corridor for safest/women)
-    const [orsAlternativesRaw, osrmAlternatives, orsShortestResult, waypointRoute] =
-      await Promise.all([
-        fetchORSAlternatives(start, end, "driving-car"),
-        fetchOSRMAlternatives(start, end),
-        resolveOrsRoute(src, dst, "driving-car", "shortest", "drive-short"),
-        fetchOSRMViaWaypoint(src, dst, cityId),
-      ]);
+    // a) 4 type-specific via-waypoint routes — each type gets a perpendicular-offset
+    //    waypoint to guarantee a genuinely different road corridor per route type
+    // b) OSRM direct alternatives — shared fallback pool
+    // c) ORS shortest path   — dedicated short-distance cheapest candidate
+    const ROUTE_TYPES_ALL: RouteType[] = ["balanced", "safest", "cheapest", "women_friendly"];
 
-    // Prefer ORS (road-class-aware) if ≥ 2 distinct routes; otherwise OSRM
-    const orsAlts = orsAlternativesRaw.filter((r) => !isStraightLineGeometry(r.geometry));
-    const baseAlts: OrsResult[] = orsAlts.length >= 2 ? orsAlts : osrmAlternatives;
+    const [typedResults, osrmAlternatives, orsShortestResult] = await Promise.all([
+      // (a) 4 dedicated corridors — one per route type
+      Promise.all(
+        ROUTE_TYPES_ALL.map(async (rt) => {
+          const [wLat, wLng] = computeTypedWaypoint(src, dst, rt, cityId);
+          const r = await fetchOSRMViaCoord(src, dst, wLat, wLng);
+          return { routeType: rt, ors: r };
+        })
+      ),
+      // (b) Shared pool of OSRM road alternatives
+      fetchOSRMAlternatives(start, end),
+      // (c) ORS shortest (fallback for cheapest type)
+      resolveOrsRoute(src, dst, "driving-car", "shortest", "drive-short"),
+    ]);
 
-    // Build the full candidate pool — deduplicated by distance (≥ 0.5 km gap)
-    const rawPool: OrsResult[] = [
-      ...baseAlts,
+    // Separate typed hits from misses
+    const typedHits: Array<{ routeType: RouteType; ors: OrsResult }> = typedResults
+      .filter((t) => t.ors && !isStraightLineGeometry(t.ors.geometry))
+      .map((t) => ({ routeType: t.routeType, ors: t.ors! }));
+
+    // Build shared fallback pool from OSRM alternatives + ORS shortest
+    const fallbackRaw: OrsResult[] = [
+      ...osrmAlternatives.filter((r) => !isStraightLineGeometry(r.geometry)),
       orsShortestResult,
-      ...(waypointRoute ? [waypointRoute] : []),
-    ].filter((r) => !isStraightLineGeometry(r.geometry));
+    ].filter(Boolean);
 
-    if (rawPool.length === 0) {
-      // Nothing routed — fall back to straight-line estimate
-      rawPool.push(straightLineRoute(src, dst));
-    }
+    // Combine everything — typed routes first (preferred), then fallback
+    const rawPool: OrsResult[] = [
+      ...typedHits.map((t) => t.ors),
+      ...fallbackRaw,
+    ];
 
-    // Deduplicate: keep only routes whose distance differs ≥ 0.5 km from any already-kept
+    if (rawPool.length === 0) rawPool.push(straightLineRoute(src, dst));
+
+    // Deduplicate by distance — keep routes with ≥ 0.8 km gap (reduced tolerance
+    // from 0.5 to 0.8 to allow more distinct candidates into the pool)
     const pool: OrsResult[] = rawPool.reduce<OrsResult[]>((acc, r) => {
-      const isDup = acc.some((a) => Math.abs(a.distance_km - r.distance_km) < 0.5);
+      const isDup = acc.some((a) => Math.abs(a.distance_km - r.distance_km) < 0.8);
       return isDup ? acc : [...acc, r];
     }, []);
 
@@ -880,9 +925,18 @@ export const routesService = {
     const sampleCount  = routeSamples.length;
 
     // ── Step 4: Profile every geometry (pure in-memory — no extra API calls) ─
-    // buildCorridorProfile is a pure function: geometry × reports × osmPlaces → profile
+    // Build a lookup: OrsResult → which routeType it was typed for (if any)
+    const typedForMap = new Map<OrsResult, RouteType>();
+    for (const hit of typedHits) {
+      // Match by object identity in pool (typed routes added first)
+      const match = pool.find(
+        (p) => p.distance_km === hit.ors.distance_km && p.duration_min === hit.ors.duration_min
+      );
+      if (match) typedForMap.set(match, hit.routeType);
+    }
+
     const scored: ScoredCandidate[] = pool.map((ors) => {
-      const legs = buildMultimodalLegs("balanced", src, dst, ors); // for transfer count
+      const legs = buildMultimodalLegs("balanced", src, dst, ors);
       const profile = buildCorridorProfile(ors.geometry, allReports, osmPlaces, {
         distanceKm: ors.distance_km,
         departureHour,
@@ -892,7 +946,6 @@ export const routesService = {
       const { score: safetyScore, breakdown: safetyBreakdown } =
         computeCorridorSafetyScore(profile, crimeScore.crime_index, departureHour, ors.distance_km);
 
-      // Women score uses geometry samples for precise harassment proximity check
       const geoSamples = sampleLineString(ors.geometry, 8);
       const primaryMode = buildMultimodalLegs("women_friendly", src, dst, ors)
         .find((l) => l.mode !== "walk")?.mode ?? "walk";
@@ -901,7 +954,7 @@ export const routesService = {
         crimeScore.crime_index, primaryMode
       );
 
-      return { ors, profile, safetyScore, safetyBreakdown, womenScore };
+      return { ors, profile, safetyScore, safetyBreakdown, womenScore, typedFor: typedForMap.get(ors) };
     });
 
     // ── Step 5: Select best geometry per route type ────────────────────────
