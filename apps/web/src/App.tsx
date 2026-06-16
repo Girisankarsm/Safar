@@ -2,7 +2,6 @@ import { SafarSplash } from "@/components/layout/SafarSplash";
 import { AuthProvider, ProtectedRoute } from "@/features/auth";
 import { I18nBootstrap } from "@/components/I18nBootstrap";
 import { CrimeDataBootstrap } from "@/components/CrimeDataBootstrap";
-import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
 import { AppShell } from "@/components/layout/AppShell";
 import { LandingPage } from "@/pages/LandingPage";
 import { LoginPage } from "@/pages/LoginPage";
@@ -34,7 +33,6 @@ export default function App() {
       <AuthProvider>
         <CrimeDataBootstrap />
         <I18nBootstrap />
-        <PwaInstallPrompt />
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />

@@ -2,7 +2,6 @@ import { CitySwitcher } from "@/components/layout/CitySwitcher";
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { PresentationDeckTag } from "@/components/layout/PresentationDeckTag";
-import { PWAInstallButton } from "@/components/layout/PWAInstallButton";
 import { getCityConfig } from "@/config/cities";
 import { UserMenu } from "@/features/auth";
 import { useActiveTripHref } from "@/hooks/use-active-trip-href";
@@ -193,8 +192,6 @@ export function AppShell() {
                 <PresentationDeckTag compact className="hidden sm:inline-flex" />
               </div>
               <div className="mx-0.5 h-4 w-px bg-[var(--border-subtle)]" />
-              {/* Install button — right next to profile, hidden once installed */}
-              <PWAInstallButton />
               <UserMenu />
             </div>
           </div>
