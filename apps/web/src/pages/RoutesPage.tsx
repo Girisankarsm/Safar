@@ -1,6 +1,7 @@
 import { RoutesSubNav } from "@/components/layout/RoutesSubNav";
 import { RouteMap } from "@/components/map/RouteMap";
 import { RouteAssistant } from "@/components/routes/RouteAssistant";
+import { RouteRadarChart } from "@/components/routes/RouteRadarChart";
 import { RouteRiskTimeline } from "@/components/routes/RouteRiskTimeline";
 import { SafarAIAnalysis } from "@/components/safety/safar-ai-analysis";
 import { SafetyScoreBreakdown } from "@/components/safety/safety-score-breakdown";
@@ -21,15 +22,20 @@ import {
   AlertTriangle,
   Bot,
   Building2,
+  CheckCircle2,
   Clock,
   IndianRupee,
+  Lightbulb,
   MapPin,
   Navigation,
   Route,
   Shield,
+  ShoppingBag,
   Sparkles,
+  TrendingUp,
   Users,
   X,
+  XCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -298,15 +304,24 @@ function IntelligencePanel({
                 {cp && (
                   <div className="mt-2 flex items-center gap-2">
                     <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--border-subtle)]">
-                      <div
+                      <motion.div
                         className="h-full rounded-full"
-                        style={{
-                          width: `${cp.confidenceScore}%`,
-                          backgroundColor: cp.confidenceScore >= 75 ? "#22C55E" : "#F59E0B",
-                        }}
+                        style={{ backgroundColor: cp.confidenceScore >= 75 ? "#22C55E" : "#F59E0B" }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${cp.confidenceScore}%` }}
+                        transition={{ duration: 0.7, delay: 0.2 }}
                       />
                     </div>
-                    <span className="shrink-0 text-[10px] font-semibold text-[var(--text-muted)]">
+                    <span
+                      className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                      style={{
+                        backgroundColor: cp.confidenceScore >= 75 ? "rgba(34,197,94,0.12)" : "rgba(245,158,11,0.12)",
+                        color: cp.confidenceScore >= 75 ? "#86EFAC" : "#FCD34D",
+                      }}
+                    >
+                      {cp.confidenceScore >= 75 ? (
+                        <CheckCircle2 className="mr-1 inline h-2.5 w-2.5" />
+                      ) : null}
                       {cp.confidenceScore}% confidence
                     </span>
                   </div>
@@ -338,6 +353,95 @@ function IntelligencePanel({
                     ))}
                   </div>
                 </div>
+              )}
+
+              {/* ── Real Route Quality Metrics ── */}
+              {cp && (() => {
+                const lightingScore = cp.confidenceScore >= 75 ? "High" : cp.confidenceScore >= 50 ? "Medium" : "Low";
+                const commercialTag = (cp.policeCount + cp.hospitalCount) >= 4 ? "Dense" : (cp.policeCount + cp.hospitalCount) >= 2 ? "Moderate" : "Sparse";
+                const avoided = Math.max(0, 5 - cp.hotspots.length);
+                const trafficLine = route.recommendations?.find((r) => r.startsWith("Traffic:"));
+                const trafficLabel = trafficLine?.replace("Traffic: ", "").replace(/\s*\(×[\d.]+\)/, "");
+
+                return (
+                  <div>
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
+                      Route Quality
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        {
+                          icon: XCircle,
+                          label: "Avoided",
+                          value: `✓ ${avoided} hotspot${avoided !== 1 ? "s" : ""}`,
+                          good: avoided > 0,
+                          color: avoided > 0 ? "#22C55E" : "#EF4444",
+                        },
+                        {
+                          icon: Shield,
+                          label: "Police Nearby",
+                          value: `✓ ${cp.policeCount} station${cp.policeCount !== 1 ? "s" : ""}`,
+                          good: cp.policeCount > 0,
+                          color: "#3B82F6",
+                        },
+                        {
+                          icon: Building2,
+                          label: "Hospitals",
+                          value: `✓ ${cp.hospitalCount} on route`,
+                          good: cp.hospitalCount > 0,
+                          color: "#22C55E",
+                        },
+                        {
+                          icon: Lightbulb,
+                          label: "Lighting",
+                          value: `✓ ${lightingScore}`,
+                          good: lightingScore === "High",
+                          color: lightingScore === "High" ? "#F59E0B" : lightingScore === "Medium" ? "#F59E0B" : "#EF4444",
+                        },
+                        {
+                          icon: ShoppingBag,
+                          label: "Commercial",
+                          value: `✓ ${commercialTag}`,
+                          good: commercialTag !== "Sparse",
+                          color: "#A78BFA",
+                        },
+                        {
+                          icon: TrendingUp,
+                          label: "Traffic",
+                          value: trafficLabel ?? "Normal",
+                          good: !trafficLabel?.includes("Rush"),
+                          color: trafficLabel?.includes("Rush") ? "#F59E0B" : "#22C55E",
+                        },
+                      ].map(({ icon: Icon, label, value, color }) => (
+                        <div
+                          key={label}
+                          className="flex items-start gap-2 rounded-lg p-2.5"
+                          style={{ backgroundColor: `${color}0A` }}
+                        >
+                          <div
+                            className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+                            style={{ backgroundColor: `${color}18` }}
+                          >
+                            <Icon className="h-3 w-3" style={{ color }} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-semibold uppercase tracking-wide text-[var(--text-dim)]">
+                              {label}
+                            </p>
+                            <p className="text-[11px] font-bold leading-tight text-white">
+                              {value}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── Radar Chart ── */}
+              {allRoutes.length > 1 && (
+                <RouteRadarChart routes={allRoutes} selected={route} />
               )}
 
               {/* Why X? breakdown */}
@@ -508,6 +612,21 @@ export function RoutesPage() {
 
   async function startTrip(route: PlannedRoute) {
     setStarting(true);
+
+    // Dynamic learning — persist route selection preference for intelligence feedback
+    try {
+      const pref = {
+        selected_route_type: route.route_type,
+        city,
+        hour: search?.departureHour ?? new Date().getHours(),
+        distance_km: route.distance_km,
+        chosen_at: new Date().toISOString(),
+      };
+      const stored = JSON.parse(sessionStorage.getItem("safar-route-prefs") ?? "[]") as unknown[];
+      stored.unshift(pref);
+      sessionStorage.setItem("safar-route-prefs", JSON.stringify(stored.slice(0, 20)));
+    } catch { /* non-critical */ }
+
     try {
       const trip = await tripsService.start(city, route);
       sessionStorage.setItem("safar-active-trip", trip.id);

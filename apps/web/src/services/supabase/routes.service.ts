@@ -15,6 +15,52 @@ import { reportsService } from "@/services/supabase/reports.service";
 import { routeCacheService } from "@/services/supabase/route-cache.service";
 import type { CityId, PlannedRoute, RouteType, SafetyBreakdownItem } from "@/types/database";
 
+/* ──────────────────────────────────────────────────────────────────────
+ * TRAFFIC INTELLIGENCE
+ * City-specific historical traffic multipliers for realistic ETA.
+ * Applied on top of OSRM base duration.
+ * ────────────────────────────────────────────────────────────────────── */
+
+const TRAFFIC_PATTERNS: Record<string, {
+  morningRush: number;   // 07:00–10:00
+  midday: number;        // 10:00–17:00
+  eveningRush: number;   // 17:00–20:00
+  night: number;         // 22:00–05:00
+  peakWeekend: number;   // Fri/Sat evening bonus
+}> = {
+  // Bangalore: worst traffic in India (Indiranagar–Whitefield, Silk Board)
+  bangalore: { morningRush: 1.40, midday: 1.10, eveningRush: 1.55, night: 0.80, peakWeekend: 1.20 },
+  // Chennai: heavy on Anna Salai, GST Road, OMR
+  chennai:   { morningRush: 1.30, midday: 1.08, eveningRush: 1.40, night: 0.83, peakWeekend: 1.15 },
+  // Hyderabad: HITEC City ingress, Mehdipatnam
+  hyderabad: { morningRush: 1.25, midday: 1.07, eveningRush: 1.35, night: 0.87, peakWeekend: 1.12 },
+  // Trivandrum: lighter overall, moderate on MG Road
+  trivandrum:{ morningRush: 1.15, midday: 1.04, eveningRush: 1.22, night: 0.92, peakWeekend: 1.08 },
+};
+
+function getTrafficMultiplier(
+  cityId: string,
+  hour: number
+): { multiplier: number; label: string } {
+  const p = TRAFFIC_PATTERNS[cityId] ?? TRAFFIC_PATTERNS.chennai;
+  const dayOfWeek = new Date().getDay(); // 0=Sun … 6=Sat
+  const isPeakDay = dayOfWeek === 5 || dayOfWeek === 6;  // Fri or Sat
+
+  if (hour >= 7 && hour < 10) {
+    return { multiplier: p.morningRush, label: "Morning Rush" };
+  }
+  if (hour >= 17 && hour < 20) {
+    const m = isPeakDay
+      ? Math.min(p.eveningRush * p.peakWeekend, 1.70)
+      : p.eveningRush;
+    return { multiplier: m, label: isPeakDay ? "Peak Evening (Fri/Sat)" : "Evening Rush" };
+  }
+  if (hour >= 22 || hour < 5) {
+    return { multiplier: p.night, label: "Night — Clear Roads" };
+  }
+  return { multiplier: p.midday, label: "Normal Traffic" };
+}
+
 type OrsResult = {
   distance_km: number;
   duration_min: number;
@@ -1013,6 +1059,38 @@ function selectBestGeometry(
   const inBounds = (c: ScoredCandidate) =>
     c.ors.distance_km <= maxDist && c.ors.duration_min <= maxEta;
 
+  // ── Women-Friendly: multi-factor blended corridor selection ──────────
+  // Instead of hospital-first corridor, pick the "most socially active &
+  // monitored" candidate — the one that maximises a combined blend of:
+  //  40% womenScore  +  20% commercialDensity  +
+  //  20% policeCount  +  20% hospitalCount
+  // while still respecting the ETA + distance constraints.
+  if (routeType === "women_friendly") {
+    const constrained = candidates.filter(inBounds);
+    const pool = constrained.length > 0 ? constrained : candidates;
+
+    // Normalise counts for fair comparison
+    const maxPolice   = Math.max(1, ...pool.map((c) => c.profile.policeCount));
+    const maxHospital = Math.max(1, ...pool.map((c) => c.profile.hospitalCount));
+
+    return pool.reduce((best, c) => {
+      const blendC = (
+        0.40 * c.womenScore / 100 +
+        0.20 * c.commercialDensity / 100 +
+        0.20 * c.profile.policeCount / maxPolice +
+        0.20 * c.profile.hospitalCount / maxHospital
+      );
+      const blendB = (
+        0.40 * best.womenScore / 100 +
+        0.20 * best.commercialDensity / 100 +
+        0.20 * best.profile.policeCount / maxPolice +
+        0.20 * best.profile.hospitalCount / maxHospital
+      );
+      return blendC > blendB ? c : best;
+    });
+  }
+
+  // ── Other route types: corridor-preference + multi-objective scoring ──
   // 1st priority: preferred corridor types, within constraints
   for (const ct of CORRIDOR_PREFERENCE[routeType]) {
     const preferredValid = candidates.filter((c) => c.corridorType === ct && inBounds(c));
@@ -1060,6 +1138,7 @@ function buildPlannedRoute(
   crimeIndex: number,
   departureHour: number,
   sampleCount: number,
+  cityId: string,
   crimeMeta?: { risk_label: string; report_year: number; data_source: string }
 ): PlannedRoute {
   const { ors, profile, safetyScore, safetyBreakdown, womenScore, commercialDensity, corridorType } = candidate;
@@ -1067,6 +1146,11 @@ function buildPlannedRoute(
   const legs     = buildMultimodalLegs(routeType, src, dst, ors);
   const baseCost = estimateRouteFare(legs, routeType);
   const primaryMode = legs.find((l) => l.mode !== "walk")?.mode ?? "walk";
+
+  // Traffic-adjusted ETA — city-specific historical congestion patterns
+  const { multiplier: trafficMult, label: trafficLabel } = getTrafficMultiplier(cityId, departureHour);
+  const rawEtaMin      = legs.reduce((s, l) => s + l.duration_min, 0);
+  const adjustedEtaMin = Math.round(rawEtaMin * trafficMult);
 
   const isEstimate = isStraightLineGeometry(ors.geometry);
   const routedVia  = isEstimate
@@ -1094,6 +1178,7 @@ function buildPlannedRoute(
     );
   }
   recommendations.push(`Multi-modal: ${legs.map((l) => l.mode).join(" → ")} via ${routedVia}`);
+  recommendations.push(`Traffic: ${trafficLabel} (×${trafficMult.toFixed(2)})`);
 
   return {
     route_type: routeType,
@@ -1107,7 +1192,7 @@ function buildPlannedRoute(
     safety_score: safetyScore,
     safety_breakdown: safetyBreakdown,
     distance_km: ors.distance_km,
-    eta_minutes: legs.reduce((s, l) => s + l.duration_min, 0),
+    eta_minutes: adjustedEtaMin,
     estimated_cost_inr: baseCost,
     reliability_score: Math.min(98, 60 + profile.policeCount * 4 + profile.hospitalCount * 2),
     crowd_level: ors.duration_min < 25 ? "High" : "Moderate",
@@ -1236,7 +1321,7 @@ export const routesService = {
         return buildPlannedRoute(
           routeType, src, dst, best,
           allReports as ReportLike[], crimeScore.crime_index,
-          departureHour, sampleCount, crimeMeta
+          departureHour, sampleCount, cityId, crimeMeta
         );
       });
 

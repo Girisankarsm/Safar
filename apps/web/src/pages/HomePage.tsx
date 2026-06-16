@@ -1,6 +1,7 @@
 import { CommunityActivityFeed } from "@/components/dashboard/community-activity-feed";
 import { SafetyStatisticsPanel } from "@/components/dashboard/safety-statistics-panel";
 import { LocationAutocomplete, type SelectedPlace } from "@/components/location/LocationAutocomplete";
+import { RouteSearchProgress } from "@/components/routes/RouteSearchProgress";
 import { Button } from "@/components/ui/button";
 import { buildActivityFromReports, computePlatformStats } from "@/lib/community-activity";
 import {
@@ -18,6 +19,7 @@ import { nominatimService } from "@/services/osm/nominatim.service";
 import { routesService } from "@/services/supabase/routes.service";
 import { useCityStore } from "@/stores/city.store";
 import { useSettingsStore } from "@/stores/settings.store";
+import { AnimatePresence, motion } from "framer-motion";
 import { Crosshair, Map, Shield, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -192,6 +194,25 @@ export function HomePage() {
 
   return (
     <div className="mx-auto max-w-[1400px] safe-bottom px-4 py-4 md:space-y-8 md:px-8 md:py-6 lg:pb-8">
+
+      {/* Route Evolution Animation overlay — shown during candidate search */}
+      <AnimatePresence>
+        {loading && (
+          <motion.div
+            key="search-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md"
+            style={{ backgroundColor: "rgba(9,9,11,0.85)" }}
+          >
+            <div className="w-full max-w-sm">
+              <RouteSearchProgress />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Page header — compact on mobile */}
       <div className="flex items-start justify-between gap-3">
