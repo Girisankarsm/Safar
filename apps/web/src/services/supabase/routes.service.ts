@@ -940,7 +940,7 @@ function generateRouteExplanations(
 
     case "cheapest": {
       out.push(
-        `Lowest-fare route via ${primaryMode} on the shortest practical path — ₹${costInr}. Public transit preferred over cab when viable.`
+        `Cheapest way to travel this route: ${primaryMode} — ₹${costInr}. Same road path as other options; lowest fare via transit or walk.`
       );
       // RISKS AVOIDED
       out.push(
@@ -1103,52 +1103,49 @@ function selectBestGeometry(
   src: GeocodedPlace,
   dst: GeocodedPlace
 ): ScoredCandidate {
+  // Cheapest = same shortest O-D path; only mode (bus/metro/walk) and fare differ.
+  if (routeType === "cheapest") {
+    return candidates.reduce((a, b) =>
+      a.ors.distance_km < b.ors.distance_km ? a : b
+    );
+  }
+
   const maxDist = fastestDistKm * ROUTE_DIST_LIMIT[routeType];
   const fastestDuration = Math.min(...candidates.map((c) => c.ors.duration_min));
-  const maxEta  = fastestDuration * ROUTE_ETA_LIMIT[routeType];
+  const maxEta = fastestDuration * ROUTE_ETA_LIMIT[routeType];
 
   const inBounds = (c: ScoredCandidate) =>
     c.ors.distance_km <= maxDist && c.ors.duration_min <= maxEta;
 
   // ── Women-Friendly: multi-factor blended corridor selection ──────────
-  // Instead of hospital-first corridor, pick the "most socially active &
-  // monitored" candidate — the one that maximises a combined blend of:
-  //  40% womenScore  +  20% commercialDensity  +
-  //  20% policeCount  +  20% hospitalCount
-  // while still respecting the ETA + distance constraints.
   if (routeType === "women_friendly") {
     const constrained = candidates.filter(inBounds);
     const pool = constrained.length > 0 ? constrained : candidates;
 
-    // Normalise counts for fair comparison
-    const maxPolice   = Math.max(1, ...pool.map((c) => c.profile.policeCount));
+    const maxPolice = Math.max(1, ...pool.map((c) => c.profile.policeCount));
     const maxHospital = Math.max(1, ...pool.map((c) => c.profile.hospitalCount));
 
     return pool.reduce((best, c) => {
-      const blendC = (
-        0.40 * c.womenScore / 100 +
-        0.20 * c.commercialDensity / 100 +
-        0.20 * c.profile.policeCount / maxPolice +
-        0.20 * c.profile.hospitalCount / maxHospital
-      );
-      const blendB = (
-        0.40 * best.womenScore / 100 +
-        0.20 * best.commercialDensity / 100 +
-        0.20 * best.profile.policeCount / maxPolice +
-        0.20 * best.profile.hospitalCount / maxHospital
-      );
+      const blendC =
+        0.4 * c.womenScore / 100 +
+        0.2 * c.commercialDensity / 100 +
+        0.2 * c.profile.policeCount / maxPolice +
+        0.2 * c.profile.hospitalCount / maxHospital;
+      const blendB =
+        0.4 * best.womenScore / 100 +
+        0.2 * best.commercialDensity / 100 +
+        0.2 * best.profile.policeCount / maxPolice +
+        0.2 * best.profile.hospitalCount / maxHospital;
       return blendC > blendB ? c : best;
     });
   }
 
   // ── Other route types: corridor-preference + multi-objective scoring ──
-  // 1st priority: preferred corridor types, within constraints
   for (const ct of CORRIDOR_PREFERENCE[routeType]) {
     const preferredValid = candidates.filter((c) => c.corridorType === ct && inBounds(c));
     if (preferredValid.length > 0) return bestByScore(preferredValid, routeType, src, dst);
   }
 
-  // 2nd priority: any candidate within constraints
   const constrained = candidates.filter(inBounds);
   const pool = constrained.length > 0 ? constrained : candidates;
   return bestByScore(pool, routeType, src, dst);

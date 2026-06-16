@@ -1,6 +1,7 @@
 import { LocationAutocomplete, type SelectedPlace } from "@/components/location/LocationAutocomplete";
 import { RouteSearchProgress } from "@/components/routes/RouteSearchProgress";
 import { Button } from "@/components/ui/button";
+import { saveRoutesSession } from "@/lib/routes-session-cache";
 import { offlineCache } from "@/lib/offline-cache";
 import { formatDepartureLabel } from "@/lib/time-safety";
 import { useI18n } from "@/i18n/use-i18n";
@@ -63,9 +64,6 @@ export function HomePage() {
           window.setTimeout(() => reject(new Error("Route search timed out. Please try again.")), 25_000)
         ),
       ]);
-      sessionStorage.setItem("safar-routes", JSON.stringify(routes));
-      sessionStorage.setItem("safar-routes-city", city);
-      offlineCache.saveRoutes(city, routes);
       sessionStorage.setItem(
         "safar-search",
         JSON.stringify({
@@ -74,13 +72,14 @@ export function HomePage() {
           departureHour: effectiveDepartureHour,
         })
       );
+      saveRoutesSession(city, routes);
+      offlineCache.saveRoutes(city, routes);
       navigate("/routes");
     } catch (e) {
       if (!navigator.onLine) {
         const cached = offlineCache.getRoutes(city);
         if (cached?.length) {
-          sessionStorage.setItem("safar-routes", JSON.stringify(cached));
-          sessionStorage.setItem("safar-routes-city", city);
+          saveRoutesSession(city, cached);
           navigate("/routes");
           return;
         }

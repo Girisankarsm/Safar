@@ -1,4 +1,5 @@
 import { recommendRoute } from "@/lib/ai-insights";
+import { loadRoutesSession } from "@/lib/routes-session-cache";
 import { useCityStore } from "@/stores/city.store";
 import type { PlannedRoute } from "@/types/database";
 import { useEffect, useMemo, useState } from "react";
@@ -19,18 +20,16 @@ export function useCachedRoutes(options?: {
   const [selected, setSelected] = useState<PlannedRoute | null>(null);
 
   useEffect(() => {
-    const cachedCity = sessionStorage.getItem("safar-routes-city");
-    const cached = sessionStorage.getItem("safar-routes");
+    const parsed = loadRoutesSession(city);
     const s = sessionStorage.getItem("safar-search");
 
-    if (!cached || cachedCity !== city) {
+    if (!parsed) {
       setRoutes([]);
       setSelected(null);
       setSearch(null);
       return;
     }
 
-    const parsed = JSON.parse(cached) as PlannedRoute[];
     setRoutes(parsed);
     const rec = recommendRoute(parsed, {
       womenSafetyMode: options?.womenSafetyMode,

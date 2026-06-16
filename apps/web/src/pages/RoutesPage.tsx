@@ -14,6 +14,7 @@ import { modeLabel, primaryTransitMode } from "@/lib/multimodal-legs";
 import { getCityConfig } from "@/config/cities";
 import { useAuth } from "@/features/auth";
 import { IS_DEMO_MODE } from "@/lib/config";
+import { loadRoutesSession } from "@/lib/routes-session-cache";
 import { reportsService } from "@/services/supabase/reports.service";
 import { tripsService } from "@/services/supabase/trips.service";
 import { useCityStore } from "@/stores/city.store";
@@ -656,13 +657,11 @@ export function RoutesPage() {
   );
 
   useEffect(() => {
-    const cachedCity = sessionStorage.getItem("safar-routes-city");
-    const cached = sessionStorage.getItem("safar-routes");
+    const parsed = loadRoutesSession(city);
     const s = sessionStorage.getItem("safar-search");
-    if (!cached || cachedCity !== city) {
+    if (!parsed) {
       setRoutes([]); setSelected(null); setSearch(null); return;
     }
-    const parsed = JSON.parse(cached) as PlannedRoute[];
     setRoutes(parsed);
     const rec = recommendRoute(parsed, {
       womenSafetyMode: profile?.women_safety_mode,

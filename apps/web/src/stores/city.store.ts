@@ -3,7 +3,7 @@ import { CITIES } from "@/config/cities";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-const SESSION_KEYS = ["safar-routes", "safar-search", "safar-routes-city"] as const;
+const SESSION_KEYS = ["safar-routes", "safar-search", "safar-routes-city", "safar-routes-version"] as const;
 
 function clearRouteSession() {
   for (const key of SESSION_KEYS) sessionStorage.removeItem(key);
