@@ -17,6 +17,7 @@ import { storageService } from "@/services/supabase/storage.service";
 import { useCityStore } from "@/stores/city.store";
 import type { CommunityComment, ReportType, SafetyReport } from "@/types/database";
 import { FALLBACK_CRIME_SCORES } from "@/lib/crime-data";
+import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Crosshair, Filter, MapPin, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -72,6 +73,7 @@ export function SafetyPage() {
   const [categoryFilter, setCategoryFilter] = useState<ReportType | "all">("all");
   const timeFilter: TimeFilter = "all";
   const [recenterSignal, setRecenterSignal] = useState(0);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [commentReport, setCommentReport] = useState<SafetyReport | null>(null);
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
@@ -357,6 +359,7 @@ export function SafetyPage() {
               recenterToUser={!!userCoords}
               className="rounded-none"
             />
+            {/* Re-center button */}
             <button
               type="button"
               onClick={() => setRecenterSignal((n) => n + 1)}
@@ -366,6 +369,90 @@ export function SafetyPage() {
             >
               <Crosshair className="h-4 w-4" />
             </button>
+
+            {/* ── Floating filter button on map ── */}
+            <div className="absolute left-4 top-4 z-[1000]">
+              {/* Toggle pill */}
+              <button
+                type="button"
+                onClick={() => setFilterOpen((o) => !o)}
+                className="flex items-center gap-2 rounded-xl border border-[#3B82F6]/30 bg-[#111111]/95 px-3 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur-md transition hover:border-[#3B82F6]/60 hover:bg-[#3B82F6]/10"
+              >
+                <Filter className="h-3.5 w-3.5 text-[#3B82F6]" />
+                <span>
+                  {categoryFilter === "all"
+                    ? "Filter"
+                    : REPORT_TYPES.find((r) => r.id === categoryFilter)?.label ?? "Filter"}
+                </span>
+                {categoryFilter !== "all" && (
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#3B82F6] text-[9px] font-bold text-white">
+                    1
+                  </span>
+                )}
+              </button>
+
+              {/* Expandable filter panel */}
+              <AnimatePresence>
+                {filterOpen && (
+                  <motion.div
+                    key="filter-panel"
+                    initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                    transition={{ duration: 0.18 }}
+                    className="mt-2 w-56 overflow-hidden rounded-xl border border-[#262626] bg-[#111111]/97 shadow-2xl backdrop-blur-xl"
+                  >
+                    <div className="border-b border-[#262626] px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
+                        Filter by type
+                      </p>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto p-2">
+                      {CATEGORY_OPTIONS.map((opt) => {
+                        const active = categoryFilter === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => {
+                              setCategoryFilter(opt.id);
+                              setFilterOpen(false);
+                            }}
+                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition"
+                            style={{
+                              backgroundColor: active ? "rgba(59,130,246,0.12)" : "transparent",
+                              color: active ? "white" : "#A1A1AA",
+                            }}
+                          >
+                            <span
+                              className="h-2 w-2 shrink-0 rounded-full"
+                              style={{
+                                backgroundColor: active ? "#3B82F6" : "#3F3F46",
+                              }}
+                            />
+                            <span className="font-medium">{opt.label}</span>
+                            {active && (
+                              <span className="ml-auto text-[10px] font-bold text-[#3B82F6]">✓</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {categoryFilter !== "all" && (
+                      <div className="border-t border-[#262626] p-2">
+                        <button
+                          type="button"
+                          onClick={() => { setCategoryFilter("all"); setFilterOpen(false); }}
+                          className="w-full rounded-lg py-1.5 text-[11px] font-semibold text-[#EF4444] transition hover:bg-[#EF4444]/10"
+                        >
+                          Clear filter
+                        </button>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
             {/* Report form floating panel */}
             {showForm && (
