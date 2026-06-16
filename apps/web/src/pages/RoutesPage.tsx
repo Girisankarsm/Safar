@@ -14,6 +14,7 @@ import { IS_DEMO_MODE } from "@/lib/config";
 import { loadRoutesSession } from "@/lib/routes-session-cache";
 import { reportsService } from "@/services/supabase/reports.service";
 import { tripsService } from "@/services/supabase/trips.service";
+import { setStoredActiveTripId } from "@/lib/active-trip";
 import { useCityStore } from "@/stores/city.store";
 import type { PlannedRoute, RouteType, SafetyReport } from "@/types/database";
 import {
@@ -394,7 +395,7 @@ export function RoutesPage() {
 
     try {
       const trip = await tripsService.start(city, route);
-      sessionStorage.setItem("safar-active-trip", trip.id);
+      setStoredActiveTripId(trip.id);
       sessionStorage.setItem("safar-active-route", JSON.stringify(route));
       navigate(`/trip/${trip.id}`);
     } catch (e) {

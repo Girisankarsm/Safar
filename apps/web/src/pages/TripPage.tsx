@@ -3,6 +3,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useI18n } from "@/i18n/use-i18n";
+import { clearStoredActiveTrip, getStoredActiveTripId, setStoredActiveTripId } from "@/lib/active-trip";
 import { tripsService } from "@/services/supabase/trips.service";
 import type { PlannedRoute, Trip } from "@/types/database";
 import {
@@ -48,6 +49,7 @@ export function TripPage() {
   const [mapFullscreen, setMapFullscreen] = useState(false);
   const [trackUser, setTrackUser] = useState(true);
   const [mapResizeSignal, setMapResizeSignal] = useState(0);
+  const [resolvingTrip, setResolvingTrip] = useState(!id);
 
   const activeRoute = useMemo(() => loadActiveRoute(), [id]);
 
@@ -67,6 +69,39 @@ export function TripPage() {
     : null;
 
   useEffect(() => {
+    if (id) {
+      setResolvingTrip(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function resolveActiveTrip() {
+      const storedId = getStoredActiveTripId();
+      if (storedId) {
+        navigate(`/trip/${storedId}`, { replace: true });
+        return;
+      }
+
+      const activeTrip = await tripsService.getActiveForUser();
+      if (cancelled) return;
+
+      if (activeTrip?.id) {
+        setStoredActiveTripId(activeTrip.id);
+        navigate(`/trip/${activeTrip.id}`, { replace: true });
+        return;
+      }
+
+      setResolvingTrip(false);
+    }
+
+    void resolveActiveTrip();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, navigate]);
+
+  useEffect(() => {
     if (!id) return;
 
     let watchId: number | null = null;
@@ -77,7 +112,17 @@ export function TripPage() {
         setError(fetchError.message);
         return;
       }
-      if (data) setTrip(data as Trip);
+      if (!data) {
+        clearStoredActiveTrip();
+        return;
+      }
+      const loaded = data as Trip;
+      if (loaded.status === "active") {
+        setStoredActiveTripId(loaded.id);
+      } else {
+        clearStoredActiveTrip();
+      }
+      setTrip(loaded);
     }
 
     loadTrip();
@@ -145,8 +190,7 @@ export function TripPage() {
     setCompleting(true);
     try {
       await tripsService.complete(id);
-      sessionStorage.removeItem("safar-active-trip");
-      sessionStorage.removeItem("safar-active-route");
+      clearStoredActiveTrip();
       navigate("/home");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not complete trip");
@@ -156,6 +200,14 @@ export function TripPage() {
   }
 
   if (!id) {
+    if (resolvingTrip) {
+      return (
+        <div className="app-page-scroll flex items-center justify-center px-5 py-16 md:px-8">
+          <p className="text-sm text-[#A1A1AA]">Loading your trip…</p>
+        </div>
+      );
+    }
+
     return (
       <div className="app-page-scroll px-5 py-8 md:px-8">
         <EmptyState

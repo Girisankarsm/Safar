@@ -9,6 +9,25 @@ export const tripsService = {
     return supabase.from("trips").select("*").eq("id", id).maybeSingle();
   },
 
+  async getActiveForUser(): Promise<Trip | null> {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data, error } = await supabase
+      .from("trips")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    return data as Trip;
+  },
+
   async start(cityId: CityId, route: PlannedRoute): Promise<Trip> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");

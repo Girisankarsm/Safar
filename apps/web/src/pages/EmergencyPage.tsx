@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/use-i18n";
 import { NATIONAL_HELPLINES } from "@/lib/helplines";
 import { formatWalkingDistance } from "@/lib/geo";
+import { getStoredActiveTripId } from "@/lib/active-trip";
 import { contactsService } from "@/services/supabase/contacts.service";
 import { placesService } from "@/services/supabase/places.service";
 import { tripsService } from "@/services/supabase/trips.service";
@@ -95,7 +96,7 @@ export function EmergencyPage() {
   const [newPhone, setNewPhone] = useState("");
   const [newRelation, setNewRelation] = useState("");
   const [savingContact, setSavingContact] = useState(false);
-  const tripId = sessionStorage.getItem("safar-active-trip");
+  const tripId = getStoredActiveTripId();
 
   const loadContacts = useCallback(async () => {
     try {

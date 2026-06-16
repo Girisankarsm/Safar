@@ -5,6 +5,7 @@ import { PresentationDeckTag } from "@/components/layout/PresentationDeckTag";
 import { PWAInstallButton } from "@/components/layout/PWAInstallButton";
 import { getCityConfig } from "@/config/cities";
 import { UserMenu } from "@/features/auth";
+import { useActiveTripHref } from "@/hooks/use-active-trip-href";
 import { useI18n } from "@/i18n/use-i18n";
 import { useCityStore } from "@/stores/city.store";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ const NAV_ITEMS: NavItem[] = [
 
 export function AppShell() {
   const path = useLocation().pathname;
+  const tripHref = useActiveTripHref();
   const { city, revision } = useCityStore();
   const cityConfig = getCityConfig(city);
   const { t } = useI18n();
@@ -79,12 +81,13 @@ export function AppShell() {
             Navigation
           </p>
           {NAV_ITEMS.map(({ to, key, icon: Icon, children }) => {
-            const active = isNavActive(to, !!children);
+            const href = key === "nav.trip" ? tripHref : to;
+            const active = isNavActive(href, !!children);
             const expanded = openNav === to;
             return (
               <div key={to}>
                 <Link
-                  to={to}
+                  to={href}
                   onClick={() => {
                     if (children) {
                       // Toggle: collapse if already open, expand if closed

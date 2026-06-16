@@ -1,3 +1,4 @@
+import { useActiveTripHref } from "@/hooks/use-active-trip-href";
 import { useI18n } from "@/i18n/use-i18n";
 import { cn } from "@/lib/utils";
 import { Home, Map, Route, Shield, Siren } from "lucide-react";
@@ -15,6 +16,7 @@ const NAV_ITEMS = [
 /** Fixed bottom nav — portaled to document.body so it never scrolls with page content */
 export function MobileBottomNav() {
   const path = useLocation().pathname;
+  const tripHref = useActiveTripHref();
   const { t } = useI18n();
 
   const nav = (
@@ -24,12 +26,13 @@ export function MobileBottomNav() {
       aria-label="Main navigation"
     >
       {NAV_ITEMS.map(({ to, key, icon: Icon }) => {
+        const href = key === "nav.trip" ? tripHref : to;
         const active =
           to === "/routes" ? path.startsWith("/routes") : path.startsWith(to);
         return (
           <Link
             key={to}
-            to={to}
+            to={href}
             className={cn(
               "relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-semibold transition-colors select-none",
               active ? "text-[#3B82F6]" : "text-[#52525B]"
