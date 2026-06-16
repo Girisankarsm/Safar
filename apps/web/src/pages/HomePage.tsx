@@ -193,7 +193,7 @@ export function HomePage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] safe-bottom px-4 py-4 md:space-y-8 md:px-8 md:py-6 lg:pb-8">
+    <div className="mx-auto max-w-[1400px] px-4 py-4 md:space-y-8 md:px-8 md:py-6 lg:pb-8">
 
       {/* Route Evolution Animation overlay — shown during candidate search */}
       <AnimatePresence>

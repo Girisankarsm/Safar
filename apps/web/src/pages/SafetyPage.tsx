@@ -17,6 +17,7 @@ import { storageService } from "@/services/supabase/storage.service";
 import { useCityStore } from "@/stores/city.store";
 import type { CommunityComment, ReportType, SafetyReport } from "@/types/database";
 import { FALLBACK_CRIME_SCORES } from "@/lib/crime-data";
+import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Crosshair, Filter, MapPin, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -253,10 +254,10 @@ export function SafetyPage() {
   const cityNCRB = FALLBACK_CRIME_SCORES[city as keyof typeof FALLBACK_CRIME_SCORES];
 
   return (
-    <div className="flex h-[calc(100vh-var(--shell-top)-var(--bottom-nav-h))] flex-col overflow-hidden lg:h-[calc(100vh-var(--shell-top))]">
+    <div className="flex flex-col lg:h-[calc(100vh-var(--shell-top))] lg:overflow-hidden">
 
-      {/* ── Stats row ── */}
-      <div className="shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] px-5 py-3 md:px-6">
+      {/* ── Stats row — compact on mobile ── */}
+      <div className="shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] px-3 py-2 md:px-6 md:py-3">
         <div className="flex items-center justify-between gap-2">
           {/* Page title (compact) */}
           <div className="hidden lg:block">
@@ -266,54 +267,36 @@ export function SafetyPage() {
             <h1 className="text-[13px] font-bold text-white">{t("safety.title")}</h1>
           </div>
 
-          {/* Stat cards */}
-          <div className="flex flex-1 gap-2 overflow-x-auto lg:justify-end">
+          {/* Stat cards — fewer on mobile */}
+          <div className="flex flex-1 gap-1.5 overflow-x-auto lg:justify-end lg:gap-2">
             {[
-              {
-                label: "Total Reports",
-                value: totalReports,
-                color: "#3B82F6",
-                icon: "📍",
-              },
-              {
-                label: "High Risk",
-                value: highRiskCount,
-                color: "#EF4444",
-                icon: "⚠️",
-              },
-              {
-                label: "Verified",
-                value: verifiedCount,
-                color: "#22C55E",
-                icon: "✓",
-              },
-              {
-                label: "This Week",
-                value: recentCount,
-                color: "#F59E0B",
-                icon: "🕐",
-              },
+              { label: "Total Reports", value: totalReports, color: "#3B82F6", icon: "📍" },
+              { label: "High Risk", value: highRiskCount, color: "#EF4444", icon: "⚠️" },
+              { label: "Verified", value: verifiedCount, color: "#22C55E", icon: "✓", desktopOnly: true },
+              { label: "This Week", value: recentCount, color: "#F59E0B", icon: "🕐", desktopOnly: true },
               ...(cityNCRB
-                ? [
-                    {
-                      label: "NCRB Index",
-                      value: cityNCRB.crime_index,
-                      color: cityNCRB.crime_index >= 70 ? "#22C55E" : "#F59E0B",
-                      icon: "📊",
-                    },
-                  ]
+                ? [{
+                    label: "NCRB Index",
+                    value: cityNCRB.crime_index,
+                    color: cityNCRB.crime_index >= 70 ? "#22C55E" : "#F59E0B",
+                    icon: "📊",
+                    desktopOnly: true,
+                  }]
                 : []),
-            ].map(({ label, value, color, icon }) => (
+            ].map(({ label, value, color, icon, desktopOnly }) => (
               <div
                 key={label}
-                className="flex shrink-0 items-center gap-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 transition-colors hover:border-[#3B82F6]/25"
+                className={cn(
+                  "flex shrink-0 items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1.5 lg:gap-2.5 lg:rounded-xl lg:px-3 lg:py-2",
+                  desktopOnly && "hidden lg:flex"
+                )}
               >
-                <span className="text-base leading-none">{icon}</span>
+                <span className="text-sm leading-none lg:text-base">{icon}</span>
                 <div>
-                  <p className="text-sm font-bold tabular-nums text-white" style={{ color }}>
+                  <p className="text-[13px] font-bold tabular-nums lg:text-sm" style={{ color }}>
                     {value}
                   </p>
-                  <p className="text-[9px] font-medium text-[var(--text-dim)]">{label}</p>
+                  <p className="text-[8px] font-medium text-[var(--text-dim)] lg:text-[9px]">{label}</p>
                 </div>
               </div>
             ))}
@@ -322,7 +305,7 @@ export function SafetyPage() {
           {/* Report button */}
           <Button
             onClick={() => setShowForm(true)}
-            className="shrink-0 gap-2 px-4 py-2 text-xs shadow-lg shadow-[#3B82F6]/20"
+            className="shrink-0 gap-1.5 px-3 py-1.5 text-[11px] shadow-lg shadow-[#3B82F6]/20 lg:gap-2 lg:px-4 lg:py-2 lg:text-xs"
           >
             <Plus className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">{t("safety.report")}</span>
@@ -340,8 +323,8 @@ export function SafetyPage() {
       {/* ── Two-column body ── */}
       <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[1fr_380px]">
 
-        {/* LEFT — Heatmap (dominant visual) */}
-        <div className="relative flex min-h-[360px] flex-col lg:min-h-0">
+        {/* LEFT — Heatmap */}
+        <div className="relative flex h-[200px] shrink-0 flex-col sm:h-[240px] lg:min-h-0 lg:flex-1 lg:h-auto">
           <SafetyMapLegend />
           <div className="relative flex-1">
             <SafetyHeatmap
@@ -524,9 +507,9 @@ export function SafetyPage() {
         </div>
 
         {/* RIGHT — Intelligence feed */}
-        <div className="intel-panel flex flex-col overflow-hidden border-t border-[var(--border-subtle)] lg:border-l lg:border-t-0">
+        <div className="intel-panel flex flex-col border-t border-[var(--border-subtle)] lg:overflow-hidden lg:border-l lg:border-t-0">
           {/* Feed header */}
-          <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+          <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-3 py-2 lg:px-4 lg:py-3">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
                 Live Intelligence
@@ -553,10 +536,10 @@ export function SafetyPage() {
             </div>
           </div>
 
-          {/* Scrollable report cards */}
-          <div className="flex-1 overflow-y-auto p-3 pb-24 lg:pb-3">
+          {/* Report cards — compact list, no extra bottom gap */}
+          <div className="p-2 lg:flex-1 lg:overflow-y-auto lg:p-3">
             {filteredReports.length === 0 ? (
-              <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
+              <div className="flex flex-col items-center justify-center px-3 py-8 text-center lg:px-4 lg:py-12">
                 <p className="text-sm font-semibold text-white">
                   No reports in {center.name} yet
                 </p>
@@ -568,7 +551,7 @@ export function SafetyPage() {
                 </Button>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1.5 lg:space-y-2">
                 {visibleReports.map((r) => {
                   const isOwner = !IS_DEMO_MODE && user?.id === r.user_id;
                   return (

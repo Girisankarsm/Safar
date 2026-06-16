@@ -661,7 +661,7 @@ export function RoutesPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-var(--shell-top)-var(--bottom-nav-h))] flex-col overflow-hidden lg:h-[calc(100vh-var(--shell-top))]">
+    <div className="flex flex-col lg:h-[calc(100vh-var(--shell-top))] lg:overflow-hidden">
 
       {/* Sub-nav strip */}
       <div className="shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg)] px-5 py-2 md:px-6">
@@ -825,7 +825,7 @@ export function RoutesPage() {
 
       {/* Mobile bottom panel — compact safety summary + CTA */}
       {selected && (
-        <div className="safe-bottom border-t border-[var(--border-subtle)] px-4 pt-3 lg:hidden">
+        <div className="border-t border-[var(--border-subtle)] px-4 pt-3 lg:hidden">
           {/* Score strip */}
           <div className="mb-3 flex items-center gap-3 rounded-xl bg-[var(--bg-surface)] p-3">
             <div>

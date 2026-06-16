@@ -136,7 +136,7 @@ body {
   padding: 0.875rem 1rem;
 }
 
-/* Safe bottom padding for content above mobile nav */
+/* Safe bottom padding — legacy pages only (nav is in flex flow now) */
 .safe-bottom {
   padding-bottom: calc(var(--bottom-safe) + 0.75rem);
 }

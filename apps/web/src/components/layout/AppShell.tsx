@@ -52,7 +52,7 @@ export function AppShell() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg)]">
+    <div className="h-[100dvh] overflow-hidden bg-[var(--bg)] lg:min-h-screen lg:h-auto lg:overflow-visible">
 
       {/* ── Desktop sidebar ── */}
       <aside className="panel-glass fixed inset-y-0 left-0 z-50 hidden w-[var(--sidebar-w)] flex-col lg:flex">
@@ -132,11 +132,11 @@ export function AppShell() {
         </div>
       </aside>
 
-      {/* ── Main content area ── */}
-      <div className="flex min-h-screen flex-col lg:pl-[var(--sidebar-w)]">
+      {/* ── Main content area — mobile: 100dvh flex column, nav pinned in flow ── */}
+      <div className="flex h-[100dvh] flex-col overflow-hidden lg:min-h-screen lg:h-auto lg:overflow-visible lg:pl-[var(--sidebar-w)]">
 
         {/* Header — single compact bar (combines brand + city + controls) */}
-        <header className="sticky top-0 z-40 border-b border-[var(--border-subtle)] bg-[var(--bg)]/92 backdrop-blur-xl"
+        <header className="sticky top-0 z-40 shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg)]/92 backdrop-blur-xl"
           style={{ height: "var(--header-h)" }}>
           <div className="flex h-full items-center gap-2 px-4 md:px-6">
 
@@ -183,46 +183,35 @@ export function AppShell() {
           </p>
         </div>
 
-        {/* Page content — gets automatic bottom clearance so nothing hides behind the nav */}
-        <main className="flex-1 main-mobile-safe">
+        {/* Page content — scrolls inside flex shell on mobile */}
+        <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain lg:overflow-visible">
           <Outlet key={revision} />
         </main>
-      </div>
 
-      {/* ── Mobile bottom nav — permanently fixed, never scrolls ── */}
-      <nav className="fixed inset-x-0 bottom-0 z-[9999] flex border-t border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-[0_-4px_24px_rgba(0,0,0,0.6)] pb-[env(safe-area-inset-bottom,0px)] lg:hidden"
-        style={{
-          transform: "translate3d(0,0,0)",
-          WebkitTransform: "translate3d(0,0,0)",
-          willChange: "transform",
-        }}
-      >
-        {NAV_ITEMS.map(({ to, key, icon: Icon }) => {
-          const active =
-            to === "/routes" ? path.startsWith("/routes") : path.startsWith(to);
-          return (
-            <Link
-              key={to}
-              to={to}
-              className={cn(
-                "relative flex flex-1 flex-col items-center justify-center gap-1 py-3 text-[10px] font-semibold transition-colors select-none",
-                active ? "text-[#3B82F6]" : "text-[#52525B] hover:text-[#A1A1AA]"
-              )}
-            >
-              {/* Active indicator bar at top */}
-              {active && (
-                <span className="absolute top-0 left-1/2 h-0.5 w-10 -translate-x-1/2 rounded-full bg-[#3B82F6]" />
-              )}
-              {/* Active glow pill behind icon */}
-              {active && (
-                <span className="absolute inset-x-2 top-1.5 h-8 rounded-xl bg-[#3B82F6]/10" />
-              )}
-              <Icon className="relative h-5 w-5" />
-              <span className="relative leading-none tracking-wide">{t(key)}</span>
-            </Link>
-          );
-        })}
-      </nav>
+        {/* ── Mobile bottom nav — in document flow, never scrolls away ── */}
+        <nav className="shrink-0 flex border-t border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-[0_-4px_24px_rgba(0,0,0,0.5)] pb-[env(safe-area-inset-bottom,0px)] lg:hidden">
+          {NAV_ITEMS.map(({ to, key, icon: Icon }) => {
+            const active =
+              to === "/routes" ? path.startsWith("/routes") : path.startsWith(to);
+            return (
+              <Link
+                key={to}
+                to={to}
+                className={cn(
+                  "relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-semibold transition-colors select-none",
+                  active ? "text-[#3B82F6]" : "text-[#52525B]"
+                )}
+              >
+                {active && (
+                  <span className="absolute top-0 left-1/2 h-0.5 w-10 -translate-x-1/2 rounded-full bg-[#3B82F6]" />
+                )}
+                <Icon className="h-5 w-5" />
+                <span className="leading-none tracking-wide">{t(key)}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
     </div>
   );
 }
